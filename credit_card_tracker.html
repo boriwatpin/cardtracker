@@ -461,9 +461,24 @@ const CYCLE_MONTHS = {'Annual':12, 'Semi-Annual':6, 'Quarterly':3, 'Per Stay':12
 function currentCycle(anchorStr, durationMonths, rollMonths, today){
   const anchor = parseDate(anchorStr);
   if(!anchor) return null;
-  let start = anchor, end = addMonths(anchor, durationMonths);
-  while(end <= today){ start = addMonths(start, rollMonths); end = addMonths(start, durationMonths); }
-  return {start, end};
+  let start = anchor, end = addMonths(anchor, durationMonths), nextStart = addMonths(anchor, rollMonths);
+  // Roll forward while the *next* occurrence has already begun — not just
+  // while this slot's own narrow window has ended. For a quarterly credit,
+  // durationMonths (3) is shorter than rollMonths (12), so the window is
+  // "over" on paper for 9 months before the row comes back around. Rolling
+  // on end<=today jumped straight to next year's slot the moment the
+  // quarter closed, even if you hadn't redeemed it yet — so a redemption
+  // logged any time after the quarter ended no longer fell inside the
+  // (now future) window and never showed as Redeemed. This row should stay
+  // "current" — available to mark redeemed, even if overdue — for the
+  // whole rollMonths period, only actually advancing once the *next*
+  // occurrence's start date arrives.
+  while(nextStart <= today){
+    start = nextStart;
+    end = addMonths(start, durationMonths);
+    nextStart = addMonths(start, rollMonths);
+  }
+  return {start, end, nextStart};
 }
 
 function statusForDays(daysRemaining, planSoonThreshold){
@@ -472,15 +487,33 @@ function statusForDays(daysRemaining, planSoonThreshold){
   return {label:'OK', cls:'pill-green'};
 }
 
+// A free night certificate's real-world expiration doesn't always match the
+// calculated 12-months-from-anchor date exactly (issuers can run a few days
+// behind, or grant a one-time extension). `expirationOverride`, if set on
+// the certificate, takes precedence over the calculated cycle end for every
+// display/sort/status purpose. Falls back to the calculated date otherwise.
+function effectiveExpiration(fn, cycle){
+  if(fn.expirationOverride){
+    const d = parseDate(fn.expirationOverride);
+    if(d) return d;
+  }
+  return cycle ? cycle.end : null;
+}
+
 /* Redemption-history entries logged against a given source item that fall
    within the given cycle window (mirrors the SUMIFS logic from the
    spreadsheet, but returns the actual entries so they can be edited or
    un-redeemed, not just summed). */
 function historyEntriesInCycle(sourceId, cycle){
   if(!cycle) return [];
+  // Match against the full "ownership window" for this slot (start up to
+  // the next occurrence's start), not just the narrower nominal end date —
+  // see the comment on currentCycle(). This lets a redemption logged after
+  // a quarterly/semi-annual credit's own window has closed (but before the
+  // next year's occurrence begins) still count toward this row.
   return DATA.history
     .filter(h => h.sourceId === sourceId)
-    .filter(h => { const d = parseDate(h.date); return d >= cycle.start && d < cycle.end; });
+    .filter(h => { const d = parseDate(h.date); return d >= cycle.start && d < cycle.nextStart; });
 }
 function redeemedInCycle(sourceId, cycle){
   return historyEntriesInCycle(sourceId, cycle).reduce((sum,h) => sum + Number(h.amount||0), 0);
@@ -880,7 +913,11 @@ function renderCredits(){
     .map(({cr, cycle})=>{
       const card = cardById(cr.cardId);
       const redeemed = redeemedInCycle(cr.id, cycle);
-      const isRedeemed = redeemed >= cr.value && cr.value>0;
+      // Any logged entry counts as redeemed for the period — logging a
+      // second one for the same window is blocked (see openRedeemModal),
+      // so the row shouldn't offer "Mark redeemed" again just because the
+      // logged amount happens to be under the credit's face value.
+      const isRedeemed = cycle ? historyEntriesInCycle(cr.id, cycle).length > 0 : false;
       let pill;
       if(!cycle){ pill = {label:'No anchor date', cls:'pill-gray'}; }
       else if(isRedeemed){ pill = {label:'Redeemed', cls:'pill-green'}; }
@@ -971,6 +1008,21 @@ function openCreditModal(id){
 
 function openRedeemModal(kind, sourceId){
   const item = kind==='cr' ? DATA.credits.find(x=>x.id===sourceId) : DATA.freeNights.find(x=>x.id===sourceId);
+
+  // Hard guard against logging the same item twice in the same cycle. The
+  // "Mark redeemed"/"Mark used" button is already hidden once something's
+  // logged, but that's just UI — this check is the real gate, so a stale
+  // render, a double-click before re-render, or any other path into this
+  // function can't create a second entry for the same window.
+  const today = new Date();
+  const cycle = kind==='cr'
+    ? currentCycle(item.anchor, CYCLE_MONTHS[item.frequency]||12, 12, today)
+    : currentCycle(item.anchor, 12, 12, today);
+  if(cycle && historyEntriesInCycle(sourceId, cycle).length > 0){
+    toast('Already logged for this period — edit the amount or unredeem it first.');
+    return;
+  }
+
   const defaultAmount = kind==='cr' ? item.value : (item.cashValue||'');
   // A credit always has a known face value (its "value" field), so it can
   // always default the Amount field. A free night doesn't — its cash value
@@ -995,6 +1047,14 @@ function openRedeemModal(kind, sourceId){
     </div>
   `);
   document.getElementById('modalSave').onclick = ()=>{
+    // Re-check at save time too — the modal can sit open for a while (or a
+    // sync from another device could land) before Save is actually clicked.
+    if(historyEntriesInCycle(sourceId, cycle).length > 0){
+      toast('Already logged for this period — edit the amount or unredeem it first.');
+      closeModal();
+      if(kind==='cr') renderCredits(); else renderFreeNights();
+      return;
+    }
     const amount = Number(val('f_amount'))||0;
     if(kind==='fn' && amount <= 0){
       toast('Enter the cash value of this free night before marking it used');
@@ -1025,8 +1085,10 @@ function sortedFreeNightsList(today){
     withCycle.sort((a,b)=> (b.fn.cashValue||0) - (a.fn.cashValue||0));
   } else if(fnSortMode === 'daysLeft'){
     withCycle.sort((a,b)=>{
-      const da = a.cycle ? daysBetween(today, a.cycle.end) : 9999;
-      const db = b.cycle ? daysBetween(today, b.cycle.end) : 9999;
+      const ea = effectiveExpiration(a.fn, a.cycle);
+      const eb = effectiveExpiration(b.fn, b.cycle);
+      const da = ea ? daysBetween(today, ea) : 9999;
+      const db = eb ? daysBetween(today, eb) : 9999;
       return da - db;
     });
   }
@@ -1063,18 +1125,19 @@ function renderFreeNights(){
       const card = cardById(fn.cardId);
       const redeemed = redeemedInCycle(fn.id, cycle);
       const isUsed = redeemed > 0;
+      const expiration = effectiveExpiration(fn, cycle);
       let pill;
       if(!cycle){ pill = {label:'Not yet issued', cls:'pill-gray'}; }
       else if(isUsed){ pill = {label:'Redeemed', cls:'pill-green'}; }
-      else { pill = statusForDays(daysBetween(today, cycle.end), 90); }
-      const daysLeft = cycle ? daysBetween(today, cycle.end) : null;
+      else { pill = statusForDays(daysBetween(today, expiration), 90); }
+      const daysLeft = expiration ? daysBetween(today, expiration) : null;
 
       return `
       <div class="list-row" data-row-id="${fn.id}">
         <div class="drag-handle">⠿</div>
         <div class="main-col">
           <div class="title">${fn.desc}</div>
-          <div class="subtitle">${card?card.name:'(unlinked)'} · ${fn.program}${cycle?` · expires ${fmtDate(cycle.end)}`:''}</div>
+          <div class="subtitle">${card?card.name:'(unlinked)'} · ${fn.program}${expiration?` · expires ${fmtDate(expiration)}${fn.expirationOverride?' (set manually)':''}`:''}</div>
         </div>
         <div class="amount">${redeemed>0?'$'+redeemed:'—'}</div>
         <div><span class="pill ${pill.cls}">${pill.label}</span></div>
@@ -1121,7 +1184,7 @@ function renderFreeNights(){
 
 function openFnModal(id){
   const editing = !!id;
-  const fn = editing ? DATA.freeNights.find(x=>x.id===id) : {cardId:DATA.cards[0]?.id||'', program:'', desc:'', anchor:'', cashValue:null};
+  const fn = editing ? DATA.freeNights.find(x=>x.id===id) : {cardId:DATA.cards[0]?.id||'', program:'', desc:'', anchor:'', cashValue:null, expirationOverride:null};
   showModal(`
     <div class="modal-head"><h3>${editing?'Edit certificate':'Add certificate'}</h3><button class="close-x" id="modalClose">✕</button></div>
     <div class="modal-body">
@@ -1130,6 +1193,8 @@ function openFnModal(id){
       <div class="field"><label>Description</label><input id="f_desc" value="${escAttr(fn.desc)}"></div>
       <div class="field"><label>Anchor / issue date</label><input id="f_anchor" type="date" value="${fn.anchor||''}"></div>
       <div class="hint">Leave blank if this card's first certificate hasn't been issued yet.</div>
+      <div class="field"><label>Expiration date override (optional)</label><input id="f_expiration" type="date" value="${fn.expirationOverride||''}"></div>
+      <div class="hint">By default the expiration shown is calculated as 12 months from the anchor date. A certificate's real expiration doesn't always match that exactly — issuers sometimes run a few days behind, or grant a one-time extension — so once you see the actual date in your hotel account, enter it here and it'll be used instead. Leave blank to keep using the calculated date.</div>
     </div>
     <div class="modal-foot">
       <button class="btn" id="modalCancel">Cancel</button>
@@ -1137,7 +1202,7 @@ function openFnModal(id){
     </div>
   `);
   document.getElementById('modalSave').onclick = ()=>{
-    const obj = { id: editing?id:uid('fn'), cardId: val('f_card'), program: val('f_program'), desc: val('f_desc'), anchor: val('f_anchor')||null, cashValue: fn.cashValue||null };
+    const obj = { id: editing?id:uid('fn'), cardId: val('f_card'), program: val('f_program'), desc: val('f_desc'), anchor: val('f_anchor')||null, cashValue: fn.cashValue||null, expirationOverride: val('f_expiration')||null };
     if(!obj.desc){ toast('Description is required'); return; }
     if(editing){ const i=DATA.freeNights.findIndex(x=>x.id===id); DATA.freeNights[i]=obj; } else DATA.freeNights.push(obj);
     saveData(); closeModal(); renderFreeNights(); toast('Certificate saved');
