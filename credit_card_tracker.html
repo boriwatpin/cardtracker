@@ -547,6 +547,12 @@ function currentCycle(anchorStr, durationMonths, rollMonths, today){
 function occurrenceForYear(anchorStr, durationMonths, year){
   const anchor = parseDate(anchorStr);
   if(!anchor) return null;
+  // BUG FOUND IN RE-SCAN: without this guard, selecting a year before the
+  // credit/free-night's anchor year (e.g. viewing 2024 for something first
+  // added with a 2027 anchor) would still synthesize a backdated occurrence
+  // for it — showing a "2024" row for a benefit that didn't exist until
+  // 2027. This row simply has no occurrence in years before its anchor.
+  if(year < anchor.getFullYear()) return null;
   const start = addMonths(anchor, (year - anchor.getFullYear()) * 12);
   const end = addMonths(start, durationMonths);
   const nextStart = addMonths(start, 12);
@@ -579,6 +585,26 @@ function defaultRedeemDate(cycle){
   return toISODate(cycle.start);
 }
 
+// NEW FEATURE: annual fee renewal date tracking. Deliberately its own tiny
+// helper rather than reusing currentCycle()/occurrenceForYear() — an annual
+// fee is a single recurring point-in-time event (the day it posts), not a
+// multi-month "window" you can act within like a credit or free night, so
+// it doesn't need (or want) any of that machinery's window/cycle/duration
+// concepts. This never writes to DATA.history and is never read by
+// valueRealizedForCardYear() or any Dashboard total — it's purely a
+// read-only reminder computed from the card's own `feeAnchor` field, kept
+// fully isolated from the credits/free-nights/history data that everything
+// else depends on.
+function nextOccurrenceOnOrAfter(anchorStr, today){
+  const anchor = parseDate(anchorStr);
+  if(!anchor) return null;
+  let next = anchor;
+  while(next < today){
+    next = addMonths(next, 12);
+  }
+  return next;
+}
+
 // UI IMPROVEMENT: powers the Dashboard's "expiring soon" reminder banner.
 // Always evaluated against the real, live "today" — independent of
 // whichever year is selected in the dropdown — since this is meant to
@@ -601,6 +627,19 @@ function computeUpcomingReminders(){
     const expiration = effectiveExpiration(fn, cycle);
     const daysLeft = daysBetween(today, expiration);
     if(daysLeft <= 30) items.push({name: fn.desc, daysLeft});
+  });
+  // NEW FEATURE: annual fee reminders. Tagged isFee:true so the Dashboard
+  // can word these distinctly from credit/free-night reminders ("posts in
+  // Xd" rather than "Xd left") — a fee is a cost, not a benefit, and the
+  // two shouldn't read the same way in the banner. nextOccurrenceOnOrAfter()
+  // always returns a date on/after today, so unlike credits and free
+  // nights, a fee reminder can never be negative/"expired" here.
+  DATA.cards.forEach(c=>{
+    if(!c.feeAnchor) return;
+    const nextFee = nextOccurrenceOnOrAfter(c.feeAnchor, today);
+    if(!nextFee) return;
+    const daysLeft = daysBetween(today, nextFee);
+    if(daysLeft <= 30) items.push({name: `${c.name} annual fee`, daysLeft, isFee:true, amount:c.fee});
   });
   return items.sort((a,b)=>a.daysLeft-b.daysLeft);
 }
@@ -975,7 +1014,12 @@ function renderDashboard(){
         <span style="font-size:18px;line-height:1.4;">⏰</span>
         <div style="font-size:13.5px;line-height:1.6;">
           <strong>${reminders.length} item${reminders.length===1?'':'s'} expiring within 30 days:</strong>
-          ${reminders.map(r=>`${escHtml(r.name)} (${r.daysLeft<0?'overdue':r.daysLeft+'d left'})`).join(' · ')}
+          ${reminders.map(r=>{
+            if(r.isFee) return `${escHtml(r.name)} posts in ${r.daysLeft}d ($${r.amount.toLocaleString()})`;
+            return r.daysLeft<0
+              ? `<span style="text-decoration:line-through;opacity:.6;">${escHtml(r.name)}</span>`
+              : `${escHtml(r.name)} (${r.daysLeft}d left)`;
+          }).join(' · ')}
         </div>
       </div>
     </div>` : ''}
@@ -1047,11 +1091,15 @@ function renderCards(){
   grid.innerHTML = DATA.cards.map(c=>{
     const value = valueRealizedForCardYear(c.id, selectedYear);
     const net = value - c.fee;
+    // NEW FEATURE: purely informational — only rendered when the card has
+    // feeAnchor set, so cards without it look exactly as they did before.
+    const nextFee = c.feeAnchor ? nextOccurrenceOnOrAfter(c.feeAnchor, new Date()) : null;
     return `
     <div class="card-tile">
       <div class="name">${escHtml(c.name)}</div>
       <div class="meta">${escHtml(c.issuer)} · ${escHtml(c.program)}${c.eliteStatus?' · Elite status':''}</div>
       <div class="row"><span class="l">Annual fee</span><span class="r">$${c.fee.toLocaleString()}</span></div>
+      ${nextFee ? `<div class="row"><span class="l">Fee renews</span><span class="r">${fmtDate(nextFee)} (${daysBetween(new Date(), nextFee)}d)</span></div>` : ''}
       <div class="row"><span class="l">Value realized (${selectedYear})</span><span class="r">$${value.toLocaleString()}</span></div>
       <div class="row"><span class="l">Net</span><span class="r" style="color:${net>=0?'var(--green)':'var(--red)'}">${net>=0?'+':'-'}$${Math.abs(net).toLocaleString()}</span></div>
       ${c.notes?`<div class="hint" style="margin-top:8px;">${escHtml(c.notes)}</div>`:''}
@@ -1069,7 +1117,7 @@ function renderCards(){
 
 function openCardModal(id){
   const editing = !!id;
-  const c = editing ? cardById(id) : {name:'',issuer:'',fee:'',program:'',eliteStatus:false,notes:''};
+  const c = editing ? cardById(id) : {name:'',issuer:'',fee:'',program:'',eliteStatus:false,notes:'',feeAnchor:''};
   showModal(`
     <div class="modal-head"><h3>${editing?'Edit card':'Add card'}</h3><button class="close-x" id="modalClose">✕</button></div>
     <div class="modal-body">
@@ -1080,6 +1128,8 @@ function openCardModal(id){
       </div>
       <div class="field"><label>Rewards program</label><input id="f_program" value="${escAttr(c.program)}"></div>
       <div class="field"><label><input type="checkbox" id="f_elite" ${c.eliteStatus?'checked':''}> Includes hotel elite status</label></div>
+      <div class="field"><label>Annual fee posts on (optional)</label><input id="f_feeanchor" type="date" value="${c.feeAnchor||''}"></div>
+      <div class="hint">When the annual fee actually charges to your statement. Leave blank if you don't want to track this — it's purely a reminder and has no effect on your credits, free nights, or value-realized numbers.</div>
       <div class="field"><label>Notes</label><textarea id="f_notes" rows="2">${escAttr(c.notes)}</textarea></div>
     </div>
     <div class="modal-foot">
@@ -1092,7 +1142,7 @@ function openCardModal(id){
       id: editing? id : uid('c'),
       name: val('f_name'), issuer: val('f_issuer'), fee: Number(val('f_fee'))||0,
       program: val('f_program'), eliteStatus: document.getElementById('f_elite').checked,
-      notes: val('f_notes')
+      notes: val('f_notes'), feeAnchor: val('f_feeanchor')||null
     };
     if(!obj.name){ toast('Card name is required'); return; }
     if(editing){ const i=DATA.cards.findIndex(x=>x.id===id); DATA.cards[i]=obj; }
@@ -1179,9 +1229,24 @@ function renderCredits(){
       // so the row shouldn't offer "Mark redeemed" again just because the
       // logged amount happens to be under the credit's face value.
       const isRedeemed = cycle ? historyEntriesInCycle(cr.id, cycle).length > 0 : false;
+      // BUG FOUND IN RE-SCAN: a row with no anchor date has no cycle, so
+      // isRedeemed above is always false for it — even right after using
+      // "+ Log redemption" to log one. The button would silently keep
+      // reappearing with no visible sign the log actually happened. There's
+      // no "period" to mark as redeemed without an anchor, but at minimum
+      // reflect that *something* has been logged for it, ever.
+      const hasAnyHistory = !cycle && DATA.history.some(h=>h.sourceId===cr.id);
+      const daysLeft = (cycle && isLive) ? daysBetween(today, cycle.end) : null;
+      // "Overdue"/"Urgent" both implied there was still time-sensitive
+      // action to take — but once a window has actually closed, there's
+      // nothing left to undo or hurry for. Cross the item out visually
+      // instead of labeling it with either word.
+      const isExpired = daysLeft !== null && daysLeft < 0 && !isRedeemed;
       let pill;
-      if(!cycle){ pill = {label:'No anchor date', cls:'pill-gray'}; }
+      if(!cycle && hasAnyHistory){ pill = {label:'Logged', cls:'pill-green'}; }
+      else if(!cycle){ pill = {label:'No anchor date', cls:'pill-gray'}; }
       else if(isRedeemed){ pill = {label:'Redeemed', cls:'pill-green'}; }
+      else if(isExpired){ pill = {label:'Expired', cls:'pill-gray'}; }
       // FIX: "days left" / Urgent-Plan soon-OK styling only makes sense for
       // the row's real, currently-live cycle. For a past or future year's
       // occurrence, show a neutral status instead of a countdown relative
@@ -1189,7 +1254,6 @@ function renderCredits(){
       // left" for a 2024 row viewed today).
       else if(isLive){ pill = statusForDays(daysBetween(today, cycle.end), 60); }
       else { pill = {label:'Not redeemed', cls:'pill-gray'}; }
-      const daysLeft = (cycle && isLive) ? daysBetween(today, cycle.end) : null;
       // Progress bar: how far through the row's window we are (only
       // meaningful for the live cycle — a past/future year's occurrence
       // isn't "in progress" relative to today).
@@ -1204,13 +1268,13 @@ function renderCredits(){
       <div class="list-row" data-row-id="${cr.id}">
         <div class="drag-handle">⠿</div>
         <div class="main-col">
-          <div class="title">${escHtml(cr.name)}</div>
+          <div class="title"${isExpired ? ' style="text-decoration:line-through;opacity:.55;"' : ''}>${escHtml(cr.name)}</div>
           <div class="subtitle">${card?escHtml(card.name):'(unlinked)'} · ${escHtml(cr.frequency)} · ${cycle ? (isLive ? `resets ${fmtDate(cycle.end)}` : `${fmtDate(cycle.start)} – ${fmtDate(cycle.end)}`) : 'no anchor date set'}${cr.autoRedeem?' · Auto-credited, no action needed':''}</div>
           ${progressPct!==null ? `<div style="height:4px;background:var(--gray-bg);border-radius:2px;margin-top:6px;overflow:hidden;"><div style="height:100%;width:${progressPct}%;background:${isRedeemed?'var(--green)':'var(--navy-light)'};"></div></div>` : ''}
         </div>
         <div class="amount">$${cr.value}</div>
         <div><span class="pill ${pill.cls}">${pill.label}</span></div>
-        <div class="days">${daysLeft!==null? (daysLeft>=0? daysLeft+' days left' : 'overdue') : ''}</div>
+        <div class="days">${daysLeft!==null? (daysLeft>=0? daysLeft+' days left' : '') : ''}</div>
         <div class="actions">
           ${!isRedeemed && cycle && !cr.autoRedeem ? `<button class="btn btn-sm btn-primary" data-mark-cr="${cr.id}">Mark redeemed</button>` : ''}
           ${!cycle ? `<button class="btn btn-sm btn-primary" data-mark-cr="${cr.id}">+ Log redemption</button>` : ''}
@@ -1419,12 +1483,23 @@ function renderFreeNights(){
       const redeemed = redeemedInCycle(fn.id, cycle);
       const isUsed = redeemed > 0;
       const expiration = effectiveExpiration(fn, cycle);
+      // BUG FOUND IN RE-SCAN: same issue as the credits list — a
+      // certificate with no anchor/issue date has no cycle, so isUsed above
+      // is always false for it even right after logging one via "+ Log
+      // redemption". Surface that something was actually logged.
+      const hasAnyHistory = !cycle && DATA.history.some(h=>h.sourceId===fn.id);
+      const daysLeft = (expiration && isLive) ? daysBetween(today, expiration) : null;
+      // "Overdue"/"Urgent" both implied there was still time-sensitive
+      // action to take — but a lapsed free-night certificate is genuinely
+      // gone, not just late. Cross it out instead of labeling it either way.
+      const isExpired = daysLeft !== null && daysLeft < 0 && !isUsed;
       let pill;
-      if(!cycle){ pill = {label:'Not yet issued', cls:'pill-gray'}; }
+      if(!cycle && hasAnyHistory){ pill = {label:'Logged', cls:'pill-green'}; }
+      else if(!cycle){ pill = {label:'Not yet issued', cls:'pill-gray'}; }
       else if(isUsed){ pill = {label:'Redeemed', cls:'pill-green'}; }
+      else if(isExpired){ pill = {label:'Expired', cls:'pill-gray'}; }
       else if(isLive){ pill = statusForDays(daysBetween(today, expiration), 90); }
       else { pill = {label:'Not redeemed', cls:'pill-gray'}; }
-      const daysLeft = (expiration && isLive) ? daysBetween(today, expiration) : null;
       let progressPct = null;
       if(cycle && isLive){
         const total = cycle.nextStart - cycle.start;
@@ -1436,13 +1511,13 @@ function renderFreeNights(){
       <div class="list-row" data-row-id="${fn.id}">
         <div class="drag-handle">⠿</div>
         <div class="main-col">
-          <div class="title">${escHtml(fn.desc)}</div>
+          <div class="title"${isExpired ? ' style="text-decoration:line-through;opacity:.55;"' : ''}>${escHtml(fn.desc)}</div>
           <div class="subtitle">${card?escHtml(card.name):'(unlinked)'} · ${escHtml(fn.program)}${expiration?` · expires ${fmtDate(expiration)}${fn.expirationOverride?' (set manually)':''}`:(cycle?'':' · no anchor date set')}</div>
           ${progressPct!==null ? `<div style="height:4px;background:var(--gray-bg);border-radius:2px;margin-top:6px;overflow:hidden;"><div style="height:100%;width:${progressPct}%;background:${isUsed?'var(--green)':'var(--navy-light)'};"></div></div>` : ''}
         </div>
         <div class="amount">${redeemed>0?'$'+redeemed:'—'}</div>
         <div><span class="pill ${pill.cls}">${pill.label}</span></div>
-        <div class="days">${daysLeft!==null? (daysLeft>=0? daysLeft+' days left' : 'overdue') : ''}</div>
+        <div class="days">${daysLeft!==null? (daysLeft>=0? daysLeft+' days left' : '') : ''}</div>
         <div class="actions">
           ${!isUsed && cycle ? `<button class="btn btn-sm btn-primary" data-mark-fn="${fn.id}">Mark used</button>` : ''}
           ${!cycle ? `<button class="btn btn-sm btn-primary" data-mark-fn="${fn.id}">+ Log redemption</button>` : ''}
