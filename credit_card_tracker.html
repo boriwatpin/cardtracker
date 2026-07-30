@@ -187,6 +187,7 @@
         <span id="syncStatus" class="sync-status"></span>
         <select id="yearSelect"></select>
         <button class="btn btn-sm" id="addYearBtn" title="Add a future year to the dropdown">+ Add year</button>
+        <button class="btn btn-sm btn-danger" id="deleteYearBtn" title="Permanently delete redemption history for a year">🗑 Delete year</button>
         <button class="btn" id="exportBtn">⬇ Export</button>
         <button class="btn" id="importBtn">⬆ Import</button>
         <input type="file" id="importFile" accept="application/json" style="display:none;">
@@ -477,6 +478,12 @@ async function bootstrapSync(){
   renderYearSelect();
   switchView(currentView);
   setSyncStatus('synced');
+  // UI IMPROVEMENT: the sync status badge is small and easy to miss, so a
+  // remote update overwriting what's on screen could happen silently. Once
+  // the page has already rendered once, surface it with a toast too — but
+  // not on the very first load, where "updating" from the cloud is just
+  // normal startup, not a surprise.
+  if(hasRenderedOnce) toast('Updated with changes from another device');
 }
 
 /* ============================================================
@@ -530,6 +537,72 @@ function currentCycle(anchorStr, durationMonths, rollMonths, today){
     nextStart = addMonths(start, rollMonths);
   }
   return {start, end, nextStart};
+}
+
+// FIX: static, non-"today"-relative occurrence of a row for an arbitrary
+// calendar year. Every credit/free-night row in this app rolls forward in
+// exactly 12-month steps (see currentCycle above), so a row's occurrence in
+// a given year always starts on the anchor's month/day, just with that
+// year substituted in — no need to walk forward one cycle at a time.
+function occurrenceForYear(anchorStr, durationMonths, year){
+  const anchor = parseDate(anchorStr);
+  if(!anchor) return null;
+  const start = addMonths(anchor, (year - anchor.getFullYear()) * 12);
+  const end = addMonths(start, durationMonths);
+  const nextStart = addMonths(start, 12);
+  return {start, end, nextStart};
+}
+
+// FIX: the Credits and Free Nights tabs previously ignored the year
+// selector entirely — they always showed whatever cycle was "live" right
+// now, regardless of which year was picked in the dropdown. This picks the
+// right cycle for whatever year is currently selected: the real, "today"
+// relative cycle when that cycle's own year matches the selection (so all
+// the existing overdue/countdown behavior is preserved unchanged for the
+// current period), or a plain calendar-year occurrence otherwise (for
+// reviewing a past year or previewing a future one).
+function cycleForSelectedYear(anchorStr, durationMonths, today){
+  const live = currentCycle(anchorStr, durationMonths, 12, today);
+  if(live && live.start.getFullYear() === selectedYear) return {cycle: live, isLive:true};
+  return {cycle: occurrenceForYear(anchorStr, durationMonths, selectedYear), isLive:false};
+}
+
+// FIX: the "Log redemption" modal always defaulted the date field to the
+// real today's date, even while reviewing a past or future year — so
+// logging a 2024 redemption while looking at the 2024 tab required manually
+// retyping the date every time. Defaults to today only if today actually
+// falls inside the row's window; otherwise defaults to the window's start.
+function defaultRedeemDate(cycle){
+  const today = new Date();
+  if(!cycle) return toISODate(today);
+  if(today >= cycle.start && today < cycle.nextStart) return toISODate(today);
+  return toISODate(cycle.start);
+}
+
+// UI IMPROVEMENT: powers the Dashboard's "expiring soon" reminder banner.
+// Always evaluated against the real, live "today" — independent of
+// whichever year is selected in the dropdown — since this is meant to
+// surface real-world urgency, not a historical/projected view.
+function computeUpcomingReminders(){
+  const today = new Date();
+  const items = [];
+  DATA.credits.forEach(cr=>{
+    if(cr.autoRedeem) return;
+    const cycle = currentCycle(cr.anchor, CYCLE_MONTHS[cr.frequency]||12, 12, today);
+    if(!cycle) return;
+    if(historyEntriesInCycle(cr.id, cycle).length > 0) return;
+    const daysLeft = daysBetween(today, cycle.end);
+    if(daysLeft <= 30) items.push({name: cr.name, daysLeft});
+  });
+  DATA.freeNights.forEach(fn=>{
+    const cycle = currentCycle(fn.anchor, 12, 12, today);
+    if(!cycle) return;
+    if(redeemedInCycle(fn.id, cycle) > 0) return;
+    const expiration = effectiveExpiration(fn, cycle);
+    const daysLeft = daysBetween(today, expiration);
+    if(daysLeft <= 30) items.push({name: fn.desc, daysLeft});
+  });
+  return items.sort((a,b)=>a.daysLeft-b.daysLeft);
 }
 
 function statusForDays(daysRemaining, planSoonThreshold){
@@ -613,12 +686,17 @@ function unredeemItem(kind, sourceId, cycle){
   const msg = entries.length === 1
     ? `Remove this logged redemption? This ${label} will show as not redeemed again.`
     : `Remove all ${entries.length} logged redemptions for this period? This ${label} will show as not redeemed again.`;
-  if(!confirm(msg)) return;
-  const idsToRemove = new Set(entries.map(e=>e.id));
-  DATA.history = DATA.history.filter(h=>!idsToRemove.has(h.id));
-  saveData();
-  views[currentView].render();
-  toast('Redemption removed');
+  // FIX: was a native confirm() — replaced with the app's own modal, since
+  // confirm()/prompt() can be silently blocked or auto-dismissed inside
+  // in-app browsers (Slack, Instagram, some mobile chat webviews), which
+  // would make this button appear to do nothing with no visible error.
+  showConfirm(msg, ()=>{
+    const idsToRemove = new Set(entries.map(e=>e.id));
+    DATA.history = DATA.history.filter(h=>!idsToRemove.has(h.id));
+    saveData();
+    views[currentView].render();
+    toast('Redemption removed');
+  });
 }
 
 // Lightweight edit form for a redemption that's linked to a specific credit
@@ -665,23 +743,93 @@ function allYears(){
   return Array.from(ys).sort((a,b)=>b-a);
 }
 
+// FIX: was a native prompt() — replaced with the app's own modal for the
+// same reason as showConfirm above (prompt() can be silently blocked in
+// in-app browsers, and a number input is friendlier on mobile anyway).
 function addTrackedYear(){
-  const input = prompt('Add which year? (e.g. 2030)');
-  if(input===null) return;
-  const year = parseInt(input, 10);
-  if(!Number.isInteger(year) || year < 2000 || year > 2100){
-    toast('Enter a valid 4-digit year'); return;
-  }
-  if(!DATA.trackedYears) DATA.trackedYears = [];
-  if(!DATA.trackedYears.includes(year)) DATA.trackedYears.push(year);
-  DATA.trackedYears.sort((a,b)=>a-b);
-  saveData();
-  selectedYear = year;
-  renderYearSelect();
-  switchView(currentView);
-  toast(`${year} added`);
+  showModal(`
+    <div class="modal-head"><h3>Add a year</h3><button class="close-x" id="modalClose">✕</button></div>
+    <div class="modal-body">
+      <div class="field"><label>Year</label><input id="f_newyear" type="number" inputmode="numeric" min="2000" max="2100" step="1" value="${new Date().getFullYear()+1}"></div>
+      <div class="hint">Adds this year to the dropdown at the top of the page so you can plan or log data ahead of time.</div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" id="modalCancel">Cancel</button>
+      <button class="btn btn-primary" id="modalSave">Add</button>
+    </div>
+  `);
+  document.getElementById('modalSave').onclick = ()=>{
+    const year = parseInt(val('f_newyear'), 10);
+    if(!Number.isInteger(year) || year < 2000 || year > 2100){
+      toast('Enter a valid 4-digit year'); return;
+    }
+    if(!DATA.trackedYears) DATA.trackedYears = [];
+    if(!DATA.trackedYears.includes(year)) DATA.trackedYears.push(year);
+    DATA.trackedYears.sort((a,b)=>a-b);
+    saveData();
+    selectedYear = year;
+    closeModal();
+    renderYearSelect();
+    switchView(currentView);
+    toast(`${year} added`);
+  };
 }
 let selectedYear = new Date().getFullYear();
+
+// Permanently deletes redemption history for a chosen year — and, if the
+// checkbox is ticked, every year after it too — and removes those years
+// from the "+ Add year" dropdown list. Cards, credits, and free-night
+// *definitions* are untouched; only logged history entries (and the
+// tracked-year markers) are removed. The current year and next year always
+// stay selectable in the dropdown regardless (see allYears()), since
+// they're always offered automatically — but this will still wipe any
+// history logged in them if included in the range.
+function deleteTrackedYear(){
+  const years = allYears();
+  showModal(`
+    <div class="modal-head"><h3>Delete year data</h3><button class="close-x" id="modalClose">✕</button></div>
+    <div class="modal-body">
+      <div class="field">
+        <label>Year</label>
+        <select id="f_delyear">${years.map(y=>`<option value="${y}" ${y===selectedYear?'selected':''}>${y}</option>`).join('')}</select>
+      </div>
+      <div class="field">
+        <label><input type="checkbox" id="f_delfuture" style="width:auto;margin-right:6px;"> Also delete this year and every year after it</label>
+      </div>
+      <div class="hint" style="color:var(--red);">This permanently deletes every redemption log entry dated in the selected year(s) and removes them from the year dropdown. Cards, credits, and free-night definitions are not affected — only logged history. This cannot be undone (use Export first if you want a backup).</div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" id="modalCancel">Cancel</button>
+      <button class="btn btn-danger" id="modalSave">Delete</button>
+    </div>
+  `);
+  document.getElementById('modalSave').onclick = ()=>{
+    const year = Number(val('f_delyear'));
+    const includeFuture = document.getElementById('f_delfuture').checked;
+    const matches = (y) => includeFuture ? y >= year : y === year;
+    const label = includeFuture ? `${year} and every year after it` : `${year}`;
+
+    const historyCount = DATA.history.filter(h => matches(parseDate(h.date).getFullYear())).length;
+    showConfirm(`Delete all data for ${label}? This will permanently remove ${historyCount} redemption log entr${historyCount===1?'y':'ies'}. This cannot be undone.`, ()=>{
+      DATA.history = DATA.history.filter(h => !matches(parseDate(h.date).getFullYear()));
+      if(DATA.trackedYears){
+        DATA.trackedYears = DATA.trackedYears.filter(y => !matches(y));
+      }
+      if(matches(selectedYear)){
+        // The year currently being viewed just got deleted — fall back to
+        // whatever the most recent remaining year is (allYears() always
+        // includes at least this calendar year and next, so there's always
+        // something to land on).
+        selectedYear = allYears()[0];
+      }
+
+      saveData();
+      renderYearSelect();
+      switchView(currentView);
+      toast(`Deleted data for ${label}`);
+    });
+  };
+}
 
 function renderYearSelect(){
   const sel = document.getElementById('yearSelect');
@@ -818,8 +966,19 @@ function renderDashboard(){
   const totalNet = totalValue - totalFee;
   const worthKeeping = rows.filter(r=>r.net>=0).length;
 
+  const reminders = computeUpcomingReminders();
   const content = document.getElementById('content');
   content.innerHTML = `
+    ${reminders.length ? `
+    <div class="panel" style="border-color:var(--red);">
+      <div class="panel-body" style="padding:14px 20px;display:flex;align-items:flex-start;gap:10px;">
+        <span style="font-size:18px;line-height:1.4;">⏰</span>
+        <div style="font-size:13.5px;line-height:1.6;">
+          <strong>${reminders.length} item${reminders.length===1?'':'s'} expiring within 30 days:</strong>
+          ${reminders.map(r=>`${escHtml(r.name)} (${r.daysLeft<0?'overdue':r.daysLeft+'d left'})`).join(' · ')}
+        </div>
+      </div>
+    </div>` : ''}
     <div class="kpi-row">
       <div class="kpi"><div class="label">Total annual fees</div><div class="value">$${totalFee.toLocaleString()}</div></div>
       <div class="kpi"><div class="label">Value realized (${selectedYear})</div><div class="value">$${totalValue.toLocaleString()}</div></div>
@@ -840,7 +999,7 @@ function renderDashboard(){
           <tbody>
           ${rows.map(r=>`
             <tr>
-              <td>${r.card.name}</td>
+              <td>${escHtml(r.card.name)}</td>
               <td>$${r.card.fee.toLocaleString()}</td>
               <td>$${r.value.toLocaleString()}</td>
               <td class="${r.net>=0?'pill-green':'pill-red'}" style="font-weight:700;">${r.net>=0?'+':'-'}$${Math.abs(r.net).toLocaleString()}</td>
@@ -890,12 +1049,12 @@ function renderCards(){
     const net = value - c.fee;
     return `
     <div class="card-tile">
-      <div class="name">${c.name}</div>
-      <div class="meta">${c.issuer} · ${c.program}${c.eliteStatus?' · Elite status':''}</div>
+      <div class="name">${escHtml(c.name)}</div>
+      <div class="meta">${escHtml(c.issuer)} · ${escHtml(c.program)}${c.eliteStatus?' · Elite status':''}</div>
       <div class="row"><span class="l">Annual fee</span><span class="r">$${c.fee.toLocaleString()}</span></div>
       <div class="row"><span class="l">Value realized (${selectedYear})</span><span class="r">$${value.toLocaleString()}</span></div>
       <div class="row"><span class="l">Net</span><span class="r" style="color:${net>=0?'var(--green)':'var(--red)'}">${net>=0?'+':'-'}$${Math.abs(net).toLocaleString()}</span></div>
-      ${c.notes?`<div class="hint" style="margin-top:8px;">${c.notes}</div>`:''}
+      ${c.notes?`<div class="hint" style="margin-top:8px;">${escHtml(c.notes)}</div>`:''}
       <div class="actions">
         <button class="btn btn-sm" data-edit-card="${c.id}">Edit</button>
         <button class="btn btn-sm btn-danger" data-del-card="${c.id}">Delete</button>
@@ -942,19 +1101,38 @@ function openCardModal(id){
   };
 }
 function deleteCard(id){
-  if(!confirm('Delete this card? Its credits and free nights will remain but be unlinked.')) return;
-  DATA.cards = DATA.cards.filter(c=>c.id!==id);
-  saveData(); renderCards();
+  const card = cardById(id);
+  // FIX: the old confirm text was generic ("credits and free nights will
+  // remain but be unlinked") with no indication of how much that actually
+  // affects — easy to not realize a dozen benefits are about to become
+  // orphaned. Count and name them explicitly.
+  const linkedCredits = DATA.credits.filter(c=>c.cardId===id).length;
+  const linkedFn = DATA.freeNights.filter(f=>f.cardId===id).length;
+  const linkedHist = DATA.history.filter(h=>h.cardId===id).length;
+  const parts = [];
+  if(linkedCredits) parts.push(`${linkedCredits} credit${linkedCredits===1?'':'s'}`);
+  if(linkedFn) parts.push(`${linkedFn} free night certificate${linkedFn===1?'':'s'}`);
+  if(linkedHist) parts.push(`${linkedHist} redemption log entr${linkedHist===1?'y':'ies'}`);
+  const detail = parts.length
+    ? ` This will unlink ${parts.join(', ')} — they'll remain but show as "(unlinked)".`
+    : '';
+  showConfirm(`Delete "${escHtml(card?card.name:'this card')}"?${detail}`, ()=>{
+    DATA.cards = DATA.cards.filter(c=>c.id!==id);
+    saveData(); renderCards();
+  });
 }
 
 /* ---------- Annual Credits ---------- */
 function sortedCreditsList(today){
-  const withCycle = DATA.credits.map(cr=>({
-    // Each row rolls forward a full year to reach its own next occurrence
-    // (see the comment on currentCycle) — that's what keeps distinct rows
-    // like Q1-Q4 or H1/H2 from drifting into each other's windows.
-    cr, cycle: currentCycle(cr.anchor, CYCLE_MONTHS[cr.frequency]||12, 12, today)
-  }));
+  const withCycle = DATA.credits.map(cr=>{
+    // FIX: use the selected year's cycle, not always "today"'s — see
+    // cycleForSelectedYear(). Each row still rolls forward a full year to
+    // reach its own next occurrence (see the comment on currentCycle) —
+    // that's what keeps distinct rows like Q1-Q4 or H1/H2 from drifting
+    // into each other's windows.
+    const {cycle, isLive} = cycleForSelectedYear(cr.anchor, CYCLE_MONTHS[cr.frequency]||12, today);
+    return {cr, cycle, isLive};
+  });
   if(creditsSortMode === 'value'){
     withCycle.sort((a,b)=> b.cr.value - a.cr.value);
   } else if(creditsSortMode === 'daysLeft'){
@@ -994,9 +1172,8 @@ function renderCredits(){
   const ordered = sortedCreditsList(today);
 
   const rowsHtml = ordered
-    .map(({cr, cycle})=>{
+    .map(({cr, cycle, isLive})=>{
       const card = cardById(cr.cardId);
-      const redeemed = redeemedInCycle(cr.id, cycle);
       // Any logged entry counts as redeemed for the period — logging a
       // second one for the same window is blocked (see openRedeemModal),
       // so the row shouldn't offer "Mark redeemed" again just because the
@@ -1005,21 +1182,38 @@ function renderCredits(){
       let pill;
       if(!cycle){ pill = {label:'No anchor date', cls:'pill-gray'}; }
       else if(isRedeemed){ pill = {label:'Redeemed', cls:'pill-green'}; }
-      else { pill = statusForDays(daysBetween(today, cycle.end), 60); }
-      const daysLeft = cycle ? daysBetween(today, cycle.end) : null;
+      // FIX: "days left" / Urgent-Plan soon-OK styling only makes sense for
+      // the row's real, currently-live cycle. For a past or future year's
+      // occurrence, show a neutral status instead of a countdown relative
+      // to today, which would otherwise be nonsensical (e.g. "-380 days
+      // left" for a 2024 row viewed today).
+      else if(isLive){ pill = statusForDays(daysBetween(today, cycle.end), 60); }
+      else { pill = {label:'Not redeemed', cls:'pill-gray'}; }
+      const daysLeft = (cycle && isLive) ? daysBetween(today, cycle.end) : null;
+      // Progress bar: how far through the row's window we are (only
+      // meaningful for the live cycle — a past/future year's occurrence
+      // isn't "in progress" relative to today).
+      let progressPct = null;
+      if(cycle && isLive){
+        const total = cycle.nextStart - cycle.start;
+        const elapsed = today - cycle.start;
+        progressPct = Math.max(0, Math.min(100, Math.round((elapsed/total)*100)));
+      }
 
       return `
       <div class="list-row" data-row-id="${cr.id}">
         <div class="drag-handle">⠿</div>
         <div class="main-col">
-          <div class="title">${cr.name}</div>
-          <div class="subtitle">${card?card.name:'(unlinked)'} · ${cr.frequency} · resets ${cycle?fmtDate(cycle.end):'—'}${cr.autoRedeem?' · Auto-credited, no action needed':''}</div>
+          <div class="title">${escHtml(cr.name)}</div>
+          <div class="subtitle">${card?escHtml(card.name):'(unlinked)'} · ${escHtml(cr.frequency)} · ${cycle ? (isLive ? `resets ${fmtDate(cycle.end)}` : `${fmtDate(cycle.start)} – ${fmtDate(cycle.end)}`) : 'no anchor date set'}${cr.autoRedeem?' · Auto-credited, no action needed':''}</div>
+          ${progressPct!==null ? `<div style="height:4px;background:var(--gray-bg);border-radius:2px;margin-top:6px;overflow:hidden;"><div style="height:100%;width:${progressPct}%;background:${isRedeemed?'var(--green)':'var(--navy-light)'};"></div></div>` : ''}
         </div>
         <div class="amount">$${cr.value}</div>
         <div><span class="pill ${pill.cls}">${pill.label}</span></div>
         <div class="days">${daysLeft!==null? (daysLeft>=0? daysLeft+' days left' : 'overdue') : ''}</div>
         <div class="actions">
           ${!isRedeemed && cycle && !cr.autoRedeem ? `<button class="btn btn-sm btn-primary" data-mark-cr="${cr.id}">Mark redeemed</button>` : ''}
+          ${!cycle ? `<button class="btn btn-sm btn-primary" data-mark-cr="${cr.id}">+ Log redemption</button>` : ''}
           ${isRedeemed ? `<button class="btn btn-sm" data-editredemption-cr="${cr.id}">Edit amount</button><button class="btn btn-sm btn-danger" data-unredeem-cr="${cr.id}">Unredeem</button>` : ''}
           <button class="btn btn-sm" data-edit-cr="${cr.id}">Edit</button>
           <button class="btn btn-sm btn-danger" data-del-cr="${cr.id}">Delete</button>
@@ -1031,8 +1225,16 @@ function renderCredits(){
   document.getElementById('addCreditBtn').onclick = ()=>openCreditModal();
   document.getElementById('creditsSortSelect').onchange = (e)=>{ creditsSortMode = e.target.value; renderCredits(); };
   list.querySelectorAll('[data-edit-cr]').forEach(b=>b.onclick=()=>openCreditModal(b.dataset.editCr));
-  list.querySelectorAll('[data-del-cr]').forEach(b=>b.onclick=()=>{ if(confirm('Delete this credit?')){ DATA.credits=DATA.credits.filter(x=>x.id!==b.dataset.delCr); saveData(); renderCredits(); }});
-  list.querySelectorAll('[data-mark-cr]').forEach(b=>b.onclick=()=>openRedeemModal('cr', b.dataset.markCr));
+  list.querySelectorAll('[data-del-cr]').forEach(b=>b.onclick=()=>{
+    showConfirm('Delete this credit? Its logged redemption history will remain in the log but become unlinked.', ()=>{
+      DATA.credits=DATA.credits.filter(x=>x.id!==b.dataset.delCr); saveData(); renderCredits();
+    });
+  });
+  list.querySelectorAll('[data-mark-cr]').forEach(b=>{
+    const id = b.dataset.markCr;
+    const row = ordered.find(o=>o.cr.id===id);
+    b.onclick = ()=>openRedeemModal('cr', id, row.cycle);
+  });
   list.querySelectorAll('[data-editredemption-cr]').forEach(b=>{
     const id = b.dataset.editredemptionCr;
     const row = ordered.find(o=>o.cr.id===id);
@@ -1064,7 +1266,7 @@ function openCreditModal(id){
   showModal(`
     <div class="modal-head"><h3>${editing?'Edit credit':'Add credit'}</h3><button class="close-x" id="modalClose">✕</button></div>
     <div class="modal-body">
-      <div class="field"><label>Card</label><select id="f_card">${DATA.cards.map(c=>`<option value="${c.id}" ${c.id===cr.cardId?'selected':''}>${c.name}</option>`).join('')}</select></div>
+      <div class="field"><label>Card</label><select id="f_card">${DATA.cards.map(c=>`<option value="${c.id}" ${c.id===cr.cardId?'selected':''}>${escHtml(c.name)}</option>`).join('')}</select></div>
       <div class="field"><label>Credit name</label><input id="f_name" value="${escAttr(cr.name)}"></div>
       <div class="field-row">
         <div class="field"><label>Value ($)</label><input id="f_value" type="number" value="${cr.value}"></div>
@@ -1092,18 +1294,21 @@ function openCreditModal(id){
   };
 }
 
-function openRedeemModal(kind, sourceId){
+function openRedeemModal(kind, sourceId, cycle){
   const item = kind==='cr' ? DATA.credits.find(x=>x.id===sourceId) : DATA.freeNights.find(x=>x.id===sourceId);
 
+  // FIX: `cycle` is now passed in by the caller (the row already computed
+  // it via cycleForSelectedYear, so it matches whatever year is currently
+  // selected) instead of being recomputed here relative to today. Recomputing
+  // here unconditionally used to ignore the year selector entirely — you
+  // could be viewing 2024 and clicking "Mark redeemed" would still log
+  // against today's real live cycle.
+  //
   // Hard guard against logging the same item twice in the same cycle. The
   // "Mark redeemed"/"Mark used" button is already hidden once something's
   // logged, but that's just UI — this check is the real gate, so a stale
   // render, a double-click before re-render, or any other path into this
   // function can't create a second entry for the same window.
-  const today = new Date();
-  const cycle = kind==='cr'
-    ? currentCycle(item.anchor, CYCLE_MONTHS[item.frequency]||12, 12, today)
-    : currentCycle(item.anchor, 12, 12, today);
   if(cycle && historyEntriesInCycle(sourceId, cycle).length > 0){
     toast('Already logged for this period — edit the amount or unredeem it first.');
     return;
@@ -1122,7 +1327,7 @@ function openRedeemModal(kind, sourceId){
   showModal(`
     <div class="modal-head"><h3>Log redemption</h3><button class="close-x" id="modalClose">✕</button></div>
     <div class="modal-body">
-      <div class="field"><label>Date used</label><input id="f_date" type="date" value="${new Date().toISOString().slice(0,10)}"></div>
+      <div class="field"><label>Date used</label><input id="f_date" type="date" value="${defaultRedeemDate(cycle)}"></div>
       <div class="field"><label>Amount ($)</label><input id="f_amount" type="number" value="${defaultAmount}" placeholder="${needsValue?'Estimated cash value of the stay you booked':''}"></div>
       ${needsValue ? `<div class="hint">Free nights don't have a fixed dollar value — enter what the stay would have cost in cash (check the hotel's rate for your dates) so it counts toward value realized.</div>` : ''}
       ${kind==='fn' ? `<div class="field"><label>Property (optional)</label><input id="f_property" value="${escAttr(item.property||'')}"></div>` : ''}
@@ -1164,9 +1369,11 @@ function openRedeemModal(kind, sourceId){
 
 /* ---------- Free Nights ---------- */
 function sortedFreeNightsList(today){
-  const withCycle = DATA.freeNights.map(fn=>({
-    fn, cycle: currentCycle(fn.anchor, 12, 12, today)
-  }));
+  const withCycle = DATA.freeNights.map(fn=>{
+    // FIX: use the selected year's cycle, not always "today"'s.
+    const {cycle, isLive} = cycleForSelectedYear(fn.anchor, 12, today);
+    return {fn, cycle, isLive};
+  });
   if(fnSortMode === 'value'){
     withCycle.sort((a,b)=> (b.fn.cashValue||0) - (a.fn.cashValue||0));
   } else if(fnSortMode === 'daysLeft'){
@@ -1207,7 +1414,7 @@ function renderFreeNights(){
   const ordered = sortedFreeNightsList(today);
 
   const rowsHtml = ordered
-    .map(({fn, cycle})=>{
+    .map(({fn, cycle, isLive})=>{
       const card = cardById(fn.cardId);
       const redeemed = redeemedInCycle(fn.id, cycle);
       const isUsed = redeemed > 0;
@@ -1215,21 +1422,30 @@ function renderFreeNights(){
       let pill;
       if(!cycle){ pill = {label:'Not yet issued', cls:'pill-gray'}; }
       else if(isUsed){ pill = {label:'Redeemed', cls:'pill-green'}; }
-      else { pill = statusForDays(daysBetween(today, expiration), 90); }
-      const daysLeft = expiration ? daysBetween(today, expiration) : null;
+      else if(isLive){ pill = statusForDays(daysBetween(today, expiration), 90); }
+      else { pill = {label:'Not redeemed', cls:'pill-gray'}; }
+      const daysLeft = (expiration && isLive) ? daysBetween(today, expiration) : null;
+      let progressPct = null;
+      if(cycle && isLive){
+        const total = cycle.nextStart - cycle.start;
+        const elapsed = today - cycle.start;
+        progressPct = Math.max(0, Math.min(100, Math.round((elapsed/total)*100)));
+      }
 
       return `
       <div class="list-row" data-row-id="${fn.id}">
         <div class="drag-handle">⠿</div>
         <div class="main-col">
-          <div class="title">${fn.desc}</div>
-          <div class="subtitle">${card?card.name:'(unlinked)'} · ${fn.program}${expiration?` · expires ${fmtDate(expiration)}${fn.expirationOverride?' (set manually)':''}`:''}</div>
+          <div class="title">${escHtml(fn.desc)}</div>
+          <div class="subtitle">${card?escHtml(card.name):'(unlinked)'} · ${escHtml(fn.program)}${expiration?` · expires ${fmtDate(expiration)}${fn.expirationOverride?' (set manually)':''}`:(cycle?'':' · no anchor date set')}</div>
+          ${progressPct!==null ? `<div style="height:4px;background:var(--gray-bg);border-radius:2px;margin-top:6px;overflow:hidden;"><div style="height:100%;width:${progressPct}%;background:${isUsed?'var(--green)':'var(--navy-light)'};"></div></div>` : ''}
         </div>
         <div class="amount">${redeemed>0?'$'+redeemed:'—'}</div>
         <div><span class="pill ${pill.cls}">${pill.label}</span></div>
         <div class="days">${daysLeft!==null? (daysLeft>=0? daysLeft+' days left' : 'overdue') : ''}</div>
         <div class="actions">
           ${!isUsed && cycle ? `<button class="btn btn-sm btn-primary" data-mark-fn="${fn.id}">Mark used</button>` : ''}
+          ${!cycle ? `<button class="btn btn-sm btn-primary" data-mark-fn="${fn.id}">+ Log redemption</button>` : ''}
           ${isUsed ? `<button class="btn btn-sm" data-editredemption-fn="${fn.id}">Edit amount</button><button class="btn btn-sm btn-danger" data-unredeem-fn="${fn.id}">Unredeem</button>` : ''}
           <button class="btn btn-sm" data-edit-fn="${fn.id}">Edit</button>
           <button class="btn btn-sm btn-danger" data-del-fn="${fn.id}">Delete</button>
@@ -1241,8 +1457,16 @@ function renderFreeNights(){
   document.getElementById('addFnBtn').onclick = ()=>openFnModal();
   document.getElementById('fnSortSelect').onchange = (e)=>{ fnSortMode = e.target.value; renderFreeNights(); };
   list.querySelectorAll('[data-edit-fn]').forEach(b=>b.onclick=()=>openFnModal(b.dataset.editFn));
-  list.querySelectorAll('[data-del-fn]').forEach(b=>b.onclick=()=>{ if(confirm('Delete this certificate?')){ DATA.freeNights=DATA.freeNights.filter(x=>x.id!==b.dataset.delFn); saveData(); renderFreeNights(); }});
-  list.querySelectorAll('[data-mark-fn]').forEach(b=>b.onclick=()=>openRedeemModal('fn', b.dataset.markFn));
+  list.querySelectorAll('[data-del-fn]').forEach(b=>b.onclick=()=>{
+    showConfirm('Delete this certificate? Its logged redemption history will remain in the log but become unlinked.', ()=>{
+      DATA.freeNights=DATA.freeNights.filter(x=>x.id!==b.dataset.delFn); saveData(); renderFreeNights();
+    });
+  });
+  list.querySelectorAll('[data-mark-fn]').forEach(b=>{
+    const id = b.dataset.markFn;
+    const row = ordered.find(o=>o.fn.id===id);
+    b.onclick = ()=>openRedeemModal('fn', id, row.cycle);
+  });
   list.querySelectorAll('[data-editredemption-fn]').forEach(b=>{
     const id = b.dataset.editredemptionFn;
     const row = ordered.find(o=>o.fn.id===id);
@@ -1274,7 +1498,7 @@ function openFnModal(id){
   showModal(`
     <div class="modal-head"><h3>${editing?'Edit certificate':'Add certificate'}</h3><button class="close-x" id="modalClose">✕</button></div>
     <div class="modal-body">
-      <div class="field"><label>Card</label><select id="f_card">${DATA.cards.map(c=>`<option value="${c.id}" ${c.id===fn.cardId?'selected':''}>${c.name}</option>`).join('')}</select></div>
+      <div class="field"><label>Card</label><select id="f_card">${DATA.cards.map(c=>`<option value="${c.id}" ${c.id===fn.cardId?'selected':''}>${escHtml(c.name)}</option>`).join('')}</select></div>
       <div class="field"><label>Loyalty program</label><input id="f_program" value="${escAttr(fn.program)}"></div>
       <div class="field"><label>Description</label><input id="f_desc" value="${escAttr(fn.desc)}"></div>
       <div class="field"><label>Anchor / issue date</label><input id="f_anchor" type="date" value="${fn.anchor||''}"></div>
@@ -1329,9 +1553,9 @@ function renderHistory(){
     return `<tr data-row-id="${h.id}">
       <td><div class="drag-handle">⠿</div></td>
       <td>${fmtDate(parseDate(h.date))}</td>
-      <td>${card?card.name:'(unlinked)'}</td>
-      <td><span class="pill ${h.type==='Credit'?'pill-accent':'pill-gray'}">${h.type}</span></td>
-      <td>${h.desc}</td>
+      <td>${card?escHtml(card.name):'(unlinked)'}</td>
+      <td><span class="pill ${h.type==='Credit'?'pill-accent':'pill-gray'}">${escHtml(h.type)}</span></td>
+      <td>${escHtml(h.desc)}</td>
       <td style="font-weight:700;">$${Number(h.amount).toLocaleString()}</td>
       <td><button class="btn btn-sm" data-edit-h="${h.id}">Edit</button> <button class="btn btn-sm btn-danger" data-del-h="${h.id}">Delete</button></td>
     </tr>`;
@@ -1340,7 +1564,11 @@ function renderHistory(){
   document.getElementById('addHistBtn').onclick = ()=>openHistModal();
   document.getElementById('histSortSelect').onchange = (e)=>{ historySortMode = e.target.value; renderHistory(); };
   body.querySelectorAll('[data-edit-h]').forEach(b=>b.onclick=()=>openHistModal(b.dataset.editH));
-  body.querySelectorAll('[data-del-h]').forEach(b=>b.onclick=()=>{ if(confirm('Delete this entry?')){ DATA.history=DATA.history.filter(x=>x.id!==b.dataset.delH); saveData(); renderHistory(); }});
+  body.querySelectorAll('[data-del-h]').forEach(b=>b.onclick=()=>{
+    showConfirm('Delete this redemption entry? This cannot be undone.', ()=>{
+      DATA.history=DATA.history.filter(x=>x.id!==b.dataset.delH); saveData(); renderHistory();
+    });
+  });
 
   if(rows.length){
     makeDragReorderable(body, 'tr[data-row-id]', row=>row.dataset.rowId, (newOrderIds)=>{
@@ -1361,7 +1589,7 @@ function openHistModal(id){
     <div class="modal-head"><h3>${editing?'Edit redemption':'Log redemption'}</h3><button class="close-x" id="modalClose">✕</button></div>
     <div class="modal-body">
       <div class="field"><label>Date used</label><input id="f_date" type="date" value="${entry?entry.date:new Date().toISOString().slice(0,10)}"></div>
-      <div class="field"><label>Card</label><select id="f_card">${DATA.cards.map(c=>`<option value="${c.id}" ${entry&&c.id===entry.cardId?'selected':''}>${c.name}</option>`).join('')}</select></div>
+      <div class="field"><label>Card</label><select id="f_card">${DATA.cards.map(c=>`<option value="${c.id}" ${entry&&c.id===entry.cardId?'selected':''}>${escHtml(c.name)}</option>`).join('')}</select></div>
       <div class="field"><label>Type</label><select id="f_type"><option ${entry&&entry.type==='Credit'?'selected':''}>Credit</option><option ${entry&&entry.type==='Free Night'?'selected':''}>Free Night</option></select></div>
       <div class="field"><label>Description</label><input id="f_desc" value="${escAttr(entry?entry.desc:'')}" placeholder="e.g. $300 Annual Travel Credit"></div>
       <div class="field"><label>Amount ($)</label><input id="f_amount" type="number" value="${entry?entry.amount:''}"></div>
@@ -1397,8 +1625,38 @@ function showModal(html){
 function closeModal(){ document.getElementById('overlay').classList.remove('open'); }
 document.getElementById('overlay').addEventListener('click', (e)=>{ if(e.target.id==='overlay') closeModal(); });
 
+// FIX: replaces native confirm() throughout the app. confirm()/prompt()
+// dialogs can be silently blocked or auto-dismissed inside in-app browsers
+// (Slack, Instagram, some mobile chat webviews) — a tap on "Delete" could
+// do nothing with no visible error. Routes every destructive confirmation
+// through the app's own modal instead, which behaves identically everywhere
+// this page can be opened.
+function showConfirm(message, onYes, opts={}){
+  const danger = opts.danger !== false;
+  const confirmLabel = opts.confirmLabel || 'Delete';
+  showModal(`
+    <div class="modal-head"><h3>${opts.title||'Are you sure?'}</h3><button class="close-x" id="modalClose">✕</button></div>
+    <div class="modal-body"><div style="font-size:13.5px;line-height:1.5;">${message}</div></div>
+    <div class="modal-foot">
+      <button class="btn" id="modalCancel">Cancel</button>
+      <button class="btn ${danger?'btn-danger':'btn-primary'}" id="modalConfirmYes">${confirmLabel}</button>
+    </div>
+  `);
+  document.getElementById('modalConfirmYes').onclick = ()=>{ closeModal(); onYes(); };
+}
+
 function val(id){ return document.getElementById(id).value; }
-function escAttr(s){ return (s||'').replace(/"/g,'&quot;'); }
+// FIX: escapes &, <, >, and quote characters so user-entered text (card
+// names, notes, descriptions, etc.) can't break out of an HTML attribute or
+// be interpreted as markup when rendered back into the page. The previous
+// version only escaped double quotes, which was enough to stop broken
+// attributes but not enough to stop injected tags/scripts if this data ever
+// came from a source that wasn't fully trusted (e.g. the shared Supabase
+// table, if its write access isn't locked down — see the security note).
+function escHtml(s){
+  return (s==null?'':String(s)).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+}
+function escAttr(s){ return escHtml(s); }
 
 let toastTimer;
 function toast(msg){
@@ -1428,7 +1686,7 @@ document.getElementById('importFile').onchange = (e)=>{
       if(!parsed.cards || !parsed.credits) throw new Error('bad format');
       DATA = migrateData(parsed); saveData(); runAutoRedemptions(); renderYearSelect(); switchView(currentView);
       toast('Data imported');
-    }catch(err){ alert('Could not read that file — is it a tracker backup JSON?'); }
+    }catch(err){ toast('Could not read that file — is it a tracker backup JSON?'); }
   };
   reader.readAsText(file);
   e.target.value = '';
@@ -1440,10 +1698,14 @@ document.getElementById('importFile').onchange = (e)=>{
 document.querySelectorAll('#nav button').forEach(b=> b.onclick = ()=> switchView(b.dataset.view));
 document.getElementById('yearSelect').onchange = (e)=>{ selectedYear = Number(e.target.value); switchView(currentView); };
 document.getElementById('addYearBtn').onclick = addTrackedYear;
+document.getElementById('deleteYearBtn').onclick = deleteTrackedYear;
+
+let hasRenderedOnce = false;
 
 runAutoRedemptions();
 renderYearSelect();
 switchView('dashboard');
+hasRenderedOnce = true;
 
 // Reconcile with the cloud right after first paint (non-blocking — the app
 // is already usable from local data by the time this resolves).
