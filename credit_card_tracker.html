@@ -256,6 +256,7 @@ const SEED = {
    ============================================================ */
 const STORE_KEY = 'hotelCardTrackerData_v1';
 const SYNCED_AT_KEY = STORE_KEY + '_syncedAt';
+const DIRTY_KEY = STORE_KEY + '_dirty'; // FIX: persists across reloads/tab-closes
 const CURRENT_DATA_VERSION = 5;
 let DATA = loadLocalData();
 
@@ -341,7 +342,13 @@ function migrateData(data){
 }
 function saveData(){
   localStorage.setItem(STORE_KEY, JSON.stringify(DATA));
+  // FIX: mark dirty *before* attempting the push, and persist that flag to
+  // localStorage (not just an in-memory variable). If the tab is closed or
+  // the push otherwise never completes, this flag survives a reload so we
+  // know on next launch that local data may be ahead of the cloud, and
+  // must not be silently overwritten by an older cloud copy.
   syncPending = true;
+  localStorage.setItem(DIRTY_KEY, '1');
   pushToCloud();
 }
 function uid(prefix){ return prefix + '_' + Math.random().toString(36).slice(2,9); }
@@ -378,10 +385,18 @@ function setSyncStatus(state){
   el.className = 'sync-status sync-' + state;
 }
 
-// Fetch the shared row from Supabase. Returns {data, updated_at} or null
-// (null covers: no client configured, no row saved yet, or a network error).
+// Fetch the shared row from Supabase.
+// FIX: returns a tagged result instead of a bare null, because the old code
+// collapsed two very different situations — "no row saved yet" vs. "the
+// request itself failed" (network blip, timeout, RLS error) — into the same
+// `null` return value. bootstrapSync() then treated *any* null as "nothing
+// there yet" and responded by pushing local data up, unconditionally
+// overwriting the cloud. That meant a plain network hiccup on one device
+// could silently clobber data another device had already saved. Now the
+// caller can tell the two cases apart and only push-as-first-write when it's
+// actually true.
 async function pullFromCloud(){
-  if(!supabaseClient) return null;
+  if(!supabaseClient) return {status:'no-client'};
   try{
     const { data, error } = await supabaseClient
       .from('tracker_data')
@@ -389,10 +404,10 @@ async function pullFromCloud(){
       .eq('id', 'main')
       .maybeSingle();
     if(error) throw error;
-    return data || null;
+    return data ? {status:'ok', row:data} : {status:'empty'};
   }catch(e){
     console.warn('Cloud pull failed', e);
-    return null;
+    return {status:'error'};
   }
 }
 
@@ -407,6 +422,7 @@ async function pushToCloud(){
       .upsert({ id: 'main', data: DATA, updated_at: nowIso });
     if(error) throw error;
     localStorage.setItem(SYNCED_AT_KEY, nowIso);
+    localStorage.removeItem(DIRTY_KEY); // FIX: only clear "unsynced" once the push actually succeeds
     syncPending = false;
     setSyncStatus('synced');
   }catch(e){
@@ -420,13 +436,34 @@ async function pushToCloud(){
 // overwrites local DATA if the cloud copy is confirmed newer than the last
 // version this device synced (so it never clobbers your own unsaved edits).
 async function bootstrapSync(){
-  const remote = await pullFromCloud();
-  if(!remote){
-    // Either offline, or nothing has been saved to the cloud yet — seed it
-    // with what we already have so other devices have something to pull.
+  // FIX: if a previous edit never got confirmed as pushed (DIRTY_KEY
+  // survives reloads/tab closes, unlike the old in-memory-only
+  // `syncPending`), push it before doing anything else. Pulling first here
+  // risked overwriting that unsynced local edit with an older cloud copy —
+  // which is the "my changes keep reverting" bug.
+  if(localStorage.getItem(DIRTY_KEY) === '1'){
+    await pushToCloud();
+    return;
+  }
+
+  const result = await pullFromCloud();
+
+  if(result.status === 'error'){
+    // FIX: a failed/errored pull is NOT the same as "no data saved yet".
+    // Don't touch local data and don't push — just reflect that we
+    // couldn't reach the cloud this time. The next successful sync
+    // (reload, tab focus, or next edit) will reconcile properly.
+    setSyncStatus('offline');
+    return;
+  }
+
+  if(result.status === 'no-client' || result.status === 'empty'){
+    // Genuinely nothing saved to the cloud yet — seed it with what we have.
     if(supabaseClient) await pushToCloud();
     return;
   }
+
+  const remote = result.row;
   const lastSyncedAt = localStorage.getItem(SYNCED_AT_KEY);
   if(lastSyncedAt && remote.updated_at && new Date(remote.updated_at) <= new Date(lastSyncedAt)){
     // Cloud hasn't changed since we last synced from this device — nothing to pull.
@@ -1419,7 +1456,7 @@ bootstrapSync();
 // whose date may have arrived while the tab was in the background.
 document.addEventListener('visibilitychange', ()=>{
   if(document.visibilityState !== 'visible') return;
-  if(syncPending) pushToCloud();
+  if(localStorage.getItem(DIRTY_KEY) === '1' || syncPending) pushToCloud();
   else bootstrapSync();
   if(runAutoRedemptions()) switchView(currentView);
 });
