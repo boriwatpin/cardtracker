@@ -111,6 +111,8 @@
   .card-tile{border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px 16px;background:var(--surface-tile);transition:.15s;}
   .card-tile:hover{box-shadow:var(--shadow-md);border-color:var(--border-hover);}
   .card-tile .name{font-weight:700;font-size:14px;margin-bottom:2px;}
+  .issuer-badge{display:inline-flex;align-items:center;justify-content:center;padding:2px 7px;
+    border-radius:5px;font-size:10px;font-weight:800;letter-spacing:.03em;white-space:nowrap;line-height:1.5;}
   .card-tile .meta{font-size:12px;color:var(--text-muted);margin-bottom:10px;}
   .card-tile .row{display:flex;justify-content:space-between;font-size:13px;padding:3px 0;}
   .card-tile .row .l{color:var(--text-muted);}
@@ -834,6 +836,41 @@ function openEditLinkedAmountModal(entryId){
 
 function cardById(id){ return DATA.cards.find(c=>c.id===id); }
 
+// NEW FEATURE: small brand-colored badge chips next to a card's name on the
+// Cards tab. These are deliberately NOT the actual official card-network or
+// issuer logo artwork (Amex's box icon, Mastercard's interlocking circles,
+// Citi's arc, etc.) — reproducing those exact trademarked graphics isn't
+// something this app pulls in. Instead this renders a small custom text
+// chip using a brand-associated color, which gives the same at-a-glance
+// visual recognition without embedding anyone's actual logo file.
+// Purely cosmetic — never touches DATA, never affects sorting/matching/any
+// other logic, and a card with an unrecognized issuer just falls back to
+// its own initials rather than being left without a badge.
+function issuerBadge(issuer){
+  if(!issuer) return null;
+  const name = issuer.toLowerCase();
+  const table = [
+    { match:'american express', label:'AMEX',     bg:'#016FD0', fg:'#ffffff' },
+    { match:'amex',             label:'AMEX',     bg:'#016FD0', fg:'#ffffff' },
+    { match:'chase',            label:'CHASE',    bg:'#117ACA', fg:'#ffffff' },
+    { match:'capital one',      label:'CAP1',     bg:'#D22630', fg:'#ffffff' },
+    { match:'citi',             label:'CITI',     bg:'#003D79', fg:'#ffffff' },
+    { match:'discover',         label:'DISCOVER', bg:'#FF6000', fg:'#ffffff' },
+    { match:'wells fargo',      label:'WF',       bg:'#D71E2B', fg:'#ffffff' },
+    { match:'bank of america',  label:'BOA',      bg:'#012169', fg:'#ffffff' },
+    { match:'barclays',         label:'BARCLAYS', bg:'#00AEEF', fg:'#00263a' },
+    { match:'us bank',          label:'USB',      bg:'#0c2074', fg:'#ffffff' },
+    { match:'visa',             label:'VISA',     bg:'#1a1f71', fg:'#ffffff' },
+    { match:'mastercard',       label:'MC',       bg:'#eb001b', fg:'#ffffff' },
+  ];
+  const found = table.find(t=>name.includes(t.match));
+  if(found) return found;
+  // Unrecognized issuer — fall back to their own initials on a neutral
+  // badge rather than showing nothing at all.
+  const initials = issuer.trim().split(/\s+/).map(w=>w[0]).join('').slice(0,4).toUpperCase();
+  return initials ? { label: initials, bg:'var(--gray)', fg:'#ffffff' } : null;
+}
+
 /* ============================================================
    YEAR SELECTOR
    ============================================================ */
@@ -1165,9 +1202,13 @@ function renderCards(){
     // NEW FEATURE: purely informational — only rendered when the card has
     // feeAnchor set, so cards without it look exactly as they did before.
     const nextFee = c.feeAnchor ? nextOccurrenceOnOrAfter(c.feeAnchor, new Date()) : null;
+    const badge = issuerBadge(c.issuer);
     return `
     <div class="card-tile">
-      <div class="name">${escHtml(c.name)}</div>
+      <div class="name" style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;">
+        ${badge ? `<span class="issuer-badge" style="background:${badge.bg};color:${badge.fg};">${escHtml(badge.label)}</span>` : ''}
+        <span>${escHtml(c.name)}</span>
+      </div>
       <div class="meta">${escHtml(c.issuer)} · ${escHtml(c.program)}${c.eliteStatus?' · Elite status':''}</div>
       <div class="row"><span class="l">Annual fee</span><span class="r">$${c.fee.toLocaleString()}</span></div>
       ${nextFee ? `<div class="row"><span class="l">Fee renews</span><span class="r">${fmtDate(nextFee)} (${daysBetween(new Date(), nextFee)}d)</span></div>` : ''}
