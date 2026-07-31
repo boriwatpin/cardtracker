@@ -19,6 +19,34 @@
     --radius:14px; --radius-sm:8px;
     --shadow:0 1px 2px rgba(16,24,40,.06), 0 1px 3px rgba(16,24,40,.08);
     --shadow-md:0 4px 12px rgba(16,24,40,.10);
+    /* ENHANCEMENT (dark mode): these three were previously hardcoded hex
+       values sprinkled through the rules below (inputs, hover states, the
+       modal). Pulling them into variables here is what makes the dark
+       theme override below actually work without touching every rule. */
+    --input-bg:#ffffff;
+    --surface-tile:#fbfcfe;
+    --surface-hover:#fafbfd;
+    --border-hover:#d3dae6;
+  }
+  /* ENHANCEMENT (dark mode): toggled by adding data-theme="dark" to <html>.
+     Every color in the app is already driven by the variables above, so the
+     whole UI re-themes from this one block — no per-component dark-mode
+     rules needed elsewhere. */
+  html[data-theme="dark"]{
+    --navy:#3a5a94; --navy-light:#4d70ab; --navy-dark:#24344f;
+    --bg:#11151c; --card-bg:#1a1f29; --border:#2b3140;
+    --text:#e7e9ef; --text-muted:#9aa1b2; --text-soft:#6d7484;
+    --green:#3ecf72; --green-bg:rgba(62,207,114,.14);
+    --amber:#f2a93b; --amber-bg:rgba(242,169,59,.14);
+    --red:#f0665f; --red-bg:rgba(240,102,95,.14);
+    --gray:#9aa1b2; --gray-bg:#232938;
+    --accent:#dcb567; --accent-bg:rgba(220,181,103,.14);
+    --shadow:0 1px 2px rgba(0,0,0,.35), 0 1px 3px rgba(0,0,0,.45);
+    --shadow-md:0 4px 14px rgba(0,0,0,.5);
+    --input-bg:#232938;
+    --surface-tile:#1f2531;
+    --surface-hover:#242a38;
+    --border-hover:#3a4358;
   }
   *{box-sizing:border-box;}
   body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;background:var(--bg);color:var(--text);}
@@ -53,10 +81,10 @@
   .sync-offline{color:var(--red);background:rgba(217,83,79,.12);}
 
   select, input, textarea{font-family:inherit;font-size:13.5px;padding:8px 10px;border:1px solid var(--border);
-    border-radius:8px;background:#fff;color:var(--text);}
+    border-radius:8px;background:var(--input-bg);color:var(--text);}
   select:focus, input:focus, textarea:focus{outline:2px solid var(--navy-light);outline-offset:-1px;}
 
-  .btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);background:#fff;color:var(--text);
+  .btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);background:var(--input-bg);color:var(--text);
     padding:8px 14px;border-radius:9px;font-size:13.5px;font-weight:600;cursor:pointer;transition:.15s;font-family:inherit;}
   .btn:hover{background:var(--gray-bg);}
   .btn-primary{background:var(--navy);color:#fff;border-color:var(--navy);}
@@ -80,8 +108,8 @@
   .panel-body{padding:6px 0;}
 
   .card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;padding:16px;}
-  .card-tile{border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px 16px;background:#fbfcfe;transition:.15s;}
-  .card-tile:hover{box-shadow:var(--shadow-md);border-color:#d3dae6;}
+  .card-tile{border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px 16px;background:var(--surface-tile);transition:.15s;}
+  .card-tile:hover{box-shadow:var(--shadow-md);border-color:var(--border-hover);}
   .card-tile .name{font-weight:700;font-size:14px;margin-bottom:2px;}
   .card-tile .meta{font-size:12px;color:var(--text-muted);margin-bottom:10px;}
   .card-tile .row{display:flex;justify-content:space-between;font-size:13px;padding:3px 0;}
@@ -91,7 +119,7 @@
 
   .list-row{display:flex;align-items:center;gap:14px;padding:13px 20px;border-bottom:1px solid var(--border);}
   .list-row:last-child{border-bottom:none;}
-  .list-row:hover{background:#fafbfd;}
+  .list-row:hover{background:var(--surface-hover);}
   .list-row .main-col{flex:1;min-width:0;}
 
   /* ---------- Drag-to-reorder handle (pointer-events based: mouse + touch + keyboard) ---------- */
@@ -116,10 +144,10 @@
 
   table{width:100%;border-collapse:collapse;font-size:13px;}
   th{text-align:left;font-size:11.5px;text-transform:uppercase;letter-spacing:.03em;color:var(--text-muted);
-     padding:10px 20px;border-bottom:1px solid var(--border);background:#fafbfd;}
+     padding:10px 20px;border-bottom:1px solid var(--border);background:var(--surface-hover);}
   td{padding:11px 20px;border-bottom:1px solid var(--border);}
   tr:last-child td{border-bottom:none;}
-  tr:hover td{background:#fafbfd;}
+  tr:hover td{background:var(--surface-hover);}
 
   .empty{padding:30px;text-align:center;color:var(--text-soft);font-size:13.5px;}
 
@@ -128,7 +156,7 @@
   /* ---------- Modal ---------- */
   .overlay{position:fixed;inset:0;background:rgba(15,20,35,.45);display:none;align-items:center;justify-content:center;z-index:100;padding:20px;}
   .overlay.open{display:flex;}
-  .modal{background:#fff;border-radius:var(--radius);width:100%;max-width:460px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 50px rgba(0,0,0,.25);}
+  .modal{background:var(--card-bg);border-radius:var(--radius);width:100%;max-width:460px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 50px rgba(0,0,0,.25);}
   .modal-head{padding:18px 22px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;}
   .modal-head h3{margin:0;font-size:16px;}
   .modal-body{padding:20px 22px;display:flex;flex-direction:column;gap:14px;}
@@ -184,6 +212,7 @@
         <p class="desc" id="pageDesc">Annual fee vs. value realized, by card.</p>
       </div>
       <div class="topbar-actions">
+        <button class="btn btn-sm" id="themeToggleBtn" title="Toggle dark mode">🌙</button>
         <span id="syncStatus" class="sync-status"></span>
         <select id="yearSelect"></select>
         <button class="btn btn-sm" id="addYearBtn" title="Add a future year to the dropdown">+ Add year</button>
@@ -205,6 +234,22 @@
 <div class="toast" id="toast"></div>
 
 <script>
+/* ============================================================
+   ENHANCEMENT: dark mode. Applied as early as possible (before any of the
+   SEED/DATA loading below) purely so there's no visible flash of the light
+   theme before this runs. This is a local-only display preference — it
+   intentionally never touches DATA, never syncs to Supabase, and has no
+   bearing on your cards/credits/history at all.
+   ============================================================ */
+const THEME_KEY = 'hotelCardTrackerTheme_v1';
+(function(){
+  try{
+    const saved = localStorage.getItem(THEME_KEY);
+    const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    document.documentElement.setAttribute('data-theme', saved || (prefersDark ? 'dark' : 'light'));
+  }catch(e){ /* localStorage unavailable — just stay on the default light theme */ }
+})();
+
 /* ============================================================
    SEED DATA — carried over from the user's existing spreadsheet
    ============================================================ */
@@ -367,6 +412,21 @@ function uid(prefix){ return prefix + '_' + Math.random().toString(36).slice(2,9
 const SUPABASE_URL = 'https://kavlfymmtjyumaacejaz.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImthdmxmeW1tdGp5dW1hYWNlamF6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQyMDE0NjIsImV4cCI6MjA5OTc3NzQ2Mn0.U3aydQ0ZEyj_O9mKcpDAPc8O9137pzffVer7bnGCvIY';
 
+// ENHANCEMENT (security): the anon key above is, by design, public — it's
+// sitting in view-source on a public GitHub Pages URL, so anyone can read
+// it. On its own, that anon key can normally read AND write to any table
+// without RLS restrictions, meaning anyone who finds this page can currently
+// overwrite your data. This app-side value doesn't replace real security —
+// it only helps if paired with a Supabase Row Level Security policy that
+// requires this exact value before allowing a write (SQL for that policy is
+// below). IMPORTANT: replace this placeholder with your own randomly
+// generated string (any long, unguessable string works — e.g. run
+// `openssl rand -hex 24` in a terminal) and use that same string in the SQL
+// policy in your Supabase project, not this one. Since this file's source
+// is public, treat this purely as "raises the bar past a driveby scanner
+// that only has the anon key," not as real authentication.
+const APP_EDIT_SECRET = 'REPLACE_WITH_YOUR_OWN_RANDOM_SECRET';
+
 let supabaseClient = null;
 try{
   if(typeof window !== 'undefined' && window.supabase && window.supabase.createClient){
@@ -420,7 +480,12 @@ async function pushToCloud(){
   try{
     const { error } = await supabaseClient
       .from('tracker_data')
-      .upsert({ id: 'main', data: DATA, updated_at: nowIso });
+      // ENHANCEMENT (security): edit_secret travels as its own column,
+      // deliberately kept out of the `data` JSON blob — it's not part of
+      // your tracker data, it's a gate the RLS policy checks, so it should
+      // never end up inside DATA, get exported in a backup, or show up
+      // anywhere migrateData()/valueRealizedForCardYear()/etc. could see it.
+      .upsert({ id: 'main', data: DATA, updated_at: nowIso, edit_secret: APP_EDIT_SECRET });
     if(error) throw error;
     localStorage.setItem(SYNCED_AT_KEY, nowIso);
     localStorage.removeItem(DIRTY_KEY); // FIX: only clear "unsynced" once the push actually succeeds
@@ -749,7 +814,7 @@ function openEditLinkedAmountModal(entryId){
     <div class="modal-head"><h3>Edit redemption</h3><button class="close-x" id="modalClose">✕</button></div>
     <div class="modal-body">
       <div class="field"><label>Date used</label><input id="f_date" type="date" value="${entry.date}"></div>
-      <div class="field"><label>Amount ($)</label><input id="f_amount" type="number" value="${entry.amount}"></div>
+      <div class="field"><label>Amount ($)</label><input id="f_amount" type="number" min="0" value="${entry.amount}"></div>
     </div>
     <div class="modal-foot">
       <button class="btn" id="modalCancel">Cancel</button>
@@ -897,6 +962,12 @@ const views = {
 let currentView = 'dashboard';
 let creditsSortMode = 'daysLeft'; // 'daysLeft' | 'value' | 'manual'
 let fnSortMode = 'daysLeft';      // 'daysLeft' | 'value' | 'manual'
+// ENHANCEMENT: group-by-card toggle. Purely a display grouping — it doesn't
+// touch DATA.credits/freeNights order or the underlying sort mode at all,
+// so turning it off always returns you to exactly the same flat list you
+// had before.
+let creditsGroupByCard = false;
+let fnGroupByCard = false;
 let historySortMode = 'date';     // 'date' | 'manual'
 
 /* ============================================================
@@ -1124,7 +1195,7 @@ function openCardModal(id){
       <div class="field"><label>Card name</label><input id="f_name" value="${escAttr(c.name)}"></div>
       <div class="field-row">
         <div class="field"><label>Issuer</label><input id="f_issuer" value="${escAttr(c.issuer)}"></div>
-        <div class="field"><label>Annual fee ($)</label><input id="f_fee" type="number" value="${c.fee}"></div>
+        <div class="field"><label>Annual fee ($)</label><input id="f_fee" type="number" min="0" value="${c.fee}"></div>
       </div>
       <div class="field"><label>Rewards program</label><input id="f_program" value="${escAttr(c.program)}"></div>
       <div class="field"><label><input type="checkbox" id="f_elite" ${c.eliteStatus?'checked':''}> Includes hotel elite status</label></div>
@@ -1145,6 +1216,11 @@ function openCardModal(id){
       notes: val('f_notes'), feeAnchor: val('f_feeanchor')||null
     };
     if(!obj.name){ toast('Card name is required'); return; }
+    // ENHANCEMENT: basic input validation — the min="0" attribute on the
+    // field is a browser-level hint (spinner arrows, some mobile keyboards)
+    // but doesn't stop someone from typing "-450" directly, so the real
+    // enforcement has to happen here too.
+    if(obj.fee < 0){ toast('Annual fee cannot be negative'); return; }
     if(editing){ const i=DATA.cards.findIndex(x=>x.id===id); DATA.cards[i]=obj; }
     else DATA.cards.push(obj);
     saveData(); closeModal(); renderCards(); toast('Card saved');
@@ -1196,6 +1272,55 @@ function sortedCreditsList(today){
   return withCycle;
 }
 
+// Builds one credit row's HTML. Split out from renderCredits() so the exact
+// same row markup can be used whether the list is flat or grouped by card —
+// grouping only changes how rows are arranged/labeled, never what a row
+// itself looks like or does.
+function renderCreditRowHtml(today, {cr, cycle, isLive}, showDragHandle){
+  const card = cardById(cr.cardId);
+  // Any logged entry counts as redeemed for the period — logging a
+  // second one for the same window is blocked (see openRedeemModal),
+  // so the row shouldn't offer "Mark redeemed" again just because the
+  // logged amount happens to be under the credit's face value.
+  const isRedeemed = cycle ? historyEntriesInCycle(cr.id, cycle).length > 0 : false;
+  const hasAnyHistory = !cycle && DATA.history.some(h=>h.sourceId===cr.id);
+  const daysLeft = (cycle && isLive) ? daysBetween(today, cycle.end) : null;
+  const isExpired = daysLeft !== null && daysLeft < 0 && !isRedeemed;
+  let pill;
+  if(!cycle && hasAnyHistory){ pill = {label:'Logged', cls:'pill-green'}; }
+  else if(!cycle){ pill = {label:'No anchor date', cls:'pill-gray'}; }
+  else if(isRedeemed){ pill = {label:'Redeemed', cls:'pill-green'}; }
+  else if(isExpired){ pill = {label:'Expired', cls:'pill-gray'}; }
+  else if(isLive){ pill = statusForDays(daysBetween(today, cycle.end), 60); }
+  else { pill = {label:'Not redeemed', cls:'pill-gray'}; }
+  let progressPct = null;
+  if(cycle && isLive){
+    const total = cycle.nextStart - cycle.start;
+    const elapsed = today - cycle.start;
+    progressPct = Math.max(0, Math.min(100, Math.round((elapsed/total)*100)));
+  }
+
+  return `
+  <div class="list-row" data-row-id="${cr.id}">
+    ${showDragHandle ? '<div class="drag-handle">⠿</div>' : '<div style="width:20px;"></div>'}
+    <div class="main-col">
+      <div class="title"${isExpired ? ' style="text-decoration:line-through;opacity:.55;"' : ''}>${escHtml(cr.name)}</div>
+      <div class="subtitle">${card?escHtml(card.name):'(unlinked)'} · ${escHtml(cr.frequency)} · ${cycle ? (isLive ? `resets ${fmtDate(cycle.end)}` : `${fmtDate(cycle.start)} – ${fmtDate(cycle.end)}`) : 'no anchor date set'}${cr.autoRedeem?' · Auto-credited, no action needed':''}</div>
+      ${progressPct!==null ? `<div style="height:4px;background:var(--gray-bg);border-radius:2px;margin-top:6px;overflow:hidden;"><div style="height:100%;width:${progressPct}%;background:${isRedeemed?'var(--green)':'var(--navy-light)'};"></div></div>` : ''}
+    </div>
+    <div class="amount">$${cr.value}</div>
+    <div><span class="pill ${pill.cls}">${pill.label}</span></div>
+    <div class="days">${daysLeft!==null? (daysLeft>=0? daysLeft+' days left' : '') : ''}</div>
+    <div class="actions">
+      ${!isRedeemed && cycle && !cr.autoRedeem ? `<button class="btn btn-sm btn-primary" data-mark-cr="${cr.id}">Mark redeemed</button>` : ''}
+      ${!cycle ? `<button class="btn btn-sm btn-primary" data-mark-cr="${cr.id}">+ Log redemption</button>` : ''}
+      ${isRedeemed ? `<button class="btn btn-sm" data-editredemption-cr="${cr.id}">Edit amount</button><button class="btn btn-sm btn-danger" data-unredeem-cr="${cr.id}">Unredeem</button>` : ''}
+      <button class="btn btn-sm" data-edit-cr="${cr.id}">Edit</button>
+      <button class="btn btn-sm btn-danger" data-del-cr="${cr.id}">Delete</button>
+    </div>
+  </div>`;
+}
+
 function renderCredits(){
   const today = new Date();
   const content = document.getElementById('content');
@@ -1203,7 +1328,10 @@ function renderCredits(){
     <div class="panel">
       <div class="panel-head">
         <h2>${DATA.credits.length} recurring credits</h2>
-        <div style="display:flex;gap:8px;align-items:center;">
+        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+          <label style="font-size:12.5px;display:flex;align-items:center;gap:5px;white-space:nowrap;">
+            <input type="checkbox" id="creditsGroupToggle" ${creditsGroupByCard?'checked':''}> Group by card
+          </label>
           <select id="creditsSortSelect" class="btn-sm">
             <option value="daysLeft">Sort: days left</option>
             <option value="value">Sort: value</option>
@@ -1221,73 +1349,37 @@ function renderCredits(){
 
   const ordered = sortedCreditsList(today);
 
-  const rowsHtml = ordered
-    .map(({cr, cycle, isLive})=>{
-      const card = cardById(cr.cardId);
-      // Any logged entry counts as redeemed for the period — logging a
-      // second one for the same window is blocked (see openRedeemModal),
-      // so the row shouldn't offer "Mark redeemed" again just because the
-      // logged amount happens to be under the credit's face value.
-      const isRedeemed = cycle ? historyEntriesInCycle(cr.id, cycle).length > 0 : false;
-      // BUG FOUND IN RE-SCAN: a row with no anchor date has no cycle, so
-      // isRedeemed above is always false for it — even right after using
-      // "+ Log redemption" to log one. The button would silently keep
-      // reappearing with no visible sign the log actually happened. There's
-      // no "period" to mark as redeemed without an anchor, but at minimum
-      // reflect that *something* has been logged for it, ever.
-      const hasAnyHistory = !cycle && DATA.history.some(h=>h.sourceId===cr.id);
-      const daysLeft = (cycle && isLive) ? daysBetween(today, cycle.end) : null;
-      // "Overdue"/"Urgent" both implied there was still time-sensitive
-      // action to take — but once a window has actually closed, there's
-      // nothing left to undo or hurry for. Cross the item out visually
-      // instead of labeling it with either word.
-      const isExpired = daysLeft !== null && daysLeft < 0 && !isRedeemed;
-      let pill;
-      if(!cycle && hasAnyHistory){ pill = {label:'Logged', cls:'pill-green'}; }
-      else if(!cycle){ pill = {label:'No anchor date', cls:'pill-gray'}; }
-      else if(isRedeemed){ pill = {label:'Redeemed', cls:'pill-green'}; }
-      else if(isExpired){ pill = {label:'Expired', cls:'pill-gray'}; }
-      // FIX: "days left" / Urgent-Plan soon-OK styling only makes sense for
-      // the row's real, currently-live cycle. For a past or future year's
-      // occurrence, show a neutral status instead of a countdown relative
-      // to today, which would otherwise be nonsensical (e.g. "-380 days
-      // left" for a 2024 row viewed today).
-      else if(isLive){ pill = statusForDays(daysBetween(today, cycle.end), 60); }
-      else { pill = {label:'Not redeemed', cls:'pill-gray'}; }
-      // Progress bar: how far through the row's window we are (only
-      // meaningful for the live cycle — a past/future year's occurrence
-      // isn't "in progress" relative to today).
-      let progressPct = null;
-      if(cycle && isLive){
-        const total = cycle.nextStart - cycle.start;
-        const elapsed = today - cycle.start;
-        progressPct = Math.max(0, Math.min(100, Math.round((elapsed/total)*100)));
-      }
-
-      return `
-      <div class="list-row" data-row-id="${cr.id}">
-        <div class="drag-handle">⠿</div>
-        <div class="main-col">
-          <div class="title"${isExpired ? ' style="text-decoration:line-through;opacity:.55;"' : ''}>${escHtml(cr.name)}</div>
-          <div class="subtitle">${card?escHtml(card.name):'(unlinked)'} · ${escHtml(cr.frequency)} · ${cycle ? (isLive ? `resets ${fmtDate(cycle.end)}` : `${fmtDate(cycle.start)} – ${fmtDate(cycle.end)}`) : 'no anchor date set'}${cr.autoRedeem?' · Auto-credited, no action needed':''}</div>
-          ${progressPct!==null ? `<div style="height:4px;background:var(--gray-bg);border-radius:2px;margin-top:6px;overflow:hidden;"><div style="height:100%;width:${progressPct}%;background:${isRedeemed?'var(--green)':'var(--navy-light)'};"></div></div>` : ''}
-        </div>
-        <div class="amount">$${cr.value}</div>
-        <div><span class="pill ${pill.cls}">${pill.label}</span></div>
-        <div class="days">${daysLeft!==null? (daysLeft>=0? daysLeft+' days left' : '') : ''}</div>
-        <div class="actions">
-          ${!isRedeemed && cycle && !cr.autoRedeem ? `<button class="btn btn-sm btn-primary" data-mark-cr="${cr.id}">Mark redeemed</button>` : ''}
-          ${!cycle ? `<button class="btn btn-sm btn-primary" data-mark-cr="${cr.id}">+ Log redemption</button>` : ''}
-          ${isRedeemed ? `<button class="btn btn-sm" data-editredemption-cr="${cr.id}">Edit amount</button><button class="btn btn-sm btn-danger" data-unredeem-cr="${cr.id}">Unredeem</button>` : ''}
-          <button class="btn btn-sm" data-edit-cr="${cr.id}">Edit</button>
-          <button class="btn btn-sm btn-danger" data-del-cr="${cr.id}">Delete</button>
-        </div>
-      </div>`;
+  let rowsHtml;
+  if(creditsGroupByCard){
+    // ENHANCEMENT: group by card. This only changes how existing rows are
+    // arranged/labeled on screen — it doesn't reorder, mutate, or otherwise
+    // touch DATA.credits at all, so turning the toggle back off always
+    // restores exactly the same flat list (in whatever sort mode was
+    // already selected) with nothing lost or changed underneath.
+    const UNLINKED = '__unlinked__';
+    const groups = new Map();
+    ordered.forEach(item=>{
+      const key = (item.cr.cardId && cardById(item.cr.cardId)) ? item.cr.cardId : UNLINKED;
+      if(!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(item);
+    });
+    const groupKeyOrder = DATA.cards.map(c=>c.id).filter(id=>groups.has(id));
+    if(groups.has(UNLINKED)) groupKeyOrder.push(UNLINKED);
+    rowsHtml = groupKeyOrder.map(key=>{
+      const items = groups.get(key);
+      const label = key===UNLINKED ? '(unlinked)' : escHtml(cardById(key).name);
+      const groupTotal = items.reduce((s,i)=>s+i.cr.value,0);
+      const header = `<div style="padding:10px 20px;font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:var(--text-muted);background:var(--surface-hover);border-bottom:1px solid var(--border);">${label} · ${items.length} credit${items.length===1?'':'s'} · $${groupTotal.toLocaleString()}</div>`;
+      return header + items.map(item=>renderCreditRowHtml(today, item, false)).join('');
     }).join('');
+  } else {
+    rowsHtml = ordered.map(item=>renderCreditRowHtml(today, item, true)).join('');
+  }
   list.innerHTML = rowsHtml || '<div class="empty">No credits yet.</div>';
 
   document.getElementById('addCreditBtn').onclick = ()=>openCreditModal();
   document.getElementById('creditsSortSelect').onchange = (e)=>{ creditsSortMode = e.target.value; renderCredits(); };
+  document.getElementById('creditsGroupToggle').onchange = (e)=>{ creditsGroupByCard = e.target.checked; renderCredits(); };
   list.querySelectorAll('[data-edit-cr]').forEach(b=>b.onclick=()=>openCreditModal(b.dataset.editCr));
   list.querySelectorAll('[data-del-cr]').forEach(b=>b.onclick=()=>{
     showConfirm('Delete this credit? Its logged redemption history will remain in the log but become unlinked.', ()=>{
@@ -1314,14 +1406,20 @@ function renderCredits(){
     b.onclick = ()=>unredeemItem('cr', id, row.cycle);
   });
 
-  makeDragReorderable(list, '.list-row', row=>row.dataset.rowId, (newOrderIds)=>{
-    const wasManual = creditsSortMode === 'manual';
-    DATA.credits = newOrderIds.map(id=>DATA.credits.find(c=>c.id===id));
-    creditsSortMode = 'manual';
-    saveData();
-    if(!wasManual){ toast('Switched to manual order'); renderCredits(); }
-    else { document.getElementById('creditsSortSelect').value = 'manual'; }
-  });
+  // ENHANCEMENT: dragging to manually reorder doesn't make sense across
+  // group boundaries, so it's simply not offered while grouped — the
+  // "Sort: manual order" option and drag handles come back exactly as
+  // before the moment "Group by card" is unchecked.
+  if(!creditsGroupByCard){
+    makeDragReorderable(list, '.list-row', row=>row.dataset.rowId, (newOrderIds)=>{
+      const wasManual = creditsSortMode === 'manual';
+      DATA.credits = newOrderIds.map(id=>DATA.credits.find(c=>c.id===id));
+      creditsSortMode = 'manual';
+      saveData();
+      if(!wasManual){ toast('Switched to manual order'); renderCredits(); }
+      else { document.getElementById('creditsSortSelect').value = 'manual'; }
+    });
+  }
 }
 
 function openCreditModal(id){
@@ -1333,7 +1431,7 @@ function openCreditModal(id){
       <div class="field"><label>Card</label><select id="f_card">${DATA.cards.map(c=>`<option value="${c.id}" ${c.id===cr.cardId?'selected':''}>${escHtml(c.name)}</option>`).join('')}</select></div>
       <div class="field"><label>Credit name</label><input id="f_name" value="${escAttr(cr.name)}"></div>
       <div class="field-row">
-        <div class="field"><label>Value ($)</label><input id="f_value" type="number" value="${cr.value}"></div>
+        <div class="field"><label>Value ($)</label><input id="f_value" type="number" min="0" value="${cr.value}"></div>
         <div class="field"><label>Frequency</label>
           <select id="f_freq">
             ${['Annual','Semi-Annual','Quarterly','Per Stay'].map(f=>`<option ${f===cr.frequency?'selected':''}>${f}</option>`).join('')}
@@ -1353,6 +1451,7 @@ function openCreditModal(id){
   document.getElementById('modalSave').onclick = ()=>{
     const obj = { id: editing?id:uid('cr'), cardId: val('f_card'), name: val('f_name'), value: Number(val('f_value'))||0, frequency: val('f_freq'), anchor: val('f_anchor')||null, autoRedeem: document.getElementById('f_autoredeem').checked };
     if(!obj.name){ toast('Credit name is required'); return; }
+    if(obj.value < 0){ toast('Credit value cannot be negative'); return; }
     if(editing){ const i=DATA.credits.findIndex(x=>x.id===id); DATA.credits[i]=obj; } else DATA.credits.push(obj);
     saveData(); closeModal(); runAutoRedemptions(); renderCredits(); toast('Credit saved');
   };
@@ -1392,7 +1491,7 @@ function openRedeemModal(kind, sourceId, cycle){
     <div class="modal-head"><h3>Log redemption</h3><button class="close-x" id="modalClose">✕</button></div>
     <div class="modal-body">
       <div class="field"><label>Date used</label><input id="f_date" type="date" value="${defaultRedeemDate(cycle)}"></div>
-      <div class="field"><label>Amount ($)</label><input id="f_amount" type="number" value="${defaultAmount}" placeholder="${needsValue?'Estimated cash value of the stay you booked':''}"></div>
+      <div class="field"><label>Amount ($)</label><input id="f_amount" type="number" min="0" value="${defaultAmount}" placeholder="${needsValue?'Estimated cash value of the stay you booked':''}"></div>
       ${needsValue ? `<div class="hint">Free nights don't have a fixed dollar value — enter what the stay would have cost in cash (check the hotel's rate for your dates) so it counts toward value realized.</div>` : ''}
       ${kind==='fn' ? `<div class="field"><label>Property (optional)</label><input id="f_property" value="${escAttr(item.property||'')}"></div>` : ''}
     </div>
@@ -1411,6 +1510,7 @@ function openRedeemModal(kind, sourceId, cycle){
       return;
     }
     const amount = Number(val('f_amount'))||0;
+    if(amount < 0){ toast('Amount cannot be negative'); return; }
     if(kind==='fn' && amount <= 0){
       toast('Enter the cash value of this free night before marking it used');
       return;
@@ -1453,6 +1553,50 @@ function sortedFreeNightsList(today){
   return withCycle;
 }
 
+// Same split-out pattern as renderCreditRowHtml — see its comment above.
+function renderFreeNightRowHtml(today, {fn, cycle, isLive}, showDragHandle){
+  const card = cardById(fn.cardId);
+  const redeemed = redeemedInCycle(fn.id, cycle);
+  const isUsed = redeemed > 0;
+  const expiration = effectiveExpiration(fn, cycle);
+  const hasAnyHistory = !cycle && DATA.history.some(h=>h.sourceId===fn.id);
+  const daysLeft = (expiration && isLive) ? daysBetween(today, expiration) : null;
+  const isExpired = daysLeft !== null && daysLeft < 0 && !isUsed;
+  let pill;
+  if(!cycle && hasAnyHistory){ pill = {label:'Logged', cls:'pill-green'}; }
+  else if(!cycle){ pill = {label:'Not yet issued', cls:'pill-gray'}; }
+  else if(isUsed){ pill = {label:'Redeemed', cls:'pill-green'}; }
+  else if(isExpired){ pill = {label:'Expired', cls:'pill-gray'}; }
+  else if(isLive){ pill = statusForDays(daysBetween(today, expiration), 90); }
+  else { pill = {label:'Not redeemed', cls:'pill-gray'}; }
+  let progressPct = null;
+  if(cycle && isLive){
+    const total = cycle.nextStart - cycle.start;
+    const elapsed = today - cycle.start;
+    progressPct = Math.max(0, Math.min(100, Math.round((elapsed/total)*100)));
+  }
+
+  return `
+  <div class="list-row" data-row-id="${fn.id}">
+    ${showDragHandle ? '<div class="drag-handle">⠿</div>' : '<div style="width:20px;"></div>'}
+    <div class="main-col">
+      <div class="title"${isExpired ? ' style="text-decoration:line-through;opacity:.55;"' : ''}>${escHtml(fn.desc)}</div>
+      <div class="subtitle">${card?escHtml(card.name):'(unlinked)'} · ${escHtml(fn.program)}${expiration?` · expires ${fmtDate(expiration)}${fn.expirationOverride?' (set manually)':''}`:(cycle?'':' · no anchor date set')}</div>
+      ${progressPct!==null ? `<div style="height:4px;background:var(--gray-bg);border-radius:2px;margin-top:6px;overflow:hidden;"><div style="height:100%;width:${progressPct}%;background:${isUsed?'var(--green)':'var(--navy-light)'};"></div></div>` : ''}
+    </div>
+    <div class="amount">${redeemed>0?'$'+redeemed:'—'}</div>
+    <div><span class="pill ${pill.cls}">${pill.label}</span></div>
+    <div class="days">${daysLeft!==null? (daysLeft>=0? daysLeft+' days left' : '') : ''}</div>
+    <div class="actions">
+      ${!isUsed && cycle ? `<button class="btn btn-sm btn-primary" data-mark-fn="${fn.id}">Mark used</button>` : ''}
+      ${!cycle ? `<button class="btn btn-sm btn-primary" data-mark-fn="${fn.id}">+ Log redemption</button>` : ''}
+      ${isUsed ? `<button class="btn btn-sm" data-editredemption-fn="${fn.id}">Edit amount</button><button class="btn btn-sm btn-danger" data-unredeem-fn="${fn.id}">Unredeem</button>` : ''}
+      <button class="btn btn-sm" data-edit-fn="${fn.id}">Edit</button>
+      <button class="btn btn-sm btn-danger" data-del-fn="${fn.id}">Delete</button>
+    </div>
+  </div>`;
+}
+
 function renderFreeNights(){
   const today = new Date();
   const content = document.getElementById('content');
@@ -1460,7 +1604,10 @@ function renderFreeNights(){
     <div class="panel">
       <div class="panel-head">
         <h2>${DATA.freeNights.length} free night certificates</h2>
-        <div style="display:flex;gap:8px;align-items:center;">
+        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+          <label style="font-size:12.5px;display:flex;align-items:center;gap:5px;white-space:nowrap;">
+            <input type="checkbox" id="fnGroupToggle" ${fnGroupByCard?'checked':''}> Group by card
+          </label>
           <select id="fnSortSelect" class="btn-sm">
             <option value="daysLeft">Sort: days left</option>
             <option value="value">Sort: value</option>
@@ -1477,60 +1624,31 @@ function renderFreeNights(){
 
   const ordered = sortedFreeNightsList(today);
 
-  const rowsHtml = ordered
-    .map(({fn, cycle, isLive})=>{
-      const card = cardById(fn.cardId);
-      const redeemed = redeemedInCycle(fn.id, cycle);
-      const isUsed = redeemed > 0;
-      const expiration = effectiveExpiration(fn, cycle);
-      // BUG FOUND IN RE-SCAN: same issue as the credits list — a
-      // certificate with no anchor/issue date has no cycle, so isUsed above
-      // is always false for it even right after logging one via "+ Log
-      // redemption". Surface that something was actually logged.
-      const hasAnyHistory = !cycle && DATA.history.some(h=>h.sourceId===fn.id);
-      const daysLeft = (expiration && isLive) ? daysBetween(today, expiration) : null;
-      // "Overdue"/"Urgent" both implied there was still time-sensitive
-      // action to take — but a lapsed free-night certificate is genuinely
-      // gone, not just late. Cross it out instead of labeling it either way.
-      const isExpired = daysLeft !== null && daysLeft < 0 && !isUsed;
-      let pill;
-      if(!cycle && hasAnyHistory){ pill = {label:'Logged', cls:'pill-green'}; }
-      else if(!cycle){ pill = {label:'Not yet issued', cls:'pill-gray'}; }
-      else if(isUsed){ pill = {label:'Redeemed', cls:'pill-green'}; }
-      else if(isExpired){ pill = {label:'Expired', cls:'pill-gray'}; }
-      else if(isLive){ pill = statusForDays(daysBetween(today, expiration), 90); }
-      else { pill = {label:'Not redeemed', cls:'pill-gray'}; }
-      let progressPct = null;
-      if(cycle && isLive){
-        const total = cycle.nextStart - cycle.start;
-        const elapsed = today - cycle.start;
-        progressPct = Math.max(0, Math.min(100, Math.round((elapsed/total)*100)));
-      }
-
-      return `
-      <div class="list-row" data-row-id="${fn.id}">
-        <div class="drag-handle">⠿</div>
-        <div class="main-col">
-          <div class="title"${isExpired ? ' style="text-decoration:line-through;opacity:.55;"' : ''}>${escHtml(fn.desc)}</div>
-          <div class="subtitle">${card?escHtml(card.name):'(unlinked)'} · ${escHtml(fn.program)}${expiration?` · expires ${fmtDate(expiration)}${fn.expirationOverride?' (set manually)':''}`:(cycle?'':' · no anchor date set')}</div>
-          ${progressPct!==null ? `<div style="height:4px;background:var(--gray-bg);border-radius:2px;margin-top:6px;overflow:hidden;"><div style="height:100%;width:${progressPct}%;background:${isUsed?'var(--green)':'var(--navy-light)'};"></div></div>` : ''}
-        </div>
-        <div class="amount">${redeemed>0?'$'+redeemed:'—'}</div>
-        <div><span class="pill ${pill.cls}">${pill.label}</span></div>
-        <div class="days">${daysLeft!==null? (daysLeft>=0? daysLeft+' days left' : '') : ''}</div>
-        <div class="actions">
-          ${!isUsed && cycle ? `<button class="btn btn-sm btn-primary" data-mark-fn="${fn.id}">Mark used</button>` : ''}
-          ${!cycle ? `<button class="btn btn-sm btn-primary" data-mark-fn="${fn.id}">+ Log redemption</button>` : ''}
-          ${isUsed ? `<button class="btn btn-sm" data-editredemption-fn="${fn.id}">Edit amount</button><button class="btn btn-sm btn-danger" data-unredeem-fn="${fn.id}">Unredeem</button>` : ''}
-          <button class="btn btn-sm" data-edit-fn="${fn.id}">Edit</button>
-          <button class="btn btn-sm btn-danger" data-del-fn="${fn.id}">Delete</button>
-        </div>
-      </div>`;
+  let rowsHtml;
+  if(fnGroupByCard){
+    const UNLINKED = '__unlinked__';
+    const groups = new Map();
+    ordered.forEach(item=>{
+      const key = (item.fn.cardId && cardById(item.fn.cardId)) ? item.fn.cardId : UNLINKED;
+      if(!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(item);
+    });
+    const groupKeyOrder = DATA.cards.map(c=>c.id).filter(id=>groups.has(id));
+    if(groups.has(UNLINKED)) groupKeyOrder.push(UNLINKED);
+    rowsHtml = groupKeyOrder.map(key=>{
+      const items = groups.get(key);
+      const label = key===UNLINKED ? '(unlinked)' : escHtml(cardById(key).name);
+      const header = `<div style="padding:10px 20px;font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:var(--text-muted);background:var(--surface-hover);border-bottom:1px solid var(--border);">${label} · ${items.length} certificate${items.length===1?'':'s'}</div>`;
+      return header + items.map(item=>renderFreeNightRowHtml(today, item, false)).join('');
     }).join('');
+  } else {
+    rowsHtml = ordered.map(item=>renderFreeNightRowHtml(today, item, true)).join('');
+  }
   list.innerHTML = rowsHtml || '<div class="empty">No certificates yet.</div>';
 
   document.getElementById('addFnBtn').onclick = ()=>openFnModal();
   document.getElementById('fnSortSelect').onchange = (e)=>{ fnSortMode = e.target.value; renderFreeNights(); };
+  document.getElementById('fnGroupToggle').onchange = (e)=>{ fnGroupByCard = e.target.checked; renderFreeNights(); };
   list.querySelectorAll('[data-edit-fn]').forEach(b=>b.onclick=()=>openFnModal(b.dataset.editFn));
   list.querySelectorAll('[data-del-fn]').forEach(b=>b.onclick=()=>{
     showConfirm('Delete this certificate? Its logged redemption history will remain in the log but become unlinked.', ()=>{
@@ -1557,14 +1675,16 @@ function renderFreeNights(){
     b.onclick = ()=>unredeemItem('fn', id, row.cycle);
   });
 
-  makeDragReorderable(list, '.list-row', row=>row.dataset.rowId, (newOrderIds)=>{
-    const wasManual = fnSortMode === 'manual';
-    DATA.freeNights = newOrderIds.map(id=>DATA.freeNights.find(f=>f.id===id));
-    fnSortMode = 'manual';
-    saveData();
-    if(!wasManual){ toast('Switched to manual order'); renderFreeNights(); }
-    else { document.getElementById('fnSortSelect').value = 'manual'; }
-  });
+  if(!fnGroupByCard){
+    makeDragReorderable(list, '.list-row', row=>row.dataset.rowId, (newOrderIds)=>{
+      const wasManual = fnSortMode === 'manual';
+      DATA.freeNights = newOrderIds.map(id=>DATA.freeNights.find(f=>f.id===id));
+      fnSortMode = 'manual';
+      saveData();
+      if(!wasManual){ toast('Switched to manual order'); renderFreeNights(); }
+      else { document.getElementById('fnSortSelect').value = 'manual'; }
+    });
+  }
 }
 
 function openFnModal(id){
@@ -1667,7 +1787,7 @@ function openHistModal(id){
       <div class="field"><label>Card</label><select id="f_card">${DATA.cards.map(c=>`<option value="${c.id}" ${entry&&c.id===entry.cardId?'selected':''}>${escHtml(c.name)}</option>`).join('')}</select></div>
       <div class="field"><label>Type</label><select id="f_type"><option ${entry&&entry.type==='Credit'?'selected':''}>Credit</option><option ${entry&&entry.type==='Free Night'?'selected':''}>Free Night</option></select></div>
       <div class="field"><label>Description</label><input id="f_desc" value="${escAttr(entry?entry.desc:'')}" placeholder="e.g. $300 Annual Travel Credit"></div>
-      <div class="field"><label>Amount ($)</label><input id="f_amount" type="number" value="${entry?entry.amount:''}"></div>
+      <div class="field"><label>Amount ($)</label><input id="f_amount" type="number" min="0" value="${entry?entry.amount:''}"></div>
       ${entry&&entry.sourceId ? `<div class="hint">This entry is linked to a row on the Annual Credits or Free Nights tab. Editing it here updates that row's status too.</div>` : ''}
     </div>
     <div class="modal-foot">
@@ -1679,6 +1799,7 @@ function openHistModal(id){
     const desc = val('f_desc');
     const amount = Number(val('f_amount'))||0;
     if(!desc){ toast('Description is required'); return; }
+    if(amount < 0){ toast('Amount cannot be negative'); return; }
     if(editing){
       Object.assign(entry, { date: val('f_date'), cardId: val('f_card'), type: val('f_type'), desc, amount });
     } else {
@@ -1774,6 +1895,27 @@ document.querySelectorAll('#nav button').forEach(b=> b.onclick = ()=> switchView
 document.getElementById('yearSelect').onchange = (e)=>{ selectedYear = Number(e.target.value); switchView(currentView); };
 document.getElementById('addYearBtn').onclick = addTrackedYear;
 document.getElementById('deleteYearBtn').onclick = deleteTrackedYear;
+
+// ENHANCEMENT: dark mode toggle — flips the html[data-theme] attribute the
+// CSS variables key off of, and remembers the choice locally (per-device,
+// not synced — same rationale as above).
+function updateThemeButtonIcon(){
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  document.getElementById('themeToggleBtn').textContent = isDark ? '☀️' : '🌙';
+}
+updateThemeButtonIcon();
+document.getElementById('themeToggleBtn').onclick = ()=>{
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  const next = isDark ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  try{ localStorage.setItem(THEME_KEY, next); }catch(e){}
+  updateThemeButtonIcon();
+  // Only repaint if Dashboard is actually the view on screen right now —
+  // calling renderDashboard() unconditionally would silently swap #content
+  // to the Dashboard's markup while the sidebar nav still shows whichever
+  // tab was actually active, leaving the two out of sync.
+  if(currentView === 'dashboard') renderDashboard();
+};
 
 let hasRenderedOnce = false;
 
