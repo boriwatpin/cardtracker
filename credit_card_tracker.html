@@ -1070,19 +1070,14 @@ function occurrenceForYear(anchorStr, durationMonths, year){
   return {start, end, nextStart};
 }
 
-// FIX: the Credits and Free Nights tabs previously ignored the year
-// selector entirely — they always showed whatever cycle was "live" right
-// now, regardless of which year was picked in the dropdown. This picks the
-// right cycle for whatever year is currently selected: the real, "today"
-// relative cycle when that cycle's own year matches the selection (so all
-// the existing overdue/countdown behavior is preserved unchanged for the
-// current period), or a plain calendar-year occurrence otherwise (for
-// reviewing a past year or previewing a future one).
-function cycleForSelectedYear(anchorStr, durationMonths, today){
-  const live = currentCycle(anchorStr, durationMonths, 12, today);
-  if(live && live.start.getFullYear() === selectedYear) return {cycle: live, isLive:true};
-  return {cycle: occurrenceForYear(anchorStr, durationMonths, selectedYear), isLive:false};
-}
+// REMOVED (was cycleForSelectedYear): used to switch the Credits/Free
+// Nights tabs between the live cycle and a static per-year preview based
+// on the top-level year selector. Removed as part of the fix described on
+// sortedCreditsList()/sortedFreeNightsList() below — those tabs now
+// always call currentCycle() directly and show the real, live status,
+// which is what actually matches user expectations. occurrenceForYear()
+// above is kept — it's still used by Delete Year's suppression-key logic
+// to correctly identify which historical cycle a given entry belonged to.
 
 // FIX: the "Log redemption" modal always defaulted the date field to the
 // real today's date, even while reviewing a past or future year — so
@@ -1879,13 +1874,26 @@ function deleteCard(id){
 /* ---------- Annual Credits ---------- */
 function sortedCreditsList(today){
   const withCycle = DATA.credits.map(cr=>{
-    // FIX: use the selected year's cycle, not always "today"'s — see
-    // cycleForSelectedYear(). Each row still rolls forward a full year to
-    // reach its own next occurrence (see the comment on currentCycle) —
-    // that's what keeps distinct rows like Q1-Q4 or H1/H2 from drifting
-    // into each other's windows.
-    const {cycle, isLive} = cycleForSelectedYear(cr.anchor, CYCLE_MONTHS[cr.frequency]||12, today);
-    return {cr, cycle, isLive};
+    // DESIGN FIX: this used to switch between the live cycle and a static
+    // "preview" cycle depending on whether the top-level year selector
+    // matched this credit's own live-cycle year — cycleForSelectedYear()
+    // was built to let this tab preview a different year's schedule. In
+    // practice this caused real, repeated confusion: any credit anchored
+    // in the second half of the year shows a live cycle spanning a year
+    // boundary (e.g. Aug 2025 -> Aug 2026), so it silently flips into the
+    // static "preview" view for a large chunk of the year whenever the
+    // selector sits on the "wrong" year relative to that one credit —
+    // while every Jan-1-anchored credit keeps showing live normally. The
+    // same credit going in and out of "live" as time passes, purely based
+    // on an unrelated dropdown elsewhere on the page, isn't something
+    // anyone should have to reason about. This tab now always shows each
+    // credit's real, current status — full stop. The year selector still
+    // does something real: it controls the *historical* value-realized
+    // totals on the Dashboard and Cards tab, which is a genuinely
+    // different, backward-looking question ("how much did I get in
+    // 2025?") from "what's this credit's status right now?".
+    const cycle = currentCycle(cr.anchor, CYCLE_MONTHS[cr.frequency]||12, 12, today);
+    return {cr, cycle, isLive: !!cycle};
   });
   if(creditsSortMode === 'value'){
     withCycle.sort((a,b)=> b.cr.value - a.cr.value);
@@ -2201,9 +2209,11 @@ function openRedeemModal(kind, sourceId, cycle){
 /* ---------- Free Nights ---------- */
 function sortedFreeNightsList(today){
   const withCycle = DATA.freeNights.map(fn=>{
-    // FIX: use the selected year's cycle, not always "today"'s.
-    const {cycle, isLive} = cycleForSelectedYear(fn.anchor, 12, today);
-    return {fn, cycle, isLive};
+    // DESIGN FIX: see the matching comment on sortedCreditsList() above —
+    // this tab now always shows each certificate's real, current status,
+    // regardless of the top-level year selector.
+    const cycle = currentCycle(fn.anchor, 12, 12, today);
+    return {fn, cycle, isLive: !!cycle};
   });
   if(fnSortMode === 'value'){
     withCycle.sort((a,b)=> (b.fn.cashValue||0) - (a.fn.cashValue||0));
