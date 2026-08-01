@@ -27,6 +27,10 @@
     --surface-tile:#fbfcfe;
     --surface-hover:#fafbfd;
     --border-hover:#d3dae6;
+    /* Matches the desktop Chart.js bar colors exactly, so the mobile bar
+       list (see .fee-chart-*) reads as the same chart, not a different one. */
+    --chart-fee:#c9d3e6;
+    --chart-value:#1f3864;
   }
   /* ENHANCEMENT (dark mode): toggled by adding data-theme="dark" to <html>.
      Every color in the app is already driven by the variables above, so the
@@ -47,6 +51,8 @@
     --surface-tile:#1f2531;
     --surface-hover:#242a38;
     --border-hover:#3a4358;
+    --chart-fee:#3a4358;
+    --chart-value:#5b82c4;
   }
   *{box-sizing:border-box;}
   body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;background:var(--bg);color:var(--text);overflow-x:hidden;}
@@ -160,6 +166,24 @@
      card" table (see renderDashboard) — hidden on desktop/tablet, where
      the table already displays every column comfortably. */
   .dashboard-mobile-cards{display:none;}
+  /* MOBILE: the bar-per-card alternative to the rotated-label Chart.js
+     chart (see renderDashboard) — hidden on desktop/tablet, where the
+     chart already reads fine. */
+  .dashboard-fee-mobile{display:none;}
+  .fee-chart-legend{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text-muted);margin-bottom:12px;flex-wrap:wrap;}
+  .fee-chart-swatch{display:inline-block;width:10px;height:10px;border-radius:3px;}
+  .fee-chart-swatch.fee{background:var(--chart-fee);}
+  .fee-chart-swatch.value{background:var(--chart-value);}
+  .fee-chart-row{padding:10px 0;border-bottom:1px solid var(--border);}
+  .fee-chart-row:last-child{border-bottom:none;}
+  .fee-chart-name{font-size:13px;font-weight:700;margin-bottom:6px;}
+  .fee-chart-bar-line{display:flex;align-items:center;gap:8px;margin-bottom:4px;}
+  .fee-chart-bar-line:last-child{margin-bottom:0;}
+  .fee-chart-track{flex:1;height:14px;background:var(--gray-bg);border-radius:4px;overflow:hidden;}
+  .fee-chart-fill{height:100%;border-radius:4px;min-width:2px;}
+  .fee-chart-fill.fee{background:var(--chart-fee);}
+  .fee-chart-fill.value{background:var(--chart-value);}
+  .fee-chart-amount{font-size:12px;font-weight:600;color:var(--text-muted);width:58px;text-align:right;flex-shrink:0;}
 
   /* ---------- Drag-to-reorder handle (pointer-events based: mouse + touch + keyboard) ---------- */
   .drag-handle{cursor:grab;color:var(--text-soft);font-size:16px;line-height:1;width:20px;text-align:center;
@@ -299,6 +323,10 @@
     .dashboard-table{display:none;}
     .dashboard-mobile-cards{display:grid;grid-template-columns:1fr;}
     .chart-wrap{padding:12px 10px;}
+    /* Swap the rotated-label Chart.js chart for the readable bar-per-card
+       list — see the comment on .dashboard-fee-mobile and renderDashboard. */
+    .dashboard-chart-desktop{display:none;}
+    .dashboard-fee-mobile{display:block;padding:14px 16px;}
 
     /* 2-column KPI grid reads better than 1-per-row on a phone-width screen. */
     .kpi-row{grid-template-columns:1fr 1fr;gap:10px;}
@@ -1553,7 +1581,37 @@ function renderDashboard(){
 
     <div class="panel">
       <div class="panel-head"><h2>Fee vs. value realized — ${selectedYear}</h2></div>
-      <div class="chart-wrap"><canvas id="feeChart" height="90"></canvas></div>
+      <div class="chart-wrap dashboard-chart-desktop"><canvas id="feeChart" height="90"></canvas></div>
+      <!-- MOBILE: the rotated-label bar chart above becomes unreadable at
+           phone width (9 diagonal card names overlapping each other). This
+           renders the exact same fee-vs-value numbers as a vertical list —
+           one row per card, two proportional bars each — which reads
+           cleanly with no rotated text and no chart-library scaling
+           quirks at small sizes. Built from the same "rows" array as the
+           chart above, so the two can never show different numbers; CSS
+           alone decides which one is actually visible. -->
+      <div class="dashboard-fee-mobile">
+        <div class="fee-chart-legend"><span class="fee-chart-swatch fee"></span> Annual fee &nbsp; <span class="fee-chart-swatch value"></span> Value realized</div>
+        ${(()=>{
+          const maxAmount = Math.max(1, ...rows.map(r=>Math.max(r.card.fee, r.value)));
+          return rows.map(r=>{
+            const feePct = Math.round((r.card.fee / maxAmount) * 100);
+            const valuePct = Math.round((r.value / maxAmount) * 100);
+            return `
+            <div class="fee-chart-row">
+              <div class="fee-chart-name">${escHtml(r.card.name)}</div>
+              <div class="fee-chart-bar-line">
+                <div class="fee-chart-track"><div class="fee-chart-fill fee" style="width:${feePct}%"></div></div>
+                <span class="fee-chart-amount">$${r.card.fee.toLocaleString()}</span>
+              </div>
+              <div class="fee-chart-bar-line">
+                <div class="fee-chart-track"><div class="fee-chart-fill value" style="width:${valuePct}%"></div></div>
+                <span class="fee-chart-amount">$${r.value.toLocaleString()}</span>
+              </div>
+            </div>`;
+          }).join('');
+        })()}
+      </div>
     </div>
 
     <div class="panel">
