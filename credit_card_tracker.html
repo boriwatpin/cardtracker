@@ -1936,13 +1936,16 @@ function renderCreditRowHtml(today, {cr, cycle, isLive}, showDragHandle){
     const elapsed = today - cycle.start;
     progressPct = Math.max(0, Math.min(100, Math.round((elapsed/total)*100)));
   }
+  // NEW FEATURE: renewal type label — see the comment on this field in
+  // openCreditModal. Purely informational, doesn't touch cycle math.
+  const renewalLabel = cr.renewalType === 'calendar' ? 'Calendar year' : 'Card anniversary';
 
   return `
   <div class="list-row" data-row-id="${cr.id}">
     ${showDragHandle ? '<div class="drag-handle">⠿</div>' : '<div style="width:20px;"></div>'}
     <div class="main-col">
       <div class="title"${isExpired ? ' style="text-decoration:line-through;opacity:.55;"' : ''}>${escHtml(cr.name)}</div>
-      <div class="subtitle">${card?escHtml(card.name):'(unlinked)'} · ${escHtml(cr.frequency)} · ${cycle ? (isLive ? `resets ${fmtDate(cycle.end)}` : `${fmtDate(cycle.start)} – ${fmtDate(cycle.end)}`) : 'no anchor date set'}${cr.autoRedeem?' · Auto-credited, no action needed':''}</div>
+      <div class="subtitle">${card?escHtml(card.name):'(unlinked)'} · ${escHtml(cr.frequency)} · ${renewalLabel} · ${cycle ? (isLive ? `resets ${fmtDate(cycle.end)}` : `${fmtDate(cycle.start)} – ${fmtDate(cycle.end)}`) : 'no anchor date set'}${cr.autoRedeem?' · Auto-credited, no action needed':''}</div>
       ${progressPct!==null ? `<div style="height:4px;background:var(--gray-bg);border-radius:2px;margin-top:6px;overflow:hidden;"><div style="height:100%;width:${progressPct}%;background:${isRedeemed?'var(--green)':'var(--navy-light)'};"></div></div>` : ''}
     </div>
     <div class="row-break"></div>
@@ -2064,7 +2067,21 @@ function renderCredits(){
 
 function openCreditModal(id){
   const editing = !!id;
-  const cr = editing ? DATA.credits.find(x=>x.id===id) : {cardId:DATA.cards[0]?.id||'', name:'', value:'', frequency:'Annual', anchor:''};
+  const cr = editing ? DATA.credits.find(x=>x.id===id) : {cardId:DATA.cards[0]?.id||'', name:'', value:'', frequency:'Annual', anchor:'', renewalType:'anniversary'};
+  // NEW FEATURE: renewal type. Doesn't change any cycle math at all — a
+  // credit's reset date has always just been "the anchor's month/day,
+  // recurring every year" (see currentCycle/occurrenceForYear), and that's
+  // unchanged. What was missing was any indication of WHICH kind of reset
+  // a given credit actually represents, which made it easy to set the
+  // wrong anchor (e.g. using your card's account-open date for a benefit
+  // that actually resets every calendar Jan 1, or vice versa). This adds
+  // an explicit label plus guidance text for each case; existing credits
+  // default to 'anniversary' since that's exactly what they've always
+  // effectively been (no behavior change for anything already set up).
+  const renewalType = cr.renewalType || 'anniversary';
+  const renewalHint = (type)=> type === 'calendar'
+    ? 'Resets on a fixed calendar date every year, regardless of when you got the card — e.g. Jan 1 for a full calendar year, Jan 1 or Jul 1 for H1/H2, or Jan 1 / Apr 1 / Jul 1 / Oct 1 for Q1-Q4. Set the anchor to that calendar date.'
+    : 'Resets on your card\'s specific anniversary — e.g. the date you opened the card, or whenever this particular benefit\'s year actually starts for you. Set the anchor to that real date, whatever it is.';
   showModal(`
     <div class="modal-head"><h3>${editing?'Edit credit':'Add credit'}</h3><button class="close-x" id="modalClose">✕</button></div>
     <div class="modal-body">
@@ -2078,6 +2095,13 @@ function openCreditModal(id){
           </select>
         </div>
       </div>
+      <div class="field"><label>Renews based on</label>
+        <select id="f_renewaltype">
+          <option value="anniversary" ${renewalType==='anniversary'?'selected':''}>Card anniversary date</option>
+          <option value="calendar" ${renewalType==='calendar'?'selected':''}>Calendar year / period</option>
+        </select>
+      </div>
+      <div class="hint" id="renewalTypeHint">${renewalHint(renewalType)}</div>
       <div class="field"><label>Anchor date (when this specific window starts)</label><input id="f_anchor" type="date" value="${cr.anchor||''}"></div>
       <div class="hint">Set this to the actual start date of this credit's window (e.g. Apr 1 for a "Q2" row, Jul 1 for an "H2" row). It only needs to be set once — this exact row resets on that same date every year going forward, so distinct rows like Q1-Q4 never drift into each other's dates.</div>
       <div class="field"><label><input id="f_autoredeem" type="checkbox" style="width:auto;margin-right:6px;" ${cr.autoRedeem?'checked':''}>This is auto-applied by the issuer (no spending or booking needed)</label></div>
@@ -2088,8 +2112,11 @@ function openCreditModal(id){
       <button class="btn btn-primary" id="modalSave">Save</button>
     </div>
   `);
+  document.getElementById('f_renewaltype').onchange = (e)=>{
+    document.getElementById('renewalTypeHint').textContent = renewalHint(e.target.value);
+  };
   document.getElementById('modalSave').onclick = ()=>{
-    const obj = { id: editing?id:uid('cr'), cardId: val('f_card'), name: val('f_name'), value: Number(val('f_value'))||0, frequency: val('f_freq'), anchor: val('f_anchor')||null, autoRedeem: document.getElementById('f_autoredeem').checked };
+    const obj = { id: editing?id:uid('cr'), cardId: val('f_card'), name: val('f_name'), value: Number(val('f_value'))||0, frequency: val('f_freq'), anchor: val('f_anchor')||null, autoRedeem: document.getElementById('f_autoredeem').checked, renewalType: val('f_renewaltype') };
     if(!obj.name){ toast('Credit name is required'); return; }
     if(obj.value < 0){ toast('Credit value cannot be negative'); return; }
     if(editing){ const i=DATA.credits.findIndex(x=>x.id===id); DATA.credits[i]=obj; } else DATA.credits.push(obj);
