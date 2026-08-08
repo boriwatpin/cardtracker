@@ -2533,18 +2533,17 @@ function mileageRowHtml(mp, today){
       }).join('');
   return `
   <div class="list-row" data-row-id="${mp.id}" style="flex-direction:column;align-items:stretch;">
-    <div style="display:flex;align-items:center;gap:14px;width:100%;">
-      <div style="width:20px;"></div>
-      <div class="main-col">
+    <div style="display:flex;align-items:flex-start;gap:10px;width:100%;">
+      <div class="main-col" style="flex:1;min-width:0;">
         <div class="title">${escHtml(mp.programName)}</div>
         <div class="subtitle">${mp.accountNumber?`Acct #${escHtml(mp.accountNumber)} · `:''}${Number(mp.milesTotal||0).toLocaleString()} miles total</div>
       </div>
-      <div class="actions">
+      <div style="display:flex;gap:6px;flex-shrink:0;">
         <button class="btn btn-sm" data-edit-mp="${mp.id}">Edit</button>
         <button class="btn btn-sm btn-danger" data-del-mp="${mp.id}">Delete</button>
       </div>
     </div>
-    <div style="padding-left:34px;">${batchLinesHtml}</div>
+    <div style="padding-left:2px;margin-top:2px;">${batchLinesHtml}</div>
   </div>`;
 }
 
