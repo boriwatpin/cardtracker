@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Hotel Card Tracker v. 2</title>
+<title>Point Tracker v3</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
@@ -366,7 +366,7 @@
     <div class="brand">
       <div class="logo">🏨</div>
       <div>
-        <div class="title">Hotel Card Tracker<span class="version-tag">v.2</span></div>
+        <div class="title">Point Tracker<span class="version-tag">v3</span></div>
         <div class="sub">Credits &amp; free nights</div>
       </div>
     </div>
@@ -375,6 +375,7 @@
       <button data-view="cards"><span class="icon">💳</span> Cards</button>
       <button data-view="credits"><span class="icon">🔁</span> Annual Credits</button>
       <button data-view="freenights"><span class="icon">🌙</span> Free Nights</button>
+      <button data-view="mileage"><span class="icon">✈️</span> Miles &amp; Vouchers</button>
       <button data-view="history"><span class="icon">📜</span> Redemption Log</button>
     </div>
     <div class="sidebar-foot">
@@ -391,7 +392,7 @@
       <button class="btn btn-sm btn-primary" id="backupReminderBtn">Backup now</button>
       <button class="close-x" id="backupReminderDismiss" title="Dismiss for now">✕</button>
     </div>
-    <div class="mobile-brand-bar">🏨 Hotel Card Tracker<span class="version-tag">v.2</span></div>
+    <div class="mobile-brand-bar">🏨 Point Tracker<span class="version-tag">v3</span></div>
     <div class="topbar">
       <div>
         <h1 id="pageTitle">Dashboard</h1>
@@ -482,7 +483,9 @@ const SEED = {
     {id:'rh3', date:'2026-12-25', cardId:'c9', type:'Credit', sourceId:'cr13', desc:'$300 Annual Travel Credit (Capital One Travel)', amount:300},
   ],
   trackedYears: [2027, 2028, 2029],
-  _version: 5,
+  mileagePrograms: [],
+  vouchers: [],
+  _version: 6,
 };
 
 /* ============================================================
@@ -498,7 +501,7 @@ const DIRTY_KEY = STORE_KEY + '_dirty'; // FIX: persists across reloads/tab-clos
 const BACKUP_COUNT_KEY = STORE_KEY + '_changesSinceBackup';
 const BACKUP_REMINDER_THRESHOLD = 3; // "more than 2 changes"
 let changesSinceBackup = parseInt(localStorage.getItem(BACKUP_COUNT_KEY) || '0', 10) || 0;
-const CURRENT_DATA_VERSION = 5;
+const CURRENT_DATA_VERSION = 6;
 // SAFETY NET: remembers whether this load started from a completely empty
 // local cache (meaning DATA below is the hardcoded demo SEED, not anything
 // real) — used after bootstrapSync() resolves to decide whether a failed
@@ -588,6 +591,16 @@ function migrateData(data){
       cr14.autoRedeem = true;
     }
     data._version = 5;
+  }
+  if(data._version < 6){
+    // v6: adds manually-tracked mileage programs and vouchers (miles
+    // balances/expirations and named upgrade/lounge vouchers), each tagged
+    // with an ownerName so multiple family members can share this tracker.
+    // No existing data is touched — this just ensures both new arrays
+    // exist for anyone upgrading from an older save.
+    data.mileagePrograms = data.mileagePrograms || [];
+    data.vouchers = data.vouchers || [];
+    data._version = 6;
   }
   return data;
 }
@@ -1134,6 +1147,25 @@ function computeUpcomingReminders(){
     const daysLeft = daysBetween(today, expiration);
     if(daysLeft <= 30) items.push({name: fn.desc, daysLeft});
   });
+  // NEW FEATURE: mileage/voucher expirations, from the Miles & Vouchers
+  // tab. Neither has a recurring cycle to compute (unlike credits/free
+  // nights) — a manually-entered date is either set or it isn't, so this
+  // is just a direct days-until check. Owner name is prefixed since this
+  // banner is often shared across family members.
+  DATA.mileagePrograms.forEach(mp=>{
+    if(!mp.milesExpiringDate) return;
+    const expiration = parseDate(mp.milesExpiringDate);
+    if(!expiration) return;
+    const daysLeft = daysBetween(today, expiration);
+    if(daysLeft <= 30) items.push({name: `${mp.ownerName}: ${mp.programName} — ${Number(mp.milesExpiringAmount||0).toLocaleString()} miles`, daysLeft});
+  });
+  DATA.vouchers.forEach(v=>{
+    if(!v.expirationDate) return;
+    const expiration = parseDate(v.expirationDate);
+    if(!expiration) return;
+    const daysLeft = daysBetween(today, expiration);
+    if(daysLeft <= 30) items.push({name: `${v.ownerName}: ${v.title}`, daysLeft});
+  });
   // NEW FEATURE: annual fee reminders. Tagged isFee:true so the Dashboard
   // can word these distinctly from credit/free-night reminders ("posts in
   // Xd" rather than "Xd left") — a fee is a cost, not a benefit, and the
@@ -1343,6 +1375,48 @@ function issuerBadge(issuer){
   return initials ? { label: initials, bg:'var(--gray)', fg:'#ffffff' } : null;
 }
 
+// Same rationale as issuerBadge() above — no trademarked logos embedded,
+// just a small colored code chip, matched by keyword so any variant of an
+// airline's program name (e.g. "United MileagePlus" or just "United")
+// resolves to the same badge. Covers the airlines actually flown; anything
+// else falls back to generic initials, same pattern as issuerBadge.
+const AIRLINE_TABLE = [
+  { match:'united',     label:'UA', bg:'#075294', fg:'#ffffff' },
+  { match:'american',   label:'AA', bg:'#DE1B23', fg:'#ffffff' },
+  { match:'air canada', label:'AC', bg:'#D22630', fg:'#ffffff' },
+  { match:'eva',        label:'BR', bg:'#00693C', fg:'#ffffff' },
+  { match:'qatar',      label:'QR', bg:'#862633', fg:'#ffffff' },
+  { match:'emirates',   label:'EK', bg:'#D71920', fg:'#ffffff' },
+  { match:'thai',       label:'TG', bg:'#520049', fg:'#ffffff' },
+  { match:'singapore',  label:'SQ', bg:'#00205B', fg:'#ffffff' },
+  { match:'cathay',     label:'CX', bg:'#006B6E', fg:'#ffffff' },
+  { match:'aegean',     label:'A3', bg:'#0A7AB9', fg:'#ffffff' },
+  { match:'alaska',     label:'AS', bg:'#523090', fg:'#ffffff' },
+];
+const AIRLINE_DISPLAY_NAMES = {
+  UA:'United', AA:'American', AC:'Air Canada', BR:'EVA Air', QR:'Qatar Airways',
+  EK:'Emirates', TG:'Thai Airways', SQ:'Singapore Airlines', CX:'Cathay Pacific',
+  A3:'Aegean', AS:'Alaska',
+};
+function airlineBadge(programName){
+  if(!programName) return null;
+  const name = programName.toLowerCase();
+  const found = AIRLINE_TABLE.find(t=>name.includes(t.match));
+  if(found) return found;
+  const initials = programName.trim().split(/\s+/).map(w=>w[0]).join('').slice(0,4).toUpperCase();
+  return initials ? { label: initials, bg:'#5f5e5a', fg:'#ffffff' } : null;
+}
+// Grouping key for the Miles & Vouchers tab: recognized airlines group by
+// their badge code (so "United MileagePlus" and "United" land in the same
+// group); anything unmatched, or with no program name at all, returns
+// null — meaning "put it in the Other bucket."
+function airlineGroupKey(programName){
+  if(!programName) return null;
+  const name = programName.toLowerCase();
+  const found = AIRLINE_TABLE.find(t=>name.includes(t.match));
+  return found ? found.label : null;
+}
+
 /* ============================================================
    YEAR SELECTOR
    ============================================================ */
@@ -1527,6 +1601,7 @@ const views = {
   cards: { title:'Cards', desc:'Every card you\'re tracking. Add a new one and it becomes available everywhere else.', render: renderCards },
   credits: { title:'Annual Credits', desc:'Recurring statement credits. Status and days-remaining update automatically as time passes.', render: renderCredits },
   freenights: { title:'Free Nights', desc:'Free night certificates and awards — track issue dates, expirations, and bookings.', render: renderFreeNights },
+  mileage: { title:'Miles & Vouchers', desc:'Manually-tracked mileage balances and vouchers, shared across family members.', render: renderMileage },
   history: { title:'Redemption Log', desc:'Permanent record of every credit and free night you\'ve actually used.', render: renderHistory },
 };
 let currentView = 'dashboard';
@@ -2390,6 +2465,225 @@ function openFnModal(id){
     if(!obj.desc){ toast('Description is required'); return; }
     if(editing){ const i=DATA.freeNights.findIndex(x=>x.id===id); DATA.freeNights[i]=obj; } else DATA.freeNights.push(obj);
     saveData(); closeModal(); renderFreeNights(); toast('Certificate saved');
+  };
+}
+
+/* ---------- Miles & Vouchers ---------- */
+// Unlike credits/free nights, mileage and voucher entries have no
+// recurring cycle to compute — you edit the row yourself whenever your
+// balance or next expiring batch changes, so the row IS the current
+// state. No "mark redeemed" step, no history log entry: if there's
+// nothing currently expiring, just leave the date blank and the item
+// quietly stops showing up in reminders until you set one again.
+function ownerNames(){
+  const names = new Set();
+  DATA.mileagePrograms.forEach(mp=>{ if(mp.ownerName) names.add(mp.ownerName); });
+  DATA.vouchers.forEach(v=>{ if(v.ownerName) names.add(v.ownerName); });
+  return Array.from(names).sort();
+}
+function programNames(){
+  const names = new Set();
+  DATA.mileagePrograms.forEach(mp=>{ if(mp.programName) names.add(mp.programName); });
+  DATA.vouchers.forEach(v=>{ if(v.programName) names.add(v.programName); });
+  return Array.from(names).sort();
+}
+
+function mileageRowHtml(mp, today){
+  const hasDate = !!mp.milesExpiringDate;
+  const expiration = hasDate ? parseDate(mp.milesExpiringDate) : null;
+  const daysLeft = expiration ? daysBetween(today, expiration) : null;
+  const pill = !hasDate ? {label:'No date set', cls:'pill-gray'} : statusForDays(daysLeft, 60);
+  return `
+  <div class="list-row" data-row-id="${mp.id}">
+    <div style="width:20px;"></div>
+    <div class="main-col">
+      <div class="title">${escHtml(mp.programName)}</div>
+      <div class="subtitle">${mp.accountNumber?`Acct #${escHtml(mp.accountNumber)} · `:''}${Number(mp.milesTotal||0).toLocaleString()} miles${hasDate?` · ${Number(mp.milesExpiringAmount||0).toLocaleString()} miles expiring ${fmtDate(expiration)}`:''}</div>
+    </div>
+    <div class="row-break"></div>
+    <div><span class="pill ${pill.cls}">${pill.label}</span></div>
+    <div class="days">${daysLeft!==null?(daysLeft>=0?daysLeft+' days left':Math.abs(daysLeft)+' days overdue'):''}</div>
+    <div class="row-break"></div>
+    <div class="actions">
+      <button class="btn btn-sm" data-edit-mp="${mp.id}">Edit</button>
+      <button class="btn btn-sm btn-danger" data-del-mp="${mp.id}">Delete</button>
+    </div>
+  </div>`;
+}
+
+function voucherRowHtml(v, today){
+  const hasDate = !!v.expirationDate;
+  const expiration = hasDate ? parseDate(v.expirationDate) : null;
+  const daysLeft = expiration ? daysBetween(today, expiration) : null;
+  const pill = !hasDate ? {label:'No date set', cls:'pill-gray'} : statusForDays(daysLeft, 60);
+  return `
+  <div class="list-row" data-row-id="${v.id}">
+    <div style="width:20px;"></div>
+    <div class="main-col">
+      <div class="title">${escHtml(v.title)}</div>
+      <div class="subtitle">${escHtml(v.description||'')}${hasDate?` · expires ${fmtDate(expiration)}`:''}</div>
+    </div>
+    <div class="row-break"></div>
+    <div><span class="pill ${pill.cls}">${pill.label}</span></div>
+    <div class="days">${daysLeft!==null?(daysLeft>=0?daysLeft+' days left':Math.abs(daysLeft)+' days overdue'):''}</div>
+    <div class="row-break"></div>
+    <div class="actions">
+      <button class="btn btn-sm" data-edit-v="${v.id}">Edit</button>
+      <button class="btn btn-sm btn-danger" data-del-v="${v.id}">Delete</button>
+    </div>
+  </div>`;
+}
+
+function renderMileage(){
+  const today = new Date();
+  const content = document.getElementById('content');
+  content.innerHTML = `
+    <div class="panel">
+      <div class="panel-head">
+        <h2>${DATA.mileagePrograms.length} mileage account${DATA.mileagePrograms.length===1?'':'s'} · ${DATA.vouchers.length} voucher${DATA.vouchers.length===1?'':'s'}</h2>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-primary" id="addMpBtn">+ Add mileage</button>
+          <button class="btn" id="addVBtn">+ Add voucher</button>
+        </div>
+      </div>
+      <div class="panel-body" id="mileageList"></div>
+    </div>
+  `;
+  const list = document.getElementById('mileageList');
+  const owners = ownerNames();
+
+  if(owners.length === 0){
+    list.innerHTML = '<div class="empty">No mileage accounts or vouchers yet. Add your first one.</div>';
+  } else {
+    list.innerHTML = owners.map(owner=>{
+      const mps = DATA.mileagePrograms.filter(mp=>mp.ownerName===owner);
+      const vs = DATA.vouchers.filter(v=>v.ownerName===owner);
+      const groupKeys = new Set([
+        ...mps.map(mp=>airlineGroupKey(mp.programName)),
+        ...vs.map(v=>airlineGroupKey(v.programName)),
+      ]);
+      // Recognized airlines first (alphabetical by code), "Other" bucket last.
+      const orderedKeys = Array.from(groupKeys).filter(k=>k!==null).sort()
+        .concat(groupKeys.has(null) ? [null] : []);
+
+      const ownerHeader = `<div style="padding:10px 20px;font-size:13.5px;font-weight:700;border-bottom:1px solid var(--border);">${escHtml(owner)}</div>`;
+
+      const groupsHtml = orderedKeys.map(key=>{
+        const groupMps = mps.filter(mp=>airlineGroupKey(mp.programName)===key);
+        const groupVs = vs.filter(v=>airlineGroupKey(v.programName)===key);
+        const sampleProgram = groupMps[0]?.programName || groupVs[0]?.programName || '';
+        const badge = key ? airlineBadge(sampleProgram) : null;
+        const groupHeader = `<div style="padding:8px 20px 4px;font-size:11px;text-transform:uppercase;letter-spacing:.03em;color:var(--text-muted);display:flex;align-items:center;gap:8px;">
+          ${badge?`<span class="issuer-badge" style="background:${badge.bg};color:${badge.fg};">${escHtml(badge.label)}</span>`:''}
+          ${escHtml(key ? (AIRLINE_DISPLAY_NAMES[key]||key) : 'Other')}
+        </div>`;
+        return groupHeader + groupMps.map(mp=>mileageRowHtml(mp, today)).join('') + groupVs.map(v=>voucherRowHtml(v, today)).join('');
+      }).join('');
+
+      return ownerHeader + groupsHtml;
+    }).join('');
+  }
+
+  document.getElementById('addMpBtn').onclick = ()=>openMileageModal();
+  document.getElementById('addVBtn').onclick = ()=>openVoucherModal();
+  list.querySelectorAll('[data-edit-mp]').forEach(b=>b.onclick=()=>openMileageModal(b.dataset.editMp));
+  list.querySelectorAll('[data-del-mp]').forEach(b=>b.onclick=()=>{
+    showConfirm('Delete this mileage account?', ()=>{
+      DATA.mileagePrograms = DATA.mileagePrograms.filter(x=>x.id!==b.dataset.delMp);
+      saveData(); renderMileage();
+    });
+  });
+  list.querySelectorAll('[data-edit-v]').forEach(b=>b.onclick=()=>openVoucherModal(b.dataset.editV));
+  list.querySelectorAll('[data-del-v]').forEach(b=>b.onclick=()=>{
+    showConfirm('Delete this voucher?', ()=>{
+      DATA.vouchers = DATA.vouchers.filter(x=>x.id!==b.dataset.delV);
+      saveData(); renderMileage();
+    });
+  });
+}
+
+function openMileageModal(id){
+  const editing = !!id;
+  const mp = editing ? DATA.mileagePrograms.find(x=>x.id===id) : {ownerName:'', programName:'', accountNumber:'', milesTotal:'', milesExpiringAmount:'', milesExpiringDate:'', notes:''};
+  showModal(`
+    <div class="modal-head"><h3>${editing?'Edit mileage account':'Add mileage account'}</h3><button class="close-x" id="modalClose">✕</button></div>
+    <div class="modal-body">
+      <div class="field"><label>Owner</label><input id="f_owner" list="ownerNamesList" value="${escAttr(mp.ownerName)}" placeholder="e.g. Boriwat"></div>
+      <datalist id="ownerNamesList">${ownerNames().map(n=>`<option value="${escAttr(n)}">`).join('')}</datalist>
+      <div class="field"><label>Program name</label><input id="f_program" list="programNamesList" value="${escAttr(mp.programName)}" placeholder="e.g. United MileagePlus"></div>
+      <datalist id="programNamesList">${programNames().map(n=>`<option value="${escAttr(n)}">`).join('')}</datalist>
+      <div class="field-row">
+        <div class="field"><label>Account / mileage number</label><input id="f_account" value="${escAttr(mp.accountNumber)}"></div>
+        <div class="field"><label>Total miles</label><input id="f_total" type="number" min="0" value="${mp.milesTotal}"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Miles expiring</label><input id="f_expamount" type="number" min="0" value="${mp.milesExpiringAmount}"></div>
+        <div class="field"><label>Expiration date</label><input id="f_expdate" type="date" value="${mp.milesExpiringDate||''}"></div>
+      </div>
+      <div class="hint">Leave the expiration blank if nothing's currently expiring — this account just won't show up in reminders until you set one. Whenever you redeem miles or check your account, just come back and edit this row with the new balance and next expiring batch.</div>
+      <div class="field"><label>Notes (optional)</label><input id="f_notes" value="${escAttr(mp.notes||'')}"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" id="modalCancel">Cancel</button>
+      <button class="btn btn-primary" id="modalSave">Save</button>
+    </div>
+  `);
+  document.getElementById('modalSave').onclick = ()=>{
+    const ownerName = val('f_owner').trim();
+    const programName = val('f_program').trim();
+    if(!ownerName){ toast('Owner name is required'); return; }
+    if(!programName){ toast('Program name is required'); return; }
+    const fields = {
+      ownerName, programName,
+      accountNumber: val('f_account').trim(),
+      milesTotal: Number(val('f_total'))||0,
+      milesExpiringAmount: Number(val('f_expamount'))||0,
+      milesExpiringDate: val('f_expdate') || null,
+      notes: val('f_notes').trim(),
+    };
+    if(editing){ Object.assign(mp, fields); }
+    else { DATA.mileagePrograms.push({ id: uid('mp'), ...fields }); }
+    saveData(); closeModal(); renderMileage();
+    toast(editing?'Mileage account updated':'Mileage account added');
+  };
+}
+
+function openVoucherModal(id){
+  const editing = !!id;
+  const v = editing ? DATA.vouchers.find(x=>x.id===id) : {ownerName:'', programName:'', title:'', description:'', expirationDate:''};
+  showModal(`
+    <div class="modal-head"><h3>${editing?'Edit voucher':'Add voucher'}</h3><button class="close-x" id="modalClose">✕</button></div>
+    <div class="modal-body">
+      <div class="field"><label>Owner</label><input id="f_owner" list="ownerNamesList" value="${escAttr(v.ownerName)}" placeholder="e.g. Boriwat"></div>
+      <datalist id="ownerNamesList">${ownerNames().map(n=>`<option value="${escAttr(n)}">`).join('')}</datalist>
+      <div class="field"><label>Airline / program (optional)</label><input id="f_program" list="programNamesList" value="${escAttr(v.programName||'')}" placeholder="e.g. United"></div>
+      <datalist id="programNamesList">${programNames().map(n=>`<option value="${escAttr(n)}">`).join('')}</datalist>
+      <div class="field"><label>Voucher name</label><input id="f_title" value="${escAttr(v.title)}" placeholder="e.g. Systemwide Upgrade"></div>
+      <div class="field"><label>Description</label><input id="f_desc" value="${escAttr(v.description||'')}" placeholder="e.g. Valid for any domestic upgrade, book by phone"></div>
+      <div class="field"><label>Expiration date</label><input id="f_expdate" type="date" value="${v.expirationDate||''}"></div>
+      <div class="hint">Leave the expiration blank if it doesn't expire — it just won't show up in reminders until you set one. Used or gone? Just delete the row.</div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn" id="modalCancel">Cancel</button>
+      <button class="btn btn-primary" id="modalSave">Save</button>
+    </div>
+  `);
+  document.getElementById('modalSave').onclick = ()=>{
+    const ownerName = val('f_owner').trim();
+    const title = val('f_title').trim();
+    if(!ownerName){ toast('Owner name is required'); return; }
+    if(!title){ toast('Voucher name is required'); return; }
+    const fields = {
+      ownerName,
+      programName: val('f_program').trim() || null,
+      title,
+      description: val('f_desc').trim(),
+      expirationDate: val('f_expdate') || null,
+    };
+    if(editing){ Object.assign(v, fields); }
+    else { DATA.vouchers.push({ id: uid('v'), ...fields }); }
+    saveData(); closeModal(); renderMileage();
+    toast(editing?'Voucher updated':'Voucher added');
   };
 }
 
