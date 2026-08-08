@@ -485,7 +485,7 @@ const SEED = {
   trackedYears: [2027, 2028, 2029],
   mileagePrograms: [],
   vouchers: [],
-  _version: 6,
+  _version: 7,
 };
 
 /* ============================================================
@@ -501,7 +501,7 @@ const DIRTY_KEY = STORE_KEY + '_dirty'; // FIX: persists across reloads/tab-clos
 const BACKUP_COUNT_KEY = STORE_KEY + '_changesSinceBackup';
 const BACKUP_REMINDER_THRESHOLD = 3; // "more than 2 changes"
 let changesSinceBackup = parseInt(localStorage.getItem(BACKUP_COUNT_KEY) || '0', 10) || 0;
-const CURRENT_DATA_VERSION = 6;
+const CURRENT_DATA_VERSION = 7;
 // SAFETY NET: remembers whether this load started from a completely empty
 // local cache (meaning DATA below is the hardcoded demo SEED, not anything
 // real) — used after bootstrapSync() resolves to decide whether a failed
@@ -601,6 +601,26 @@ function migrateData(data){
     data.mileagePrograms = data.mileagePrograms || [];
     data.vouchers = data.vouchers || [];
     data._version = 6;
+  }
+  if(data._version < 7){
+    // v7: mileage accounts can now track MULTIPLE expiration batches, not
+    // just one — most programs run on a rolling ~3-year expiration, so
+    // miles earned at different times expire on different dates within
+    // the same account. Wraps any existing single
+    // milesExpiringAmount/milesExpiringDate pair into the new
+    // `expirations` array (as its one entry); accounts that never had an
+    // expiration set get an empty array instead. The old fields are then
+    // removed so there's only ever one source of truth going forward.
+    (data.mileagePrograms||[]).forEach(mp=>{
+      if(!mp.expirations){
+        mp.expirations = mp.milesExpiringDate
+          ? [{ amount: mp.milesExpiringAmount||0, date: mp.milesExpiringDate }]
+          : [];
+      }
+      delete mp.milesExpiringAmount;
+      delete mp.milesExpiringDate;
+    });
+    data._version = 7;
   }
   return data;
 }
@@ -1153,11 +1173,13 @@ function computeUpcomingReminders(){
   // is just a direct days-until check. Owner name is prefixed since this
   // banner is often shared across family members.
   DATA.mileagePrograms.forEach(mp=>{
-    if(!mp.milesExpiringDate) return;
-    const expiration = parseDate(mp.milesExpiringDate);
-    if(!expiration) return;
-    const daysLeft = daysBetween(today, expiration);
-    if(daysLeft <= 30) items.push({name: `${mp.ownerName}: ${mp.programName} — ${Number(mp.milesExpiringAmount||0).toLocaleString()} miles`, daysLeft});
+    (mp.expirations||[]).forEach(exp=>{
+      if(!exp.date) return;
+      const expiration = parseDate(exp.date);
+      if(!expiration) return;
+      const daysLeft = daysBetween(today, expiration);
+      if(daysLeft <= 30) items.push({name: `${mp.ownerName}: ${mp.programName} — ${Number(exp.amount||0).toLocaleString()} miles`, daysLeft});
+    });
   });
   DATA.vouchers.forEach(v=>{
     if(!v.expirationDate) return;
@@ -2489,25 +2511,40 @@ function programNames(){
 }
 
 function mileageRowHtml(mp, today){
-  const hasDate = !!mp.milesExpiringDate;
-  const expiration = hasDate ? parseDate(mp.milesExpiringDate) : null;
-  const daysLeft = expiration ? daysBetween(today, expiration) : null;
-  const pill = !hasDate ? {label:'No date set', cls:'pill-gray'} : statusForDays(daysLeft, 60);
+  const batches = (mp.expirations||[]).slice().sort((a,b)=>{
+    const da = a.date ? parseDate(a.date) : null, db = b.date ? parseDate(b.date) : null;
+    if(!da && !db) return 0; if(!da) return 1; if(!db) return -1;
+    return da - db;
+  });
+  const batchLinesHtml = batches.length === 0
+    ? `<div class="subtitle" style="padding:4px 0;">No expirations tracked</div>`
+    : batches.map(exp=>{
+        const expiration = exp.date ? parseDate(exp.date) : null;
+        const daysLeft = expiration ? daysBetween(today, expiration) : null;
+        const pill = !expiration ? {label:'No date set', cls:'pill-gray'} : statusForDays(daysLeft, 60);
+        return `
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:12.5px;gap:10px;">
+          <span style="color:var(--text);">${Number(exp.amount||0).toLocaleString()} miles${expiration?` expiring ${fmtDate(expiration)}`:''}</span>
+          <span style="display:flex;align-items:center;gap:8px;white-space:nowrap;">
+            <span class="pill ${pill.cls}">${pill.label}</span>
+            <span style="color:var(--text-muted);min-width:80px;text-align:right;">${daysLeft!==null?(daysLeft>=0?daysLeft+' days left':Math.abs(daysLeft)+' days overdue'):''}</span>
+          </span>
+        </div>`;
+      }).join('');
   return `
-  <div class="list-row" data-row-id="${mp.id}">
-    <div style="width:20px;"></div>
-    <div class="main-col">
-      <div class="title">${escHtml(mp.programName)}</div>
-      <div class="subtitle">${mp.accountNumber?`Acct #${escHtml(mp.accountNumber)} · `:''}${Number(mp.milesTotal||0).toLocaleString()} miles${hasDate?` · ${Number(mp.milesExpiringAmount||0).toLocaleString()} miles expiring ${fmtDate(expiration)}`:''}</div>
+  <div class="list-row" data-row-id="${mp.id}" style="flex-direction:column;align-items:stretch;">
+    <div style="display:flex;align-items:center;gap:14px;width:100%;">
+      <div style="width:20px;"></div>
+      <div class="main-col">
+        <div class="title">${escHtml(mp.programName)}</div>
+        <div class="subtitle">${mp.accountNumber?`Acct #${escHtml(mp.accountNumber)} · `:''}${Number(mp.milesTotal||0).toLocaleString()} miles total</div>
+      </div>
+      <div class="actions">
+        <button class="btn btn-sm" data-edit-mp="${mp.id}">Edit</button>
+        <button class="btn btn-sm btn-danger" data-del-mp="${mp.id}">Delete</button>
+      </div>
     </div>
-    <div class="row-break"></div>
-    <div><span class="pill ${pill.cls}">${pill.label}</span></div>
-    <div class="days">${daysLeft!==null?(daysLeft>=0?daysLeft+' days left':Math.abs(daysLeft)+' days overdue'):''}</div>
-    <div class="row-break"></div>
-    <div class="actions">
-      <button class="btn btn-sm" data-edit-mp="${mp.id}">Edit</button>
-      <button class="btn btn-sm btn-danger" data-del-mp="${mp.id}">Delete</button>
-    </div>
+    <div style="padding-left:34px;">${batchLinesHtml}</div>
   </div>`;
 }
 
@@ -2602,9 +2639,21 @@ function renderMileage(){
   });
 }
 
+// One repeatable row inside the mileage modal's "Expiring batches" list.
+// Deliberately uses classes, not ids, on the inner inputs — the modal can
+// contain any number of these rows, and ids must be unique per document.
+function expirationRowHtml(exp){
+  return `
+  <div class="expiration-row" style="display:flex;gap:8px;align-items:flex-end;margin-bottom:8px;">
+    <div class="field" style="flex:1;margin-bottom:0;"><label>Miles</label><input type="number" min="0" class="exp-amount" value="${exp.amount||''}"></div>
+    <div class="field" style="flex:1;margin-bottom:0;"><label>Expiration date</label><input type="date" class="exp-date" value="${exp.date||''}"></div>
+    <button type="button" class="btn btn-sm btn-danger" data-remove-exp title="Remove this batch">✕</button>
+  </div>`;
+}
+
 function openMileageModal(id){
   const editing = !!id;
-  const mp = editing ? DATA.mileagePrograms.find(x=>x.id===id) : {ownerName:'', programName:'', accountNumber:'', milesTotal:'', milesExpiringAmount:'', milesExpiringDate:'', notes:''};
+  const mp = editing ? DATA.mileagePrograms.find(x=>x.id===id) : {ownerName:'', programName:'', accountNumber:'', milesTotal:'', expirations:[], notes:''};
   showModal(`
     <div class="modal-head"><h3>${editing?'Edit mileage account':'Add mileage account'}</h3><button class="close-x" id="modalClose">✕</button></div>
     <div class="modal-body">
@@ -2616,11 +2665,12 @@ function openMileageModal(id){
         <div class="field"><label>Account / mileage number</label><input id="f_account" value="${escAttr(mp.accountNumber)}"></div>
         <div class="field"><label>Total miles</label><input id="f_total" type="number" min="0" value="${mp.milesTotal}"></div>
       </div>
-      <div class="field-row">
-        <div class="field"><label>Miles expiring</label><input id="f_expamount" type="number" min="0" value="${mp.milesExpiringAmount}"></div>
-        <div class="field"><label>Expiration date</label><input id="f_expdate" type="date" value="${mp.milesExpiringDate||''}"></div>
+      <div class="field">
+        <label>Expiring batches</label>
+        <div id="expirationsContainer">${(mp.expirations&&mp.expirations.length?mp.expirations:[{amount:'',date:''}]).map(exp=>expirationRowHtml(exp)).join('')}</div>
+        <button type="button" class="btn btn-sm" id="addExpBtn" style="margin-top:4px;">+ Add another expiration</button>
       </div>
-      <div class="hint">Leave the expiration blank if nothing's currently expiring — this account just won't show up in reminders until you set one. Whenever you redeem miles or check your account, just come back and edit this row with the new balance and next expiring batch.</div>
+      <div class="hint">Most programs run on a rolling ~3-year expiration, so miles earned at different times can expire on different dates — add one row per batch. Leave a row's date blank (or remove it) if there's nothing currently expiring for that batch. Whenever you redeem miles or check your account, come back and update the totals and batches here.</div>
       <div class="field"><label>Notes (optional)</label><input id="f_notes" value="${escAttr(mp.notes||'')}"></div>
     </div>
     <div class="modal-foot">
@@ -2628,17 +2678,40 @@ function openMileageModal(id){
       <button class="btn btn-primary" id="modalSave">Save</button>
     </div>
   `);
+  function wireExpirationRemoveButtons(){
+    document.querySelectorAll('[data-remove-exp]').forEach(b=>{
+      b.onclick = ()=>{
+        const container = document.getElementById('expirationsContainer');
+        // Always leave at least one (blank) row rather than letting the
+        // form collapse to zero rows — an empty row is simply dropped on
+        // save (see the filter below), so this is purely a UI nicety.
+        if(container.children.length <= 1){
+          b.closest('.expiration-row').querySelectorAll('input').forEach(inp=>inp.value='');
+        } else {
+          b.closest('.expiration-row').remove();
+        }
+      };
+    });
+  }
+  wireExpirationRemoveButtons();
+  document.getElementById('addExpBtn').onclick = ()=>{
+    document.getElementById('expirationsContainer').insertAdjacentHTML('beforeend', expirationRowHtml({amount:'',date:''}));
+    wireExpirationRemoveButtons();
+  };
   document.getElementById('modalSave').onclick = ()=>{
     const ownerName = val('f_owner').trim();
     const programName = val('f_program').trim();
     if(!ownerName){ toast('Owner name is required'); return; }
     if(!programName){ toast('Program name is required'); return; }
+    const expirations = Array.from(document.querySelectorAll('#expirationsContainer .expiration-row')).map(row=>({
+      amount: Number(row.querySelector('.exp-amount').value)||0,
+      date: row.querySelector('.exp-date').value || null,
+    })).filter(exp=>exp.date); // rows left blank are just dropped, not errors
     const fields = {
       ownerName, programName,
       accountNumber: val('f_account').trim(),
       milesTotal: Number(val('f_total'))||0,
-      milesExpiringAmount: Number(val('f_expamount'))||0,
-      milesExpiringDate: val('f_expdate') || null,
+      expirations,
       notes: val('f_notes').trim(),
     };
     if(editing){ Object.assign(mp, fields); }
