@@ -396,7 +396,7 @@
     <div class="topbar">
       <div>
         <h1 id="pageTitle">Dashboard</h1>
-        <p class="desc" id="pageDesc">Annual fee vs. value realized, by card.</p>
+        <p class="desc" id="pageDesc">Fee vs. redemptions logged, by card.</p>
       </div>
       <div class="topbar-actions">
         <button class="btn btn-sm" id="themeToggleBtn" title="Toggle dark mode">🌙</button>
@@ -1619,7 +1619,7 @@ function valueRealizedForCardYear(cardId, year){
    VIEWS
    ============================================================ */
 const views = {
-  dashboard: { title:'Dashboard', desc:'Annual fee vs. value realized, by card, for the selected year.', render: renderDashboard },
+  dashboard: { title:'Dashboard', desc:'Fee vs. redemptions logged, by card, for the selected year.', render: renderDashboard },
   cards: { title:'Cards', desc:'Every card you\'re tracking. Add a new one and it becomes available everywhere else.', render: renderCards },
   credits: { title:'Annual Credits', desc:'Recurring statement credits. Status and days-remaining update automatically as time passes.', render: renderCredits },
   freenights: { title:'Free Nights', desc:'Free night certificates and awards — track issue dates, expirations, and bookings.', render: renderFreeNights },
@@ -1763,13 +1763,14 @@ function renderDashboard(){
     </div>` : ''}
     <div class="kpi-row">
       <div class="kpi"><div class="label">Total annual fees</div><div class="value">$${totalFee.toLocaleString()}</div></div>
-      <div class="kpi"><div class="label">Value realized (${selectedYear})</div><div class="value">$${totalValue.toLocaleString()}</div></div>
+      <div class="kpi"><div class="label">Redeemed in ${selectedYear}</div><div class="value">$${totalValue.toLocaleString()}</div></div>
       <div class="kpi"><div class="label">Net</div><div class="value ${totalNet>=0?'pos':'neg'}">${totalNet>=0?'+':'-'}$${Math.abs(totalNet).toLocaleString()}</div></div>
       <div class="kpi"><div class="label">Cards worth keeping</div><div class="value">${worthKeeping} / ${rows.length}</div></div>
     </div>
+    <div class="hint" style="margin:-4px 2px 16px;">This reflects redemptions logged with a date in ${selectedYear} — switching years here doesn't add, remove, or expire any credits, free nights, or vouchers. Those always show up based on their own dates, everywhere else in the app, regardless of what year is selected here.</div>
 
     <div class="panel">
-      <div class="panel-head"><h2>Fee vs. value realized — ${selectedYear}</h2></div>
+      <div class="panel-head"><h2>Fee vs. redemptions logged — ${selectedYear}</h2></div>
       <div class="chart-wrap dashboard-chart-desktop"><canvas id="feeChart" height="90"></canvas></div>
       <!-- MOBILE: the rotated-label bar chart above becomes unreadable at
            phone width (9 diagonal card names overlapping each other). This
@@ -1780,7 +1781,7 @@ function renderDashboard(){
            chart above, so the two can never show different numbers; CSS
            alone decides which one is actually visible. -->
       <div class="dashboard-fee-mobile">
-        <div class="fee-chart-legend"><span class="fee-chart-swatch fee"></span> Annual fee &nbsp; <span class="fee-chart-swatch value"></span> Value realized</div>
+        <div class="fee-chart-legend"><span class="fee-chart-swatch fee"></span> Annual fee &nbsp; <span class="fee-chart-swatch value"></span> Redeemed</div>
         ${(()=>{
           const maxAmount = Math.max(1, ...rows.map(r=>Math.max(r.card.fee, r.value)));
           return rows.map(r=>{
@@ -1808,7 +1809,7 @@ function renderDashboard(){
       <div class="panel-body">
         <div class="table-scroll dashboard-table">
         <table>
-          <thead><tr><th>Card</th><th>Annual fee</th><th>Value realized</th><th>Net</th><th>Status</th></tr></thead>
+          <thead><tr><th>Card</th><th>Annual fee</th><th>Redeemed</th><th>Net</th><th>Status</th></tr></thead>
           <tbody>
           ${rows.map(r=>`
             <tr>
@@ -1833,7 +1834,7 @@ function renderDashboard(){
             <div class="card-tile">
               <div class="name">${escHtml(r.card.name)}</div>
               <div class="row"><span class="l">Annual fee</span><span class="r">$${r.card.fee.toLocaleString()}</span></div>
-              <div class="row"><span class="l">Value realized</span><span class="r">$${r.value.toLocaleString()}</span></div>
+              <div class="row"><span class="l">Redeemed</span><span class="r">$${r.value.toLocaleString()}</span></div>
               <div class="row"><span class="l">Net</span><span class="r" style="color:${r.net>=0?'var(--green)':'var(--red)'}">${r.net>=0?'+':'-'}$${Math.abs(r.net).toLocaleString()}</span></div>
               <div style="margin-top:8px;">${r.net>=0 ? '<span class="pill pill-green">Fee covered</span>' : '<span class="pill pill-red">Not covered</span>'}</div>
             </div>`).join('')}
@@ -1850,7 +1851,7 @@ function renderDashboard(){
       labels: rows.map(r=>r.card.name.replace(/\s*\(.*?\)\s*/g,' ').trim()),
       datasets:[
         {label:'Annual fee', data:rows.map(r=>r.card.fee), backgroundColor:'#c9d3e6'},
-        {label:'Value realized', data:rows.map(r=>r.value), backgroundColor:'#1f3864'},
+        {label:'Redeemed', data:rows.map(r=>r.value), backgroundColor:'#1f3864'},
       ]
     },
     options:{
@@ -1891,7 +1892,7 @@ function renderCards(){
       <div class="meta">${escHtml(c.issuer)} · ${escHtml(c.program)}${c.eliteStatus?' · Elite status':''}</div>
       <div class="row"><span class="l">Annual fee</span><span class="r">$${c.fee.toLocaleString()}</span></div>
       ${nextFee ? `<div class="row"><span class="l">Fee renews</span><span class="r">${fmtDate(nextFee)} (${daysBetween(new Date(), nextFee)}d)</span></div>` : ''}
-      <div class="row"><span class="l">Value realized (${selectedYear})</span><span class="r">$${value.toLocaleString()}</span></div>
+      <div class="row"><span class="l">Redeemed in ${selectedYear}</span><span class="r">$${value.toLocaleString()}</span></div>
       <div class="row"><span class="l">Net</span><span class="r" style="color:${net>=0?'var(--green)':'var(--red)'}">${net>=0?'+':'-'}$${Math.abs(net).toLocaleString()}</span></div>
       ${c.notes?`<div class="hint" style="margin-top:8px;">${escHtml(c.notes)}</div>`:''}
       <div class="actions">
