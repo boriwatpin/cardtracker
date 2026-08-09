@@ -2327,6 +2327,20 @@ function sortedFreeNightsList(today){
 }
 
 // Same split-out pattern as renderCreditRowHtml — see its comment above.
+// Finds the most recent redemption logged for this certificate BEFORE its
+// current cycle — i.e. from a prior year, now rolled past. Used so the row
+// can show "356 days left · last used Apr 4" instead of the full picture
+// being split silently between this tab and the Redemption Log.
+function mostRecentPriorRedemption(sourceId, cycle){
+  if(!cycle) return null;
+  const prior = DATA.history
+    .filter(h=>h.sourceId===sourceId)
+    .map(h=>({date: parseDate(h.date)}))
+    .filter(h=>h.date && !(h.date >= cycle.start && h.date < cycle.nextStart))
+    .sort((a,b)=>b.date-a.date);
+  return prior.length ? prior[0].date : null;
+}
+
 function renderFreeNightRowHtml(today, {fn, cycle, isLive}, showDragHandle){
   const card = cardById(fn.cardId);
   const certsPerCycle = fn.certsPerCycle || 1;
@@ -2353,6 +2367,10 @@ function renderFreeNightRowHtml(today, {fn, cycle, isLive}, showDragHandle){
     const elapsed = today - cycle.start;
     progressPct = Math.max(0, Math.min(100, Math.round((elapsed/total)*100)));
   }
+  // Only surface this when it actually adds information: the certificate is
+  // currently available again (not already showing "Redeemed" for this
+  // cycle), and there's a genuine earlier redemption to reference.
+  const priorRedeemedDate = (isLive && !isFullyUsed) ? mostRecentPriorRedemption(fn.id, cycle) : null;
 
   return `
   <div class="list-row" data-row-id="${fn.id}">
@@ -2365,7 +2383,7 @@ function renderFreeNightRowHtml(today, {fn, cycle, isLive}, showDragHandle){
     <div class="row-break"></div>
     <div class="amount">${redeemed>0?'$'+redeemed:'—'}</div>
     <div><span class="pill ${pill.cls}">${pill.label}</span></div>
-    <div class="days">${daysLeft!==null? (daysLeft>=0? daysLeft+' days left' : '') : ''}</div>
+    <div class="days">${daysLeft!==null? (daysLeft>=0? daysLeft+' days left' : '') : ''}${priorRedeemedDate ? ` <span style="color:var(--text-soft);font-size:11px;">· last used ${fmtDate(priorRedeemedDate)}</span>` : ''}</div>
     <div class="row-break"></div>
     <div class="actions">
       ${!isFullyUsed && cycle ? `<button class="btn btn-sm btn-primary" data-mark-fn="${fn.id}">${redeemedCount>0?`Log redemption (${redeemedCount+1} of ${certsPerCycle})`:'Mark used'}</button>` : ''}
