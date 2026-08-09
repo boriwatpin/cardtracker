@@ -8,7 +8,8 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root{
-    --navy:#1f3864; --navy-light:#2e4a7d; --navy-dark:#152647;
+    --navy:#0d1b2e; --navy-light:#16283f; --navy-dark:#081220;
+    --brand:#a8823a; --brand-light:#bd9752; --on-brand:#ffffff;
     --bg:#f4f6fb; --card-bg:#ffffff; --border:#e5e8f0;
     --text:#1a1d29; --text-muted:#6b7280; --text-soft:#94a0b4;
     --green:#16a34a; --green-bg:#e7f7ed;
@@ -28,31 +29,34 @@
     --surface-hover:#fafbfd;
     --border-hover:#d3dae6;
     /* Matches the desktop Chart.js bar colors exactly, so the mobile bar
-       list (see .fee-chart-*) reads as the same chart, not a different one. */
+       list (see .fee-chart-*) reads as the same chart, not a different one.
+       (Desktop chart now reads these live via getComputedStyle, so this
+       value alone is enough to update both — no JS change needed.) */
     --chart-fee:#c9d3e6;
-    --chart-value:#1f3864;
+    --chart-value:#0d1b2e;
   }
   /* ENHANCEMENT (dark mode): toggled by adding data-theme="dark" to <html>.
      Every color in the app is already driven by the variables above, so the
      whole UI re-themes from this one block — no per-component dark-mode
      rules needed elsewhere. */
   html[data-theme="dark"]{
-    --navy:#3a5a94; --navy-light:#4d70ab; --navy-dark:#24344f;
-    --bg:#11151c; --card-bg:#1a1f29; --border:#2b3140;
-    --text:#e7e9ef; --text-muted:#9aa1b2; --text-soft:#6d7484;
+    --navy:#0a1628; --navy-light:#132540; --navy-dark:#050b16;
+    --brand:#c9a961; --brand-light:#d9bd7c; --on-brand:#1c1a17;
+    --bg:#0d1b2e; --card-bg:#132540; --border:#22314a;
+    --text:#f0eee6; --text-muted:#9aa1b2; --text-soft:#6d7484;
     --green:#3ecf72; --green-bg:rgba(62,207,114,.14);
     --amber:#f2a93b; --amber-bg:rgba(242,169,59,.14);
     --red:#f0665f; --red-bg:rgba(240,102,95,.14);
-    --gray:#9aa1b2; --gray-bg:#232938;
+    --gray:#9aa1b2; --gray-bg:#1a2b45;
     --accent:#dcb567; --accent-bg:rgba(220,181,103,.14);
     --shadow:0 1px 2px rgba(0,0,0,.35), 0 1px 3px rgba(0,0,0,.45);
     --shadow-md:0 4px 14px rgba(0,0,0,.5);
-    --input-bg:#232938;
-    --surface-tile:#1f2531;
-    --surface-hover:#242a38;
-    --border-hover:#3a4358;
+    --input-bg:#132540;
+    --surface-tile:#0f2038;
+    --surface-hover:#16283f;
+    --border-hover:#2e4463;
     --chart-fee:#3a4358;
-    --chart-value:#5b82c4;
+    --chart-value:#c9a961;
   }
   *{box-sizing:border-box;}
   body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;background:var(--bg);color:var(--text);overflow-x:hidden;}
@@ -112,8 +116,8 @@
   .btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);background:var(--input-bg);color:var(--text);
     padding:8px 14px;border-radius:9px;font-size:13.5px;font-weight:600;cursor:pointer;transition:.15s;font-family:inherit;}
   .btn:hover{background:var(--gray-bg);}
-  .btn-primary{background:var(--navy);color:#fff;border-color:var(--navy);}
-  .btn-primary:hover{background:var(--navy-light);}
+  .btn-primary{background:var(--brand);color:var(--on-brand);border-color:var(--brand);}
+  .btn-primary:hover{background:var(--brand-light);}
   .btn-danger{color:var(--red);}
   .btn-sm{padding:5px 10px;font-size:12.5px;border-radius:7px;}
   .btn-ghost{border:none;background:none;}
@@ -308,7 +312,7 @@
     .topbar-actions .btn, .topbar-actions select{font-size:12.5px;padding:7px 9px;}
     /* iOS-toolbar feel: secondary actions (Add/Delete year, Export, Import)
        collapse to icon-only buttons instead of wrapping their full labels
-       across 2-3 rows. The icon (⬇, ⬆, 🗑, +) alone is enough — these are
+       across 2-3 rows. The icon (<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M12 3v13m0 0l-5-5m5 5l5-5"/><path d="M4 21h16"/></svg>, <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M12 21V8m0 0l-5 5m5-5l5 5"/><path d="M4 3h16"/></svg>, <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M4 7h16M9 7V4h6v3M6 7l1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13"/></svg>, +) alone is enough — these are
        already common, recognizable toolbar glyphs, and the desktop version
        keeps its full text since there's no space pressure there. */
     .btn-label{display:none;}
@@ -364,19 +368,19 @@
 <div class="app">
   <div class="sidebar">
     <div class="brand">
-      <div class="logo">🏨</div>
+      <div class="logo"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21V8l8-5 8 5v13M4 21h16M9 21v-6h6v6M9 11h.01M9 15h.01M15 11h.01M15 15h.01"/></svg></div>
       <div>
         <div class="title">Point Tracker<span class="version-tag">v3</span></div>
         <div class="sub">Credits &amp; free nights</div>
       </div>
     </div>
     <div class="nav" id="nav">
-      <button data-view="dashboard" class="active"><span class="icon">📊</span> Dashboard</button>
-      <button data-view="cards"><span class="icon">💳</span> Cards</button>
-      <button data-view="credits"><span class="icon">🔁</span> Annual Credits</button>
-      <button data-view="freenights"><span class="icon">🌙</span> Free Nights</button>
-      <button data-view="mileage"><span class="icon">✈️</span> Miles &amp; Vouchers</button>
-      <button data-view="history"><span class="icon">📜</span> Redemption Log</button>
+      <button data-view="dashboard" class="active"><span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M12 20V4M20 20v-6"/></svg></span> Dashboard</button>
+      <button data-view="cards"><span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg></span> Cards</button>
+      <button data-view="credits"><span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg></span> Annual Credits</button>
+      <button data-view="freenights"><span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg></span> Free Nights</button>
+      <button data-view="mileage"><span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l18-8-8 18-2-8-8-2z"/></svg></span> Miles &amp; Vouchers</button>
+      <button data-view="history"><span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/></svg></span> Redemption Log</button>
     </div>
     <div class="sidebar-foot">
       Synced automatically across your devices.<br>Export is still a good idea as a backup.
@@ -385,25 +389,25 @@
 
   <div class="main">
     <div id="dataRiskWarning" class="data-risk-warning" style="display:none;">
-      ⚠️ Couldn't confirm your saved data yet, and this looks like a fresh browser/device with nothing cached locally. What you're seeing right now may just be sample data, not your real cards. <strong>Avoid making changes until this reconnects</strong> — reload once you're back online to load your real data safely.
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;"><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg> Couldn't confirm your saved data yet, and this looks like a fresh browser/device with nothing cached locally. What you're seeing right now may just be sample data, not your real cards. <strong>Avoid making changes until this reconnects</strong> — reload once you're back online to load your real data safely.
     </div>
     <div id="backupReminder" class="backup-reminder" style="display:none;">
-      <span>💾 You've made a few changes since your last backup.</span>
+      <span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg> You've made a few changes since your last backup.</span>
       <button class="btn btn-sm btn-primary" id="backupReminderBtn">Backup now</button>
-      <button class="close-x" id="backupReminderDismiss" title="Dismiss for now">✕</button>
+      <button class="close-x" id="backupReminderDismiss" title="Dismiss for now"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
     </div>
-    <div class="mobile-brand-bar">🏨 Point Tracker<span class="version-tag">v3</span></div>
+    <div class="mobile-brand-bar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21V8l8-5 8 5v13M4 21h16M9 21v-6h6v6M9 11h.01M9 15h.01M15 11h.01M15 15h.01"/></svg> Point Tracker<span class="version-tag">v3</span></div>
     <div class="topbar">
       <div>
         <h1 id="pageTitle">Dashboard</h1>
         <p class="desc" id="pageDesc">Fee vs. redemptions logged, by card.</p>
       </div>
       <div class="topbar-actions">
-        <button class="btn btn-sm" id="themeToggleBtn" title="Toggle dark mode">🌙</button>
+        <button class="btn btn-sm" id="themeToggleBtn" title="Toggle dark mode"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg></button>
         <span id="syncStatus" class="sync-status"></span>
-        <button class="btn btn-sm" id="backupsBtn" title="View or create backups">💾<span class="btn-label"> Backups</span></button>
-        <button class="btn" id="exportBtn" title="Export a backup JSON file">⬇<span class="btn-label"> Export</span></button>
-        <button class="btn" id="importBtn" title="Import a backup JSON file">⬆<span class="btn-label"> Import</span></button>
+        <button class="btn btn-sm" id="backupsBtn" title="View or create backups"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg><span class="btn-label"> Backups</span></button>
+        <button class="btn" id="exportBtn" title="Export a backup JSON file"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M12 3v13m0 0l-5-5m5 5l5-5"/><path d="M4 21h16"/></svg><span class="btn-label"> Export</span></button>
+        <button class="btn" id="importBtn" title="Import a backup JSON file"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M12 21V8m0 0l-5 5m5-5l5 5"/><path d="M4 3h16"/></svg><span class="btn-label"> Import</span></button>
         <input type="file" id="importFile" accept="application/json" style="display:none;">
       </div>
     </div>
@@ -910,7 +914,7 @@ function hideBackupReminder(){
 // caching, so it can't ever show a stale list.
 async function openBackupsModal(){
   showModal(`
-    <div class="modal-head"><h3>Backups</h3><button class="close-x" id="modalClose">✕</button></div>
+    <div class="modal-head"><h3>Backups</h3><button class="close-x" id="modalClose"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
     <div class="modal-body">
       <button class="btn btn-primary" id="createBackupBtn" style="align-self:flex-start;">+ Backup now</button>
       <div class="hint">Keeps your ${MAX_BACKUPS} most recent backups, each a full snapshot you can restore from — useful if a change turns out to be a mistake, not a substitute for the Export button's downloadable file.</div>
@@ -1386,7 +1390,7 @@ function openEditLinkedAmountModal(entryId){
   const entry = DATA.history.find(h=>h.id===entryId);
   if(!entry) return;
   showModal(`
-    <div class="modal-head"><h3>Edit redemption</h3><button class="close-x" id="modalClose">✕</button></div>
+    <div class="modal-head"><h3>Edit redemption</h3><button class="close-x" id="modalClose"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
     <div class="modal-body">
       <div class="field"><label>Date used</label><input id="f_date" type="date" value="${entry.date}"></div>
       <div class="field"><label>Amount ($)</label><input id="f_amount" type="number" min="0" value="${entry.amount}"></div>
@@ -1451,11 +1455,11 @@ function issuerBadge(issuer){
 // else falls back to generic initials, same pattern as issuerBadge.
 const AIRLINE_TABLE = [
   { match:'united',     label:'UA', bg:'#075294', fg:'#ffffff' },
-  { match:'american',   label:'AA', bg:'#DE1B23', fg:'#ffffff' },
-  { match:'air canada', label:'AC', bg:'#D22630', fg:'#ffffff' },
+  { match:'american',   label:'AA', bg:'#C8102E', fg:'#ffffff' },
+  { match:'air canada', label:'AC', bg:'#7A1F2B', fg:'#ffffff' },
   { match:'eva',        label:'BR', bg:'#00693C', fg:'#ffffff' },
   { match:'qatar',      label:'QR', bg:'#862633', fg:'#ffffff' },
-  { match:'emirates',   label:'EK', bg:'#D71920', fg:'#ffffff' },
+  { match:'emirates',   label:'EK', bg:'#B8860B', fg:'#ffffff' },
   { match:'thai',       label:'TG', bg:'#520049', fg:'#ffffff' },
   { match:'singapore',  label:'SQ', bg:'#00205B', fg:'#ffffff' },
   { match:'cathay',     label:'CX', bg:'#006B6E', fg:'#ffffff' },
@@ -1511,7 +1515,7 @@ let selectedYear = bangkokToday().getFullYear();
 function deleteTrackedYear(){
   const years = allYears();
   showModal(`
-    <div class="modal-head"><h3>Delete year data</h3><button class="close-x" id="modalClose">✕</button></div>
+    <div class="modal-head"><h3>Delete year data</h3><button class="close-x" id="modalClose"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
     <div class="modal-body">
       <div class="field">
         <label>Year</label>
@@ -1733,7 +1737,7 @@ function renderDashboard(){
     ${reminders.length ? `
     <div class="panel" style="border-color:var(--red);">
       <div class="panel-body" style="padding:14px 20px;display:flex;align-items:flex-start;gap:10px;">
-        <span style="font-size:18px;line-height:1.4;">⏰</span>
+        <span style="line-height:1.4;color:var(--red);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg></span>
         <div style="font-size:13.5px;line-height:1.6;">
           <strong>${reminders.length} item${reminders.length===1?'':'s'} expiring within 30 days:</strong>
           ${reminders.map(r=>{
@@ -1760,7 +1764,7 @@ function renderDashboard(){
           ${allYears().map(y=>`<option value="${y}" ${y===selectedYear?'selected':''}>${y}</option>`).join('')}
         </select>
       </div>
-      <div class="chart-wrap dashboard-chart-desktop"><canvas id="feeChart" height="90"></canvas></div>
+      <div class="chart-wrap dashboard-chart-desktop" style="height:${Math.max(220, rows.length * 42)}px;"><canvas id="feeChart"></canvas></div>
       <!-- MOBILE: the rotated-label bar chart above becomes unreadable at
            phone width (9 diagonal card names overlapping each other). This
            renders the exact same fee-vs-value numbers as a vertical list —
@@ -1834,7 +1838,7 @@ function renderDashboard(){
     <div style="text-align:center;color:var(--text-soft);font-size:11px;margin:18px 0 8px;">· · ·</div>
     <div style="display:flex;align-items:center;justify-content:center;gap:8px;padding:10px 14px 20px;flex-wrap:wrap;">
       <span style="font-size:11.5px;color:var(--text-soft);">Data cleanup:</span>
-      <button class="btn btn-sm" id="deleteYearBtn" style="background:transparent;border:1px solid var(--red-bg);color:var(--red);font-size:11.5px;padding:4px 10px;">🗑 Delete year data</button>
+      <button class="btn btn-sm" id="deleteYearBtn" style="background:transparent;border:1px solid var(--red-bg);color:var(--red);font-size:11.5px;padding:4px 10px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M4 7h16M9 7V4h6v3M6 7l1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13"/></svg> Delete year data</button>
     </div>
   `;
 
@@ -1843,19 +1847,35 @@ function renderDashboard(){
 
   const ctx = document.getElementById('feeChart');
   if(chartInstance) chartInstance.destroy();
+  // BUG FOUND: these were previously hardcoded to the light-theme hex
+  // values directly, so the desktop chart never actually followed dark
+  // mode — only the mobile fallback view (.fee-chart-*, driven by CSS
+  // variables) did. Reading the live CSS variables here means both now
+  // stay in sync with whichever theme is active, without needing to touch
+  // this code again if the palette ever changes.
+  const chartStyles = getComputedStyle(document.documentElement);
+  const chartFeeColor = chartStyles.getPropertyValue('--chart-fee').trim();
+  const chartValueColor = chartStyles.getPropertyValue('--chart-value').trim();
   chartInstance = new Chart(ctx, {
     type:'bar',
+    // FIX: was a vertical bar chart, which forced all 9 card names into
+    // rotated 35° diagonal labels — cramped and hard to read, especially
+    // for longer names like "Amex Marriott Bonvoy (Personal) …22002".
+    // indexAxis:'y' flips it horizontal so names read normally left-to-
+    // right, matching the readability of the mobile fallback view below.
+    indexAxis:'y',
     data:{
       labels: rows.map(r=>r.card.name.replace(/\s*\(.*?\)\s*/g,' ').trim()),
       datasets:[
-        {label:'Annual fee', data:rows.map(r=>r.card.fee), backgroundColor:'#c9d3e6'},
-        {label:'Redeemed', data:rows.map(r=>r.value), backgroundColor:'#1f3864'},
+        {label:'Annual fee', data:rows.map(r=>r.card.fee), backgroundColor:chartFeeColor},
+        {label:'Redeemed', data:rows.map(r=>r.value), backgroundColor:chartValueColor},
       ]
     },
     options:{
       responsive:true,
+      maintainAspectRatio:false,
       plugins:{legend:{position:'bottom'}},
-      scales:{ x:{ ticks:{ autoSkip:false, maxRotation:35, minRotation:0, font:{size:10.5} } }, y:{ beginAtZero:true } }
+      scales:{ x:{ beginAtZero:true }, y:{ ticks:{ autoSkip:false, font:{size:11} } } }
     }
   });
 }
@@ -1909,7 +1929,7 @@ function openCardModal(id){
   const editing = !!id;
   const c = editing ? cardById(id) : {name:'',issuer:'',fee:'',program:'',eliteStatus:false,notes:'',feeAnchor:''};
   showModal(`
-    <div class="modal-head"><h3>${editing?'Edit card':'Add card'}</h3><button class="close-x" id="modalClose">✕</button></div>
+    <div class="modal-head"><h3>${editing?'Edit card':'Add card'}</h3><button class="close-x" id="modalClose"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
     <div class="modal-body">
       <div class="field"><label>Card name</label><input id="f_name" value="${escAttr(c.name)}"></div>
       <div class="field-row">
@@ -2046,7 +2066,7 @@ function renderCreditRowHtml(today, {cr, cycle, isLive}, showDragHandle){
 
   return `
   <div class="list-row" data-row-id="${cr.id}">
-    ${showDragHandle ? '<div class="drag-handle">⠿</div>' : '<div style="width:20px;"></div>'}
+    ${showDragHandle ? '<div class="drag-handle"><svg width="12" height="16" viewBox="0 0 12 16" fill="currentColor"><circle cx="3" cy="3" r="1.3"/><circle cx="9" cy="3" r="1.3"/><circle cx="3" cy="8" r="1.3"/><circle cx="9" cy="8" r="1.3"/><circle cx="3" cy="13" r="1.3"/><circle cx="9" cy="13" r="1.3"/></svg></div>' : '<div style="width:20px;"></div>'}
     <div class="main-col">
       <div class="title"${isExpired ? ' style="text-decoration:line-through;opacity:.55;"' : ''}>${escHtml(cr.name)}</div>
       <div class="subtitle">${card?escHtml(card.name):'(unlinked)'} · ${escHtml(cr.frequency)} · ${renewalLabel} · ${cycle ? (isLive ? `resets ${fmtDate(cycle.end)}` : `${fmtDate(cycle.start)} – ${fmtDate(cycle.end)}`) : 'no anchor date set'}${cr.autoRedeem?' · Auto-credited, no action needed':''}</div>
@@ -2187,7 +2207,7 @@ function openCreditModal(id){
     ? 'Resets on a fixed calendar date every year, regardless of when you got the card — e.g. Jan 1 for a full calendar year, Jan 1 or Jul 1 for H1/H2, or Jan 1 / Apr 1 / Jul 1 / Oct 1 for Q1-Q4. Set the anchor to that calendar date.'
     : 'Resets on your card\'s specific anniversary — e.g. the date you opened the card, or whenever this particular benefit\'s year actually starts for you. Set the anchor to that real date, whatever it is.';
   showModal(`
-    <div class="modal-head"><h3>${editing?'Edit credit':'Add credit'}</h3><button class="close-x" id="modalClose">✕</button></div>
+    <div class="modal-head"><h3>${editing?'Edit credit':'Add credit'}</h3><button class="close-x" id="modalClose"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
     <div class="modal-body">
       <div class="field"><label>Card</label><select id="f_card">${DATA.cards.map(c=>`<option value="${c.id}" ${c.id===cr.cardId?'selected':''}>${escHtml(c.name)}</option>`).join('')}</select></div>
       <div class="field"><label>Credit name</label><input id="f_name" value="${escAttr(cr.name)}"></div>
@@ -2259,7 +2279,7 @@ function openRedeemModal(kind, sourceId, cycle){
   // had silently done nothing. Requiring a real value up front fixes both.
   const needsValue = kind==='fn' && !defaultAmount;
   showModal(`
-    <div class="modal-head"><h3>Log redemption</h3><button class="close-x" id="modalClose">✕</button></div>
+    <div class="modal-head"><h3>Log redemption</h3><button class="close-x" id="modalClose"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
     <div class="modal-body">
       <div class="field"><label>Date used</label><input id="f_date" type="date" value="${defaultRedeemDate(cycle)}"></div>
       <div class="field"><label>Amount ($)</label><input id="f_amount" type="number" min="0" value="${defaultAmount}" placeholder="${needsValue?'Estimated cash value of the stay you booked':''}"></div>
@@ -2374,7 +2394,7 @@ function renderFreeNightRowHtml(today, {fn, cycle, isLive}, showDragHandle){
 
   return `
   <div class="list-row" data-row-id="${fn.id}">
-    ${showDragHandle ? '<div class="drag-handle">⠿</div>' : '<div style="width:20px;"></div>'}
+    ${showDragHandle ? '<div class="drag-handle"><svg width="12" height="16" viewBox="0 0 12 16" fill="currentColor"><circle cx="3" cy="3" r="1.3"/><circle cx="9" cy="3" r="1.3"/><circle cx="3" cy="8" r="1.3"/><circle cx="9" cy="8" r="1.3"/><circle cx="3" cy="13" r="1.3"/><circle cx="9" cy="13" r="1.3"/></svg></div>' : '<div style="width:20px;"></div>'}
     <div class="main-col">
       <div class="title"${isExpired ? ' style="text-decoration:line-through;opacity:.55;"' : ''}>${escHtml(fn.desc)}${certsPerCycle>1?` <span style="font-size:11px;font-weight:400;color:var(--text-muted);">(${certsPerCycle}/yr)</span>`:''}</div>
       <div class="subtitle">${card?escHtml(card.name):'(unlinked)'} · ${escHtml(fn.program)}${expiration?` · expires ${fmtDate(expiration)}${fn.expirationOverride?' (set manually)':''}`:(cycle?'':' · no anchor date set')}</div>
@@ -2489,7 +2509,7 @@ function openFnModal(id){
   const editing = !!id;
   const fn = editing ? DATA.freeNights.find(x=>x.id===id) : {cardId:DATA.cards[0]?.id||'', program:'', desc:'', anchor:'', cashValue:null, expirationOverride:null};
   showModal(`
-    <div class="modal-head"><h3>${editing?'Edit certificate':'Add certificate'}</h3><button class="close-x" id="modalClose">✕</button></div>
+    <div class="modal-head"><h3>${editing?'Edit certificate':'Add certificate'}</h3><button class="close-x" id="modalClose"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
     <div class="modal-body">
       <div class="field"><label>Card</label><select id="f_card">${DATA.cards.map(c=>`<option value="${c.id}" ${c.id===fn.cardId?'selected':''}>${escHtml(c.name)}</option>`).join('')}</select></div>
       <div class="field"><label>Loyalty program</label><input id="f_program" value="${escAttr(fn.program)}"></div>
@@ -2670,7 +2690,7 @@ function expirationRowHtml(exp){
   <div class="expiration-row" style="display:flex;gap:8px;align-items:flex-end;margin-bottom:8px;">
     <div class="field" style="flex:1;margin-bottom:0;"><label>Miles</label><input type="number" min="0" class="exp-amount" value="${exp.amount||''}"></div>
     <div class="field" style="flex:1;margin-bottom:0;"><label>Expiration date</label><input type="date" class="exp-date" value="${exp.date||''}"></div>
-    <button type="button" class="btn btn-sm btn-danger" data-remove-exp title="Remove this batch">✕</button>
+    <button type="button" class="btn btn-sm btn-danger" data-remove-exp title="Remove this batch"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
   </div>`;
 }
 
@@ -2678,7 +2698,7 @@ function openMileageModal(id){
   const editing = !!id;
   const mp = editing ? DATA.mileagePrograms.find(x=>x.id===id) : {ownerName:'', programName:'', accountNumber:'', milesTotal:'', expirations:[], notes:''};
   showModal(`
-    <div class="modal-head"><h3>${editing?'Edit mileage account':'Add mileage account'}</h3><button class="close-x" id="modalClose">✕</button></div>
+    <div class="modal-head"><h3>${editing?'Edit mileage account':'Add mileage account'}</h3><button class="close-x" id="modalClose"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
     <div class="modal-body">
       <div class="field"><label>Owner</label><input id="f_owner" list="ownerNamesList" value="${escAttr(mp.ownerName)}" placeholder="e.g. Boriwat"></div>
       <datalist id="ownerNamesList">${ownerNames().map(n=>`<option value="${escAttr(n)}">`).join('')}</datalist>
@@ -2748,7 +2768,7 @@ function openVoucherModal(id){
   const editing = !!id;
   const v = editing ? DATA.vouchers.find(x=>x.id===id) : {ownerName:'', programName:'', title:'', description:'', expirationDate:''};
   showModal(`
-    <div class="modal-head"><h3>${editing?'Edit voucher':'Add voucher'}</h3><button class="close-x" id="modalClose">✕</button></div>
+    <div class="modal-head"><h3>${editing?'Edit voucher':'Add voucher'}</h3><button class="close-x" id="modalClose"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
     <div class="modal-body">
       <div class="field"><label>Owner</label><input id="f_owner" list="ownerNamesList" value="${escAttr(v.ownerName)}" placeholder="e.g. Boriwat"></div>
       <datalist id="ownerNamesList">${ownerNames().map(n=>`<option value="${escAttr(n)}">`).join('')}</datalist>
@@ -2817,7 +2837,7 @@ function renderHistory(){
   body.innerHTML = rows.length ? rows.map(h=>{
     const card = cardById(h.cardId);
     return `<tr data-row-id="${h.id}">
-      <td><div class="drag-handle">⠿</div></td>
+      <td><div class="drag-handle"><svg width="12" height="16" viewBox="0 0 12 16" fill="currentColor"><circle cx="3" cy="3" r="1.3"/><circle cx="9" cy="3" r="1.3"/><circle cx="3" cy="8" r="1.3"/><circle cx="9" cy="8" r="1.3"/><circle cx="3" cy="13" r="1.3"/><circle cx="9" cy="13" r="1.3"/></svg></div></td>
       <td>${fmtDate(parseDate(h.date))}</td>
       <td>${card?escHtml(card.name):'(unlinked)'}</td>
       <td><span class="pill ${h.type==='Credit'?'pill-accent':'pill-gray'}">${escHtml(h.type)}</span></td>
@@ -2852,7 +2872,7 @@ function openHistModal(id){
   const editing = !!id;
   const entry = editing ? DATA.history.find(h=>h.id===id) : null;
   showModal(`
-    <div class="modal-head"><h3>${editing?'Edit redemption':'Log redemption'}</h3><button class="close-x" id="modalClose">✕</button></div>
+    <div class="modal-head"><h3>${editing?'Edit redemption':'Log redemption'}</h3><button class="close-x" id="modalClose"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
     <div class="modal-body">
       <div class="field"><label>Date used</label><input id="f_date" type="date" value="${entry?entry.date:toISODate(bangkokToday())}"></div>
       <div class="field"><label>Card</label><select id="f_card">${DATA.cards.map(c=>`<option value="${c.id}" ${entry&&c.id===entry.cardId?'selected':''}>${escHtml(c.name)}</option>`).join('')}</select></div>
@@ -2902,7 +2922,7 @@ function showConfirm(message, onYes, opts={}){
   const danger = opts.danger !== false;
   const confirmLabel = opts.confirmLabel || 'Delete';
   showModal(`
-    <div class="modal-head"><h3>${opts.title||'Are you sure?'}</h3><button class="close-x" id="modalClose">✕</button></div>
+    <div class="modal-head"><h3>${opts.title||'Are you sure?'}</h3><button class="close-x" id="modalClose"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
     <div class="modal-body"><div style="font-size:13.5px;line-height:1.5;">${message}</div></div>
     <div class="modal-foot">
       <button class="btn" id="modalCancel">Cancel</button>
@@ -2987,7 +3007,9 @@ if(changesSinceBackup > BACKUP_REMINDER_THRESHOLD - 1) showBackupReminder();
 // not synced — same rationale as above).
 function updateThemeButtonIcon(){
   const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-  document.getElementById('themeToggleBtn').textContent = isDark ? '☀️' : '🌙';
+  const sunIcon = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>';
+  const moonIcon = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg>';
+  document.getElementById('themeToggleBtn').innerHTML = isDark ? sunIcon : moonIcon;
 }
 updateThemeButtonIcon();
 document.getElementById('themeToggleBtn').onclick = ()=>{
