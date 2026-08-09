@@ -481,7 +481,7 @@ const SEED = {
   ],
   mileagePrograms: [],
   vouchers: [],
-  _version: 8,
+  _version: 9,
 };
 
 /* ============================================================
@@ -497,7 +497,7 @@ const DIRTY_KEY = STORE_KEY + '_dirty'; // FIX: persists across reloads/tab-clos
 const BACKUP_COUNT_KEY = STORE_KEY + '_changesSinceBackup';
 const BACKUP_REMINDER_THRESHOLD = 3; // "more than 2 changes"
 let changesSinceBackup = parseInt(localStorage.getItem(BACKUP_COUNT_KEY) || '0', 10) || 0;
-const CURRENT_DATA_VERSION = 8;
+const CURRENT_DATA_VERSION = 9;
 // SAFETY NET: remembers whether this load started from a completely empty
 // local cache (meaning DATA below is the hardcoded demo SEED, not anything
 // real) — used after bootstrapSync() resolves to decide whether a failed
@@ -629,6 +629,20 @@ function migrateData(data){
     delete data.trackedYears;
     delete data.excludedYears;
     data._version = 8;
+  }
+  if(data._version < 9){
+    // v9: some cards grant more than one free night certificate per year
+    // (e.g. an annual anniversary certificate PLUS a separate bonus
+    // certificate, both resetting on the same anniversary date). Adds
+    // certsPerCycle so ONE entry can correctly represent "this grants N
+    // per year" — redeeming one no longer marks the whole thing as fully
+    // used if more are still available. Defaults to 1 for every existing
+    // certificate, which is exactly today's behavior — zero change for
+    // anyone who only ever had single certificates.
+    (data.freeNights||[]).forEach(fn=>{
+      if(fn.certsPerCycle === undefined) fn.certsPerCycle = 1;
+    });
+    data._version = 9;
   }
   return data;
 }
@@ -1195,7 +1209,7 @@ function computeUpcomingReminders(){
   DATA.freeNights.forEach(fn=>{
     const cycle = currentCycle(fn.anchor, 12, 12, today);
     if(!cycle) return;
-    if(redeemedInCycle(fn.id, cycle) > 0) return;
+    if(historyEntriesInCycle(fn.id, cycle).length >= (fn.certsPerCycle || 1)) return;
     const expiration = effectiveExpiration(fn, cycle);
     const daysLeft = daysBetween(today, expiration);
     if(daysLeft <= 30) items.push({name: fn.desc, daysLeft});
@@ -2315,16 +2329,21 @@ function sortedFreeNightsList(today){
 // Same split-out pattern as renderCreditRowHtml — see its comment above.
 function renderFreeNightRowHtml(today, {fn, cycle, isLive}, showDragHandle){
   const card = cardById(fn.cardId);
-  const redeemed = redeemedInCycle(fn.id, cycle);
-  const isUsed = redeemed > 0;
+  const certsPerCycle = fn.certsPerCycle || 1;
+  const entriesThisCycle = cycle ? historyEntriesInCycle(fn.id, cycle) : [];
+  const redeemedCount = entriesThisCycle.length;
+  const redeemed = entriesThisCycle.reduce((sum,e)=>sum+Number(e.amount||0), 0);
+  const isFullyUsed = cycle ? redeemedCount >= certsPerCycle : false;
+  const isPartiallyUsed = cycle ? (redeemedCount > 0 && !isFullyUsed) : false;
   const expiration = effectiveExpiration(fn, cycle);
   const hasAnyHistory = !cycle && DATA.history.some(h=>h.sourceId===fn.id);
   const daysLeft = (expiration && isLive) ? daysBetween(today, expiration) : null;
-  const isExpired = daysLeft !== null && daysLeft < 0 && !isUsed;
+  const isExpired = daysLeft !== null && daysLeft < 0 && !isFullyUsed;
   let pill;
   if(!cycle && hasAnyHistory){ pill = {label:'Logged', cls:'pill-green'}; }
   else if(!cycle){ pill = {label:'Not yet issued', cls:'pill-gray'}; }
-  else if(isUsed){ pill = {label:'Redeemed', cls:'pill-green'}; }
+  else if(isFullyUsed){ pill = {label:'Redeemed', cls:'pill-green'}; }
+  else if(isPartiallyUsed){ pill = {label:`${redeemedCount} of ${certsPerCycle} redeemed`, cls:'pill-amber'}; }
   else if(isExpired){ pill = {label:'Expired', cls:'pill-gray'}; }
   else if(isLive){ pill = statusForDays(daysBetween(today, expiration), 90); }
   else { pill = {label:'Not redeemed', cls:'pill-gray'}; }
@@ -2339,9 +2358,9 @@ function renderFreeNightRowHtml(today, {fn, cycle, isLive}, showDragHandle){
   <div class="list-row" data-row-id="${fn.id}">
     ${showDragHandle ? '<div class="drag-handle">⠿</div>' : '<div style="width:20px;"></div>'}
     <div class="main-col">
-      <div class="title"${isExpired ? ' style="text-decoration:line-through;opacity:.55;"' : ''}>${escHtml(fn.desc)}</div>
+      <div class="title"${isExpired ? ' style="text-decoration:line-through;opacity:.55;"' : ''}>${escHtml(fn.desc)}${certsPerCycle>1?` <span style="font-size:11px;font-weight:400;color:var(--text-muted);">(${certsPerCycle}/yr)</span>`:''}</div>
       <div class="subtitle">${card?escHtml(card.name):'(unlinked)'} · ${escHtml(fn.program)}${expiration?` · expires ${fmtDate(expiration)}${fn.expirationOverride?' (set manually)':''}`:(cycle?'':' · no anchor date set')}</div>
-      ${progressPct!==null ? `<div style="height:4px;background:var(--gray-bg);border-radius:2px;margin-top:6px;overflow:hidden;"><div style="height:100%;width:${progressPct}%;background:${isUsed?'var(--green)':'var(--navy-light)'};"></div></div>` : ''}
+      ${progressPct!==null ? `<div style="height:4px;background:var(--gray-bg);border-radius:2px;margin-top:6px;overflow:hidden;"><div style="height:100%;width:${progressPct}%;background:${isFullyUsed?'var(--green)':'var(--navy-light)'};"></div></div>` : ''}
     </div>
     <div class="row-break"></div>
     <div class="amount">${redeemed>0?'$'+redeemed:'—'}</div>
@@ -2349,9 +2368,9 @@ function renderFreeNightRowHtml(today, {fn, cycle, isLive}, showDragHandle){
     <div class="days">${daysLeft!==null? (daysLeft>=0? daysLeft+' days left' : '') : ''}</div>
     <div class="row-break"></div>
     <div class="actions">
-      ${!isUsed && cycle ? `<button class="btn btn-sm btn-primary" data-mark-fn="${fn.id}">Mark used</button>` : ''}
+      ${!isFullyUsed && cycle ? `<button class="btn btn-sm btn-primary" data-mark-fn="${fn.id}">${redeemedCount>0?`Log redemption (${redeemedCount+1} of ${certsPerCycle})`:'Mark used'}</button>` : ''}
       ${!cycle ? `<button class="btn btn-sm btn-primary" data-mark-fn="${fn.id}">+ Log redemption</button>` : ''}
-      ${isUsed ? `<button class="btn btn-sm" data-editredemption-fn="${fn.id}">Edit amount</button><button class="btn btn-sm btn-danger" data-unredeem-fn="${fn.id}">Unredeem</button>` : ''}
+      ${redeemedCount>0 ? `<button class="btn btn-sm" data-editredemption-fn="${fn.id}">Edit amount</button><button class="btn btn-sm btn-danger" data-unredeem-fn="${fn.id}">Unredeem</button>` : ''}
       <button class="btn btn-sm" data-edit-fn="${fn.id}">Edit</button>
       <button class="btn btn-sm btn-danger" data-del-fn="${fn.id}">Delete</button>
     </div>
@@ -2459,6 +2478,8 @@ function openFnModal(id){
       <div class="field"><label>Description</label><input id="f_desc" value="${escAttr(fn.desc)}"></div>
       <div class="field"><label>Anchor / issue date</label><input id="f_anchor" type="date" value="${fn.anchor||''}"></div>
       <div class="hint">Leave blank if this card's first certificate hasn't been issued yet.</div>
+      <div class="field"><label>Certificates granted per year</label><input id="f_certsPerCycle" type="number" min="1" step="1" value="${fn.certsPerCycle||1}"></div>
+      <div class="hint">Most cards grant one. If yours grants more than one on the same anniversary (e.g. an annual certificate plus a separate bonus one), set this to how many — each one can then be logged and tracked independently instead of the whole thing showing "redeemed" after just the first.</div>
       <div class="field"><label>Expiration date override (optional)</label><input id="f_expiration" type="date" value="${fn.expirationOverride||''}"></div>
       <div class="hint">By default the expiration shown is calculated as 12 months from the anchor date. A certificate's real expiration doesn't always match that exactly — issuers sometimes run a few days behind, or grant a one-time extension — so once you see the actual date in your hotel account, enter it here and it'll be used instead. Leave blank to keep using the calculated date.</div>
     </div>
@@ -2468,7 +2489,7 @@ function openFnModal(id){
     </div>
   `);
   document.getElementById('modalSave').onclick = ()=>{
-    const obj = { id: editing?id:uid('fn'), cardId: val('f_card'), program: val('f_program'), desc: val('f_desc'), anchor: val('f_anchor')||null, cashValue: fn.cashValue||null, expirationOverride: val('f_expiration')||null };
+    const obj = { id: editing?id:uid('fn'), cardId: val('f_card'), program: val('f_program'), desc: val('f_desc'), anchor: val('f_anchor')||null, cashValue: fn.cashValue||null, certsPerCycle: Math.max(1, parseInt(val('f_certsPerCycle'),10)||1), expirationOverride: val('f_expiration')||null };
     if(!obj.desc){ toast('Description is required'); return; }
     if(editing){ const i=DATA.freeNights.findIndex(x=>x.id===id); DATA.freeNights[i]=obj; } else DATA.freeNights.push(obj);
     saveData(); closeModal(); renderFreeNights(); toast('Certificate saved');
