@@ -401,9 +401,6 @@
       <div class="topbar-actions">
         <button class="btn btn-sm" id="themeToggleBtn" title="Toggle dark mode">🌙</button>
         <span id="syncStatus" class="sync-status"></span>
-        <select id="yearSelect"></select>
-        <button class="btn btn-sm" id="addYearBtn" title="Add a future year to the dropdown">+<span class="btn-label"> Add year</span></button>
-        <button class="btn btn-sm btn-danger" id="deleteYearBtn" title="Permanently delete redemption history for a year">🗑<span class="btn-label"> Delete year</span></button>
         <button class="btn btn-sm" id="backupsBtn" title="View or create backups">💾<span class="btn-label"> Backups</span></button>
         <button class="btn" id="exportBtn" title="Export a backup JSON file">⬇<span class="btn-label"> Export</span></button>
         <button class="btn" id="importBtn" title="Import a backup JSON file">⬆<span class="btn-label"> Import</span></button>
@@ -482,10 +479,9 @@ const SEED = {
     {id:'rh1', date:'2026-02-19', cardId:'c1', type:'Credit', sourceId:'cr1', desc:'$300 Annual Travel/Airline Incidental Credit', amount:300},
     {id:'rh3', date:'2026-12-25', cardId:'c9', type:'Credit', sourceId:'cr13', desc:'$300 Annual Travel Credit (Capital One Travel)', amount:300},
   ],
-  trackedYears: [2027, 2028, 2029],
   mileagePrograms: [],
   vouchers: [],
-  _version: 7,
+  _version: 8,
 };
 
 /* ============================================================
@@ -501,7 +497,7 @@ const DIRTY_KEY = STORE_KEY + '_dirty'; // FIX: persists across reloads/tab-clos
 const BACKUP_COUNT_KEY = STORE_KEY + '_changesSinceBackup';
 const BACKUP_REMINDER_THRESHOLD = 3; // "more than 2 changes"
 let changesSinceBackup = parseInt(localStorage.getItem(BACKUP_COUNT_KEY) || '0', 10) || 0;
-const CURRENT_DATA_VERSION = 7;
+const CURRENT_DATA_VERSION = 8;
 // SAFETY NET: remembers whether this load started from a completely empty
 // local cache (meaning DATA below is the hardcoded demo SEED, not anything
 // real) — used after bootstrapSync() resolves to decide whether a failed
@@ -621,6 +617,18 @@ function migrateData(data){
       delete mp.milesExpiringDate;
     });
     data._version = 7;
+  }
+  if(data._version < 8){
+    // v8: the Dashboard's year dropdown is now fully computed (current
+    // year + next year + any year that actually has redemption history)
+    // instead of a manually-maintained list — "+Add year" is gone
+    // entirely, since a future year with zero history never showed
+    // anything a person couldn't already predict. These two fields drove
+    // that old manual system and have no meaning anymore; removed rather
+    // than left behind as dead data in every export/backup going forward.
+    delete data.trackedYears;
+    delete data.excludedYears;
+    data._version = 8;
   }
   return data;
 }
@@ -868,7 +876,6 @@ async function restoreBackup(timestamp){
 
   DATA = migrateData(JSON.parse(JSON.stringify(match.data)));
   saveData();
-  renderYearSelect();
   switchView(currentView);
   closeModal();
   toast(`Restored backup from ${fmtDateTime(match.timestamp)}`);
@@ -1018,7 +1025,6 @@ async function bootstrapSync(){
   DATA = migrateData(remote.data);
   localStorage.setItem(STORE_KEY, JSON.stringify(DATA));
   localStorage.setItem(SYNCED_AT_KEY, remote.updated_at);
-  renderYearSelect();
   switchView(currentView);
   setSyncStatus('synced');
   // UI IMPROVEMENT: the sync status badge is small and easy to miss, so a
@@ -1038,6 +1044,33 @@ function parseDate(s){ if(!s) return null; const [y,m,d]=s.split('-').map(Number
 function fmtDate(d){ if(!d) return '—'; return d.toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'}); }
 function addMonths(date, months){ const d = new Date(date); d.setMonth(d.getMonth()+months); return d; }
 function daysBetween(a,b){ return Math.round((b-a)/MS_DAY); }
+
+// Returns "today" as a local-midnight Date object representing the current
+// calendar day in Asia/Bangkok — regardless of what timezone the actual
+// device is set to. This matters because the household shares this
+// tracker across devices/locations, and every day-count/reminder/year
+// calculation should agree on "what day is it" the same way the two email
+// Edge Functions already do, rather than drifting per-device.
+//
+// IMPORTANT: this deliberately does NOT use the "add 7 hours to Date.now()"
+// trick the Edge Functions use — that only works there because the server
+// runtime's own clock is UTC internally. A browser is not; it runs in
+// whatever timezone the device itself is set to, so shifting the epoch and
+// then reading .getDate()/.getFullYear() would re-apply THAT device's own
+// offset on top, producing the wrong day for anyone not already in
+// Thailand. Intl.DateTimeFormat with an explicit timeZone asks the browser
+// directly "what's the date in Bangkok right now," which is correct
+// regardless of the device's own settings.
+function bangkokToday(){
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Bangkok', year:'numeric', month:'2-digit', day:'2-digit',
+  }).formatToParts(new Date());
+  const y = Number(parts.find(p=>p.type==='year').value);
+  const m = Number(parts.find(p=>p.type==='month').value);
+  const d = Number(parts.find(p=>p.type==='day').value);
+  return new Date(y, m-1, d); // local-midnight Date object, same shape parseDate() already produces for stored dates — keeps all downstream arithmetic (daysBetween, addMonths, etc.) consistent
+}
+
 
 const CYCLE_MONTHS = {'Annual':12, 'Semi-Annual':6, 'Quarterly':3, 'Per Stay':12};
 
@@ -1118,7 +1151,7 @@ function occurrenceForYear(anchorStr, durationMonths, year){
 // retyping the date every time. Defaults to today only if today actually
 // falls inside the row's window; otherwise defaults to the window's start.
 function defaultRedeemDate(cycle){
-  const today = new Date();
+  const today = bangkokToday();
   if(!cycle) return toISODate(today);
   if(today >= cycle.start && today < cycle.nextStart) return toISODate(today);
   return toISODate(cycle.start);
@@ -1149,7 +1182,7 @@ function nextOccurrenceOnOrAfter(anchorStr, today){
 // whichever year is selected in the dropdown — since this is meant to
 // surface real-world urgency, not a historical/projected view.
 function computeUpcomingReminders(){
-  const today = new Date();
+  const today = bangkokToday();
   const items = [];
   DATA.credits.forEach(cr=>{
     if(cr.autoRedeem) return;
@@ -1283,7 +1316,7 @@ function suppressAutoRedemption(creditId, cycleStartISO){
   }
 }
 function runAutoRedemptions(){
-  const today = new Date();
+  const today = bangkokToday();
   let changed = false;
   DATA.credits.forEach(cr=>{
     if(!cr.autoRedeem) return;
@@ -1444,60 +1477,14 @@ function airlineGroupKey(programName){
    ============================================================ */
 function allYears(){
   const ys = new Set();
-  const now = new Date();
-  // BUG FOUND: `now.getFullYear()+1` used to be added unconditionally here,
-  // with no way to ever remove it — so deleting "next year" via Delete Year
-  // (e.g. 2027, while today is in 2026) wiped its data correctly but this
-  // line silently re-added the year itself on the very next render, making
-  // the delete look like it had no effect at all. `excludedYears` is a
-  // small persisted list of years the user has explicitly chosen to remove
-  // from this auto-suggested default — the actual current year is never
-  // excludable this way (so you can never lock yourself out of "today"),
-  // only the "next year" convenience default can be turned off.
-  const excluded = new Set(DATA.excludedYears || []);
+  const now = bangkokToday();
   ys.add(now.getFullYear());
-  if(!excluded.has(now.getFullYear()+1)) ys.add(now.getFullYear()+1);
+  ys.add(now.getFullYear()+1); // always show next year for forward visibility — no way to hide it, and nothing to configure
   DATA.history.forEach(h=>ys.add(parseDate(h.date).getFullYear()));
-  (DATA.trackedYears||[]).forEach(y=>ys.add(y)); // years explicitly added via "+ Add year"
   return Array.from(ys).sort((a,b)=>b-a);
 }
 
-// FIX: was a native prompt() — replaced with the app's own modal for the
-// same reason as showConfirm above (prompt() can be silently blocked in
-// in-app browsers, and a number input is friendlier on mobile anyway).
-function addTrackedYear(){
-  showModal(`
-    <div class="modal-head"><h3>Add a year</h3><button class="close-x" id="modalClose">✕</button></div>
-    <div class="modal-body">
-      <div class="field"><label>Year</label><input id="f_newyear" type="number" inputmode="numeric" min="2000" max="2100" step="1" value="${new Date().getFullYear()+1}"></div>
-      <div class="hint">Adds this year to the dropdown at the top of the page so you can plan or log data ahead of time.</div>
-    </div>
-    <div class="modal-foot">
-      <button class="btn" id="modalCancel">Cancel</button>
-      <button class="btn btn-primary" id="modalSave">Add</button>
-    </div>
-  `);
-  document.getElementById('modalSave').onclick = ()=>{
-    const year = parseInt(val('f_newyear'), 10);
-    if(!Number.isInteger(year) || year < 2000 || year > 2100){
-      toast('Enter a valid 4-digit year'); return;
-    }
-    if(!DATA.trackedYears) DATA.trackedYears = [];
-    if(!DATA.trackedYears.includes(year)) DATA.trackedYears.push(year);
-    DATA.trackedYears.sort((a,b)=>a-b);
-    // If this year was previously excluded via Delete Year (see allYears()
-    // / deleteTrackedYear()), explicitly re-adding it should actually bring
-    // it back — otherwise it would stay invisible despite being "added."
-    if(DATA.excludedYears) DATA.excludedYears = DATA.excludedYears.filter(y=>y!==year);
-    saveData();
-    selectedYear = year;
-    closeModal();
-    renderYearSelect();
-    switchView(currentView);
-    toast(`${year} added`);
-  };
-}
-let selectedYear = new Date().getFullYear();
+let selectedYear = bangkokToday().getFullYear();
 
 // Permanently deletes redemption history for a chosen year — and, if the
 // checkbox is ticked, every year after it too — and removes those years
@@ -1570,41 +1557,24 @@ function deleteTrackedYear(){
         suppressAutoRedemption(cr.id, occ ? toISODate(occ.start) : h.date);
       });
       DATA.history = DATA.history.filter(h => !yearMatches(h));
-      if(DATA.trackedYears){
-        DATA.trackedYears = DATA.trackedYears.filter(y => !matches(y));
-      }
-      // FIX: this is the actual fix for "can't delete [next year]" — without
-      // this, allYears() would silently re-add next year on the very next
-      // render regardless of everything above, since it used to be injected
-      // unconditionally. The real current year is deliberately left out of
-      // this exclusion list (allYears() ignores exclusion for it anyway),
-      // so it's impossible to accidentally hide the year you're actually in.
-      const now = new Date();
-      const nextYear = now.getFullYear() + 1;
-      if(matches(nextYear)){
-        if(!DATA.excludedYears) DATA.excludedYears = [];
-        if(!DATA.excludedYears.includes(nextYear)) DATA.excludedYears.push(nextYear);
-      }
+      // No more trackedYears/excludedYears bookkeeping needed here: a past
+      // year with its history now cleared simply stops appearing next time
+      // allYears() computes its list (nothing else references it), and
+      // next year always stays visible regardless — by design now, not by
+      // exclusion-list workaround. Both fall out automatically.
       if(matches(selectedYear)){
-        // The year currently being viewed just got deleted — fall back to
-        // whatever the most recent remaining year is (allYears() always
-        // includes at least the real current year, so there's always
-        // something to land on).
+        // The year currently being viewed just got its data cleared —
+        // fall back to whatever the most recent remaining year is
+        // (allYears() always includes at least the real current year, so
+        // there's always something to land on).
         selectedYear = allYears()[0];
       }
 
       saveData();
-      renderYearSelect();
       switchView(currentView);
       toast(`Deleted data for ${label}`);
     });
   };
-}
-
-function renderYearSelect(){
-  const sel = document.getElementById('yearSelect');
-  const years = allYears();
-  sel.innerHTML = years.map(y=>`<option value="${y}" ${y===selectedYear?'selected':''}>${y}</option>`).join('');
 }
 
 /* Value realized for a card, filtered to a specific calendar year (from history log) */
@@ -1770,7 +1740,12 @@ function renderDashboard(){
     <div class="hint" style="margin:-4px 2px 16px;">This reflects redemptions logged with a date in ${selectedYear} — switching years here doesn't add, remove, or expire any credits, free nights, or vouchers. Those always show up based on their own dates, everywhere else in the app, regardless of what year is selected here.</div>
 
     <div class="panel">
-      <div class="panel-head"><h2>Fee vs. redemptions logged — ${selectedYear}</h2></div>
+      <div class="panel-head" style="display:flex;justify-content:space-between;align-items:center;">
+        <h2>Fee vs. redemptions logged</h2>
+        <select id="dashboardYearSelect" style="background:var(--gray-bg);border:1px solid var(--border);color:var(--text);font-size:12.5px;font-weight:600;border-radius:20px;padding:5px 10px;cursor:pointer;">
+          ${allYears().map(y=>`<option value="${y}" ${y===selectedYear?'selected':''}>${y}</option>`).join('')}
+        </select>
+      </div>
       <div class="chart-wrap dashboard-chart-desktop"><canvas id="feeChart" height="90"></canvas></div>
       <!-- MOBILE: the rotated-label bar chart above becomes unreadable at
            phone width (9 diagonal card names overlapping each other). This
@@ -1841,7 +1816,16 @@ function renderDashboard(){
         </div>
       </div>
     </div>
+
+    <div style="text-align:center;color:var(--text-soft);font-size:11px;margin:18px 0 8px;">· · ·</div>
+    <div style="display:flex;align-items:center;justify-content:center;gap:8px;padding:10px 14px 20px;flex-wrap:wrap;">
+      <span style="font-size:11.5px;color:var(--text-soft);">Data cleanup:</span>
+      <button class="btn btn-sm" id="deleteYearBtn" style="background:transparent;border:1px solid var(--red-bg);color:var(--red);font-size:11.5px;padding:4px 10px;">🗑 Delete year data</button>
+    </div>
   `;
+
+  document.getElementById('dashboardYearSelect').onchange = (e)=>{ selectedYear = Number(e.target.value); switchView(currentView); };
+  document.getElementById('deleteYearBtn').onclick = deleteTrackedYear;
 
   const ctx = document.getElementById('feeChart');
   if(chartInstance) chartInstance.destroy();
@@ -1881,7 +1865,7 @@ function renderCards(){
     const net = value - c.fee;
     // NEW FEATURE: purely informational — only rendered when the card has
     // feeAnchor set, so cards without it look exactly as they did before.
-    const nextFee = c.feeAnchor ? nextOccurrenceOnOrAfter(c.feeAnchor, new Date()) : null;
+    const nextFee = c.feeAnchor ? nextOccurrenceOnOrAfter(c.feeAnchor, bangkokToday()) : null;
     const badge = issuerBadge(c.issuer);
     return `
     <div class="card-tile">
@@ -1891,7 +1875,7 @@ function renderCards(){
       </div>
       <div class="meta">${escHtml(c.issuer)} · ${escHtml(c.program)}${c.eliteStatus?' · Elite status':''}</div>
       <div class="row"><span class="l">Annual fee</span><span class="r">$${c.fee.toLocaleString()}</span></div>
-      ${nextFee ? `<div class="row"><span class="l">Fee renews</span><span class="r">${fmtDate(nextFee)} (${daysBetween(new Date(), nextFee)}d)</span></div>` : ''}
+      ${nextFee ? `<div class="row"><span class="l">Fee renews</span><span class="r">${fmtDate(nextFee)} (${daysBetween(bangkokToday(), nextFee)}d)</span></div>` : ''}
       <div class="row"><span class="l">Redeemed in ${selectedYear}</span><span class="r">$${value.toLocaleString()}</span></div>
       <div class="row"><span class="l">Net</span><span class="r" style="color:${net>=0?'var(--green)':'var(--red)'}">${net>=0?'+':'-'}$${Math.abs(net).toLocaleString()}</span></div>
       ${c.notes?`<div class="hint" style="margin-top:8px;">${escHtml(c.notes)}</div>`:''}
@@ -2071,7 +2055,7 @@ function renderCreditRowHtml(today, {cr, cycle, isLive}, showDragHandle){
 }
 
 function renderCredits(){
-  const today = new Date();
+  const today = bangkokToday();
   const content = document.getElementById('content');
   content.innerHTML = `
     <div class="panel">
@@ -2375,7 +2359,7 @@ function renderFreeNightRowHtml(today, {fn, cycle, isLive}, showDragHandle){
 }
 
 function renderFreeNights(){
-  const today = new Date();
+  const today = bangkokToday();
   const content = document.getElementById('content');
   content.innerHTML = `
     <div class="panel">
@@ -2572,7 +2556,7 @@ function voucherRowHtml(v, today){
 }
 
 function renderMileage(){
-  const today = new Date();
+  const today = bangkokToday();
   const content = document.getElementById('content');
   content.innerHTML = `
     <div class="panel">
@@ -2831,7 +2815,7 @@ function openHistModal(id){
   showModal(`
     <div class="modal-head"><h3>${editing?'Edit redemption':'Log redemption'}</h3><button class="close-x" id="modalClose">✕</button></div>
     <div class="modal-body">
-      <div class="field"><label>Date used</label><input id="f_date" type="date" value="${entry?entry.date:new Date().toISOString().slice(0,10)}"></div>
+      <div class="field"><label>Date used</label><input id="f_date" type="date" value="${entry?entry.date:toISODate(bangkokToday())}"></div>
       <div class="field"><label>Card</label><select id="f_card">${DATA.cards.map(c=>`<option value="${c.id}" ${entry&&c.id===entry.cardId?'selected':''}>${escHtml(c.name)}</option>`).join('')}</select></div>
       <div class="field"><label>Type</label><select id="f_type"><option ${entry&&entry.type==='Credit'?'selected':''}>Credit</option><option ${entry&&entry.type==='Free Night'?'selected':''}>Free Night</option></select></div>
       <div class="field"><label>Description</label><input id="f_desc" value="${escAttr(entry?entry.desc:'')}" placeholder="e.g. $300 Annual Travel Credit"></div>
@@ -2928,7 +2912,7 @@ document.getElementById('importFile').onchange = (e)=>{
     try{
       const parsed = JSON.parse(reader.result);
       if(!parsed.cards || !parsed.credits) throw new Error('bad format');
-      DATA = migrateData(parsed); saveData(); runAutoRedemptions(); renderYearSelect(); switchView(currentView);
+      DATA = migrateData(parsed); saveData(); runAutoRedemptions(); switchView(currentView);
       toast('Data imported');
     }catch(err){ toast('Could not read that file — is it a tracker backup JSON?'); }
   };
@@ -2940,9 +2924,6 @@ document.getElementById('importFile').onchange = (e)=>{
    INIT
    ============================================================ */
 document.querySelectorAll('#nav button').forEach(b=> b.onclick = ()=> switchView(b.dataset.view));
-document.getElementById('yearSelect').onchange = (e)=>{ selectedYear = Number(e.target.value); switchView(currentView); };
-document.getElementById('addYearBtn').onclick = addTrackedYear;
-document.getElementById('deleteYearBtn').onclick = deleteTrackedYear;
 document.getElementById('backupsBtn').onclick = openBackupsModal;
 document.getElementById('backupReminderBtn').onclick = async ()=>{
   const btn = document.getElementById('backupReminderBtn');
@@ -3010,14 +2991,12 @@ function updateDataRiskWarning(safeToProceed){
 // actually safe to do so (see the comment on bootstrapSync above) — never
 // against unconfirmed seed/demo data that a network hiccup could otherwise
 // let slip through and silently overwrite the real cloud data with.
-renderYearSelect();
 switchView('dashboard');
 hasRenderedOnce = true;
 
 bootstrapSync().then(safeToProceed=>{
   updateDataRiskWarning(safeToProceed);
   if(safeToProceed && runAutoRedemptions()){
-    renderYearSelect();
     switchView(currentView);
   }
 });
