@@ -9,14 +9,14 @@
 <style>
   :root{
     --navy:#0d1b2e; --navy-light:#16283f; --navy-dark:#081220;
-    --brand:#a8823a; --brand-light:#bd9752; --on-brand:#ffffff;
+    --brand:#4a5b73; --brand-light:#5c7089; --on-brand:#ffffff;
     --bg:#f4f6fb; --card-bg:#ffffff; --border:#e5e8f0;
     --text:#1a1d29; --text-muted:#6b7280; --text-soft:#94a0b4;
     --green:#16a34a; --green-bg:#e7f7ed;
-    --amber:#d97706; --amber-bg:#fef3c7;
+    --amber:#a15c2e; --amber-bg:#f0e4d8;
     --red:#dc2626; --red-bg:#fde8e8;
     --gray:#6b7280; --gray-bg:#eef0f4;
-    --accent:#b8902f; --accent-bg:#faf3e2;
+    --accent:#a15c2e; --accent-bg:#f0e4d8;
     --radius:14px; --radius-sm:8px;
     --shadow:0 1px 2px rgba(16,24,40,.06), 0 1px 3px rgba(16,24,40,.08);
     --shadow-md:0 4px 12px rgba(16,24,40,.10);
@@ -32,31 +32,31 @@
        list (see .fee-chart-*) reads as the same chart, not a different one.
        (Desktop chart now reads these live via getComputedStyle, so this
        value alone is enough to update both — no JS change needed.) */
-    --chart-fee:#c9d3e6;
-    --chart-value:#0d1b2e;
+    --chart-fee:#d9d2c4;
+    --chart-value:#a15c2e;
   }
   /* ENHANCEMENT (dark mode): toggled by adding data-theme="dark" to <html>.
      Every color in the app is already driven by the variables above, so the
      whole UI re-themes from this one block — no per-component dark-mode
      rules needed elsewhere. */
   html[data-theme="dark"]{
-    --navy:#0a1628; --navy-light:#132540; --navy-dark:#050b16;
-    --brand:#c9a961; --brand-light:#d9bd7c; --on-brand:#1c1a17;
-    --bg:#0d1b2e; --card-bg:#132540; --border:#22314a;
-    --text:#f0eee6; --text-muted:#9aa1b2; --text-soft:#6d7484;
+    --navy:#1c1c1a; --navy-light:#26261f; --navy-dark:#141412;
+    --brand:#7b8fc4; --brand-light:#8fa0d0; --on-brand:#ffffff;
+    --bg:#262624; --card-bg:#30302d; --border:#3d3d39;
+    --text:#ece9e2; --text-muted:#a19d94; --text-soft:#7d7a71;
     --green:#3ecf72; --green-bg:rgba(62,207,114,.14);
-    --amber:#f2a93b; --amber-bg:rgba(242,169,59,.14);
+    --amber:#dda878; --amber-bg:rgba(200,140,90,.2);
     --red:#f0665f; --red-bg:rgba(240,102,95,.14);
-    --gray:#9aa1b2; --gray-bg:#1a2b45;
-    --accent:#dcb567; --accent-bg:rgba(220,181,103,.14);
+    --gray:#a19d94; --gray-bg:#33332f;
+    --accent:#dda878; --accent-bg:rgba(200,140,90,.2);
     --shadow:0 1px 2px rgba(0,0,0,.35), 0 1px 3px rgba(0,0,0,.45);
     --shadow-md:0 4px 14px rgba(0,0,0,.5);
-    --input-bg:#132540;
-    --surface-tile:#0f2038;
-    --surface-hover:#16283f;
-    --border-hover:#2e4463;
-    --chart-fee:#3a4358;
-    --chart-value:#c9a961;
+    --input-bg:#30302d;
+    --surface-tile:#2b2b28;
+    --surface-hover:#34342f;
+    --border-hover:#4a4a44;
+    --chart-fee:#4a463c;
+    --chart-value:#dda878;
   }
   *{box-sizing:border-box;}
   body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;background:var(--bg);color:var(--text);overflow-x:hidden;}
@@ -2073,7 +2073,7 @@ function renderCreditRowHtml(today, {cr, cycle, isLive}, showDragHandle){
     <div class="main-col">
       <div class="title"${isExpired ? ' style="text-decoration:line-through;opacity:.55;"' : ''}>${escHtml(cr.name)}</div>
       <div class="subtitle">${card?escHtml(card.name):'(unlinked)'} · ${escHtml(cr.frequency)} · ${renewalLabel} · ${cycle ? (isLive ? `resets ${fmtDate(cycle.end)}` : `${fmtDate(cycle.start)} – ${fmtDate(cycle.end)}`) : 'no anchor date set'}${cr.autoRedeem?' · Auto-credited, no action needed':''}</div>
-      ${progressPct!==null ? `<div style="height:4px;background:var(--gray-bg);border-radius:2px;margin-top:6px;overflow:hidden;"><div style="height:100%;width:${progressPct}%;background:${isRedeemed?'var(--green)':'var(--navy-light)'};"></div></div>` : ''}
+      ${progressPct!==null ? `<div style="height:4px;background:var(--gray-bg);border-radius:2px;margin-top:6px;overflow:hidden;"><div style="height:100%;width:${progressPct}%;background:${isRedeemed?'var(--green)':'var(--brand)'};"></div></div>` : ''}
     </div>
     <div class="row-break"></div>
     <div class="amount">$${cr.value}</div>
@@ -2401,7 +2401,7 @@ function renderFreeNightRowHtml(today, {fn, cycle, isLive}, showDragHandle){
     <div class="main-col">
       <div class="title"${isExpired ? ' style="text-decoration:line-through;opacity:.55;"' : ''}>${escHtml(fn.desc)}${certsPerCycle>1?` <span style="font-size:11px;font-weight:400;color:var(--text-muted);">(${certsPerCycle}/yr)</span>`:''}</div>
       <div class="subtitle">${card?escHtml(card.name):'(unlinked)'} · ${escHtml(fn.program)}${expiration?` · expires ${fmtDate(expiration)}${fn.expirationOverride?' (set manually)':''}`:(cycle?'':' · no anchor date set')}</div>
-      ${progressPct!==null ? `<div style="height:4px;background:var(--gray-bg);border-radius:2px;margin-top:6px;overflow:hidden;"><div style="height:100%;width:${progressPct}%;background:${isFullyUsed?'var(--green)':'var(--navy-light)'};"></div></div>` : ''}
+      ${progressPct!==null ? `<div style="height:4px;background:var(--gray-bg);border-radius:2px;margin-top:6px;overflow:hidden;"><div style="height:100%;width:${progressPct}%;background:${isFullyUsed?'var(--green)':'var(--brand)'};"></div></div>` : ''}
     </div>
     <div class="row-break"></div>
     <div class="amount">${redeemed>0?'$'+redeemed:'—'}</div>
