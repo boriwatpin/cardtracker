@@ -1861,8 +1861,8 @@ function renderDashboard(){
     data:{
       labels: rows.map(r=>r.card.name.replace(/\s*\(.*?\)\s*/g,' ').trim()),
       datasets:[
-        {label:'Annual fee', data:rows.map(r=>r.card.fee), backgroundColor:chartFeeColor, categoryPercentage:0.65, barPercentage:0.9, borderRadius:4, borderSkipped:false},
-        {label:'Redeemed', data:rows.map(r=>r.value), backgroundColor:chartValueColor, categoryPercentage:0.65, barPercentage:0.9, borderRadius:4, borderSkipped:false},
+        {label:'Annual fee', data:rows.map(r=>r.card.fee), backgroundColor:chartFeeColor, categoryPercentage:0.65, barPercentage:0.9, borderRadius:6, borderSkipped:false},
+        {label:'Redeemed', data:rows.map(r=>r.value), backgroundColor:chartValueColor, categoryPercentage:0.65, barPercentage:0.9, borderRadius:6, borderSkipped:false},
       ]
     },
     options:{
