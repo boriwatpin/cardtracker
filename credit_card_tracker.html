@@ -1764,7 +1764,7 @@ function renderDashboard(){
           ${allYears().map(y=>`<option value="${y}" ${y===selectedYear?'selected':''}>${y}</option>`).join('')}
         </select>
       </div>
-      <div class="chart-wrap dashboard-chart-desktop" style="height:${Math.max(220, rows.length * 42)}px;"><canvas id="feeChart"></canvas></div>
+      <div class="chart-wrap dashboard-chart-desktop" style="height:${Math.max(280, rows.length * 74)}px;"><canvas id="feeChart"></canvas></div>
       <!-- MOBILE: the rotated-label bar chart above becomes unreadable at
            phone width (9 diagonal card names overlapping each other). This
            renders the exact same fee-vs-value numbers as a vertical list —
@@ -1858,20 +1858,23 @@ function renderDashboard(){
   const chartValueColor = chartStyles.getPropertyValue('--chart-value').trim();
   chartInstance = new Chart(ctx, {
     type:'bar',
-    // FIX: was a vertical bar chart, which forced all 9 card names into
-    // rotated 35° diagonal labels — cramped and hard to read, especially
-    // for longer names like "Amex Marriott Bonvoy (Personal) …22002".
-    // indexAxis:'y' flips it horizontal so names read normally left-to-
-    // right, matching the readability of the mobile fallback view below.
-    indexAxis:'y',
     data:{
       labels: rows.map(r=>r.card.name.replace(/\s*\(.*?\)\s*/g,' ').trim()),
       datasets:[
-        {label:'Annual fee', data:rows.map(r=>r.card.fee), backgroundColor:chartFeeColor},
-        {label:'Redeemed', data:rows.map(r=>r.value), backgroundColor:chartValueColor},
+        {label:'Annual fee', data:rows.map(r=>r.card.fee), backgroundColor:chartFeeColor, categoryPercentage:0.65, barPercentage:0.9},
+        {label:'Redeemed', data:rows.map(r=>r.value), backgroundColor:chartValueColor, categoryPercentage:0.65, barPercentage:0.9},
       ]
     },
     options:{
+      // BUG FOUND (via actually running real Chart.js in a real browser,
+      // not a mocked constructor): indexAxis was previously placed as a
+      // top-level sibling of type/data/options instead of inside options,
+      // where Chart.js's schema actually expects it. Chart.js silently
+      // ignored the misplaced key rather than erroring, so it just kept
+      // defaulting to a vertical (indexAxis:'x') chart — every jsdom test
+      // up to this point mocked the Chart constructor entirely, so none of
+      // them could have caught a real schema-placement mistake like this.
+      indexAxis:'y',
       responsive:true,
       maintainAspectRatio:false,
       plugins:{legend:{position:'bottom'}},
