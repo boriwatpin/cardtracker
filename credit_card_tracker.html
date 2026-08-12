@@ -1624,6 +1624,15 @@ let fnSortMode = 'daysLeft';      // 'daysLeft' | 'value' | 'manual'
 let creditsGroupByCard = false;
 let fnGroupByCard = false;
 let historySortMode = 'date';     // 'date' | 'manual'
+// Redemption Log filters — deliberately NOT persisted anywhere (not in
+// DATA, not in localStorage): every fresh visit to this tab starts fully
+// cleared and collapsed, per the explicit design decision to favor
+// simplicity over remembering filter state across visits.
+let historyFilterYear = 'all';
+let historyFilterCardId = 'all';
+let historyFilterType = 'all';
+let historyFilterSearch = '';
+let historyFilterPanelOpen = false;
 
 /* ============================================================
    DRAG-TO-REORDER — one shared, generic implementation used by the
@@ -2809,18 +2818,69 @@ function openVoucherModal(id){
 /* ---------- Redemption History ---------- */
 function renderHistory(){
   const content = document.getElementById('content');
+
+  const activeFilterCount = [
+    historyFilterYear !== 'all',
+    historyFilterCardId !== 'all',
+    historyFilterType !== 'all',
+    historyFilterSearch.trim() !== '',
+  ].filter(Boolean).length;
+
+  const availableYears = Array.from(new Set(DATA.history.map(h=>parseDate(h.date).getFullYear()))).sort((a,b)=>b-a);
+
+  // Computed up front (not inside a DOM-patch-after-render step) so the
+  // header can show the correct count on the very first paint — no flash
+  // of a placeholder value while this fills in a moment later.
+  const allRowsSorted = historySortMode === 'manual'
+    ? DATA.history.slice()
+    : DATA.history.slice().sort((a,b)=>parseDate(b.date)-parseDate(a.date));
+  const searchLower = historyFilterSearch.trim().toLowerCase();
+  const rows = allRowsSorted.filter(h => {
+    if(historyFilterYear !== 'all' && String(parseDate(h.date).getFullYear()) !== historyFilterYear) return false;
+    if(historyFilterCardId !== 'all' && h.cardId !== historyFilterCardId) return false;
+    if(historyFilterType !== 'all' && h.type !== historyFilterType) return false;
+    if(searchLower && !h.desc.toLowerCase().includes(searchLower)) return false;
+    return true;
+  });
+
   content.innerHTML = `
     <div class="panel">
       <div class="panel-head">
-        <h2>${DATA.history.length} entries</h2>
+        <h2>${activeFilterCount>0 ? `Filtered: ${rows.length} of ${DATA.history.length} entries` : `${DATA.history.length} entries`}</h2>
         <div style="display:flex;gap:8px;align-items:center;">
-          <select id="histSortSelect" class="btn-sm">
-            <option value="date">Sort: date</option>
-            <option value="manual">Sort: manual order</option>
-          </select>
+          <button class="btn btn-sm" id="histFilterToggle" style="${activeFilterCount>0 ? 'background:var(--amber-bg);border-color:var(--amber);color:var(--amber);' : ''}">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M4 5h16M7 12h10M10 19h4"/></svg>
+            Filter${activeFilterCount>0 ? ` (${activeFilterCount})` : ''}
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="vertical-align:-1px;margin-left:2px;transform:${historyFilterPanelOpen?'rotate(180deg)':'none'};"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
           <button class="btn btn-primary" id="addHistBtn">+ Log redemption</button>
         </div>
       </div>
+      ${historyFilterPanelOpen ? `
+      <div class="panel-body" style="padding-top:0;">
+        <div style="background:var(--surface-tile);border:1px solid var(--border);border-radius:9px;padding:14px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <input id="histSearchInput" placeholder="Search description..." value="${escAttr(historyFilterSearch)}" style="border:1px solid var(--border);border-radius:7px;padding:7px 12px;font-size:12.5px;width:180px;">
+          <select id="histYearSelect">
+            <option value="all">Year: All</option>
+            ${availableYears.map(y=>`<option value="${y}" ${historyFilterYear==String(y)?'selected':''}>${y}</option>`).join('')}
+          </select>
+          <select id="histCardSelect">
+            <option value="all">Card: All cards</option>
+            ${DATA.cards.map(c=>`<option value="${c.id}" ${historyFilterCardId===c.id?'selected':''}>${escHtml(c.name)}</option>`).join('')}
+          </select>
+          <select id="histTypeSelect">
+            <option value="all">Type: All</option>
+            <option value="Credit" ${historyFilterType==='Credit'?'selected':''}>Credit</option>
+            <option value="Free Night" ${historyFilterType==='Free Night'?'selected':''}>Free Night</option>
+          </select>
+          ${activeFilterCount>0 ? `<span id="histClearFilters" style="font-size:12px;color:var(--brand);text-decoration:underline;cursor:pointer;">Clear filters</span>` : ''}
+          <div style="flex:1;"></div>
+          <select id="histSortSelect">
+            <option value="date">Sort: date</option>
+            <option value="manual">Sort: manual order</option>
+          </select>
+        </div>
+      </div>` : ''}
       <div class="panel-body">
         <div class="table-scroll">
         <table>
@@ -2831,16 +2891,16 @@ function renderHistory(){
       </div>
     </div>
   `;
-  document.getElementById('histSortSelect').value = historySortMode;
+  const sortSelectEl = document.getElementById('histSortSelect');
+  if(sortSelectEl) sortSelectEl.value = historySortMode;
+
   const body = document.getElementById('histBody');
-  const rows = historySortMode === 'manual'
-    ? DATA.history.slice()
-    : DATA.history.slice().sort((a,b)=>parseDate(b.date)-parseDate(a.date));
+  const canDragReorder = activeFilterCount === 0;
 
   body.innerHTML = rows.length ? rows.map(h=>{
     const card = cardById(h.cardId);
     return `<tr data-row-id="${h.id}">
-      <td><div class="drag-handle"><svg width="12" height="16" viewBox="0 0 12 16" fill="currentColor"><circle cx="3" cy="3" r="1.3"/><circle cx="9" cy="3" r="1.3"/><circle cx="3" cy="8" r="1.3"/><circle cx="9" cy="8" r="1.3"/><circle cx="3" cy="13" r="1.3"/><circle cx="9" cy="13" r="1.3"/></svg></div></td>
+      <td>${canDragReorder ? `<div class="drag-handle"><svg width="12" height="16" viewBox="0 0 12 16" fill="currentColor"><circle cx="3" cy="3" r="1.3"/><circle cx="9" cy="3" r="1.3"/><circle cx="3" cy="8" r="1.3"/><circle cx="9" cy="8" r="1.3"/><circle cx="3" cy="13" r="1.3"/><circle cx="9" cy="13" r="1.3"/></svg></div>` : ''}</td>
       <td style="white-space:nowrap;">${fmtDate(parseDate(h.date))}</td>
       <td>${card?escHtml(card.name):'(unlinked)'}</td>
       <td><span class="pill ${h.type==='Credit'?'pill-accent':'pill-gray'}">${escHtml(h.type)}</span></td>
@@ -2848,10 +2908,34 @@ function renderHistory(){
       <td style="font-weight:700;">$${Number(h.amount).toLocaleString()}</td>
       <td><button class="btn btn-sm" data-edit-h="${h.id}">Edit</button> <button class="btn btn-sm btn-danger" data-del-h="${h.id}">Delete</button></td>
     </tr>`;
-  }).join('') : `<tr><td colspan="7" class="empty">No redemptions logged yet.</td></tr>`;
+  }).join('') : `<tr><td colspan="7" class="empty">${DATA.history.length === 0 ? 'No redemptions logged yet.' : 'No entries match your filters.'}</td></tr>`;
 
   document.getElementById('addHistBtn').onclick = ()=>openHistModal();
-  document.getElementById('histSortSelect').onchange = (e)=>{ historySortMode = e.target.value; renderHistory(); };
+  document.getElementById('histFilterToggle').onclick = ()=>{ historyFilterPanelOpen = !historyFilterPanelOpen; renderHistory(); };
+  if(sortSelectEl) sortSelectEl.onchange = (e)=>{ historySortMode = e.target.value; renderHistory(); };
+  const searchInputEl = document.getElementById('histSearchInput');
+  if(searchInputEl){
+    searchInputEl.oninput = (e)=>{ historyFilterSearch = e.target.value; renderHistory(); };
+    // Re-focus and restore cursor position after the re-render this oninput
+    // triggers — otherwise every keystroke would visibly kick focus out of
+    // the input, which is a common, easy-to-miss bug with "re-render whole
+    // page on every input event" architectures like this one.
+    const pos = searchInputEl.value.length;
+    searchInputEl.focus();
+    searchInputEl.setSelectionRange(pos, pos);
+  }
+  const yearSelectEl = document.getElementById('histYearSelect');
+  if(yearSelectEl) yearSelectEl.onchange = (e)=>{ historyFilterYear = e.target.value; renderHistory(); };
+  const cardSelectEl = document.getElementById('histCardSelect');
+  if(cardSelectEl) cardSelectEl.onchange = (e)=>{ historyFilterCardId = e.target.value; renderHistory(); };
+  const typeSelectEl = document.getElementById('histTypeSelect');
+  if(typeSelectEl) typeSelectEl.onchange = (e)=>{ historyFilterType = e.target.value; renderHistory(); };
+  const clearBtn = document.getElementById('histClearFilters');
+  if(clearBtn) clearBtn.onclick = ()=>{
+    historyFilterYear = 'all'; historyFilterCardId = 'all'; historyFilterType = 'all'; historyFilterSearch = '';
+    renderHistory();
+  };
+
   body.querySelectorAll('[data-edit-h]').forEach(b=>b.onclick=()=>openHistModal(b.dataset.editH));
   body.querySelectorAll('[data-del-h]').forEach(b=>b.onclick=()=>{
     showConfirm('Delete this redemption entry? This cannot be undone.', ()=>{
@@ -2859,7 +2943,11 @@ function renderHistory(){
     });
   });
 
-  if(rows.length){
+  // Drag-to-reorder is only meaningful across the FULL list — reordering a
+  // filtered subset would silently scramble the real underlying order in
+  // confusing ways, since the reorder callback works off DATA.history
+  // directly. Simplest correct fix: just don't offer it while filtered.
+  if(rows.length && canDragReorder){
     makeDragReorderable(body, 'tr[data-row-id]', row=>row.dataset.rowId, (newOrderIds)=>{
       const wasManual = historySortMode === 'manual';
       DATA.history = newOrderIds.map(id=>DATA.history.find(h=>h.id===id));
