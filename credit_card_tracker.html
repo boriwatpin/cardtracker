@@ -365,6 +365,47 @@
 </head>
 <body>
 
+<!-- Lock screen overlay. Hidden immediately (before paint, via inline
+     script below) if this device already has a valid unlock stored, so
+     returning visitors never see a flash of it. Deliberately a plain
+     single input rather than 6 separate auto-advancing boxes — simpler to
+     get right, same effect. This is a deterrent for casual access, not
+     real security: the actual check happens server-side (a Supabase
+     function that only ever returns true/false, never the real code), but
+     nothing stops someone from reading this file's source and calling the
+     unlock function directly from a browser console. -->
+<div id="lockScreen" style="position:fixed;inset:0;z-index:9999;background:var(--bg);display:none;align-items:center;justify-content:center;padding:20px;">
+  <div style="background:var(--card-bg);border-radius:14px;padding:36px 32px;max-width:340px;width:100%;box-shadow:var(--shadow-md);text-align:center;">
+    <div style="width:48px;height:48px;border-radius:12px;background:var(--navy);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M4 21V8l8-5 8 5v13M4 21h16M9 21v-6h6v6M9 11h.01M9 15h.01M15 11h.01M15 15h.01"/></svg>
+    </div>
+    <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:4px;">Point Tracker</div>
+    <div id="lockSubtitle" style="font-size:12.5px;color:var(--text-muted);margin-bottom:22px;">Enter your 6-digit code to continue</div>
+    <div id="lockInputArea">
+      <input id="lockCodeInput" type="text" inputmode="numeric" maxlength="6" autocomplete="off"
+        style="width:100%;box-sizing:border-box;text-align:center;font-size:26px;font-weight:700;letter-spacing:.3em;font-family:monospace;padding:12px 10px 12px 16px;border:1.5px solid var(--border);border-radius:8px;margin-bottom:14px;color:var(--text);background:var(--input-bg);">
+      <div id="lockError" style="font-size:12px;color:var(--red);font-weight:600;margin:-6px 0 14px;display:none;"></div>
+      <button id="lockUnlockBtn" class="btn btn-primary" style="width:100%;margin-bottom:14px;">Unlock</button>
+    </div>
+    <div id="lockCountdownArea" style="display:none;">
+      <div style="width:40px;height:40px;border-radius:50%;background:var(--amber-bg);display:flex;align-items:center;justify-content:center;margin:0 auto 14px;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+      </div>
+      <div style="font-size:13px;color:var(--amber);font-weight:600;margin-bottom:4px;">Too many attempts</div>
+      <div id="lockCountdownText" style="font-size:12.5px;color:var(--text-muted);margin-bottom:20px;">Try again in 1:00</div>
+    </div>
+    <span id="lockForgotBtn" style="font-size:12px;color:var(--brand);text-decoration:underline;cursor:pointer;">Forgot code? Email it to me</span>
+  </div>
+</div>
+<script>
+  // Runs synchronously, immediately, before the rest of the page has a
+  // chance to paint — this is what prevents a flash of the unlocked app
+  // showing briefly before the lock screen appears on top of it.
+  if(localStorage.getItem('lockUnlocked_v1') !== 'true'){
+    document.getElementById('lockScreen').style.display = 'flex';
+  }
+</script>
+
 <div class="app">
   <div class="sidebar">
     <div class="brand">
@@ -709,6 +750,126 @@ try{
 }catch(e){
   console.warn('Supabase client failed to initialize — running in local-only mode.', e);
 }
+
+// ---------- Lock screen ----------
+// Deliberately simple: 3 wrong attempts triggers a 1-minute lockout, and
+// "unlocked" persists indefinitely per device (same pattern as the theme
+// preference and sync status) rather than expiring, since re-entering a
+// code every session for a household tool wasn't worth the friction.
+const LOCK_ATTEMPTS_KEY = 'lockAttempts_v1';
+const LOCK_UNTIL_KEY = 'lockLockedUntil_v1';
+const LOCK_UNLOCKED_KEY = 'lockUnlocked_v1';
+const LOCK_MAX_ATTEMPTS = 3;
+const LOCK_DURATION_MS = 60000;
+
+function lockShowError(msg){
+  const el = document.getElementById('lockError');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+function lockEnterCountdown(untilTs){
+  localStorage.setItem(LOCK_UNTIL_KEY, String(untilTs));
+  document.getElementById('lockInputArea').style.display = 'none';
+  document.getElementById('lockCountdownArea').style.display = 'block';
+  document.getElementById('lockSubtitle').textContent = 'Locked temporarily';
+  const textEl = document.getElementById('lockCountdownText');
+  const tick = () => {
+    const remainingMs = untilTs - Date.now();
+    if(remainingMs <= 0){
+      clearInterval(timer);
+      localStorage.removeItem(LOCK_UNTIL_KEY);
+      localStorage.setItem(LOCK_ATTEMPTS_KEY, '0');
+      document.getElementById('lockInputArea').style.display = 'block';
+      document.getElementById('lockCountdownArea').style.display = 'none';
+      document.getElementById('lockSubtitle').textContent = 'Enter your 6-digit code to continue';
+      document.getElementById('lockCodeInput').value = '';
+      document.getElementById('lockError').style.display = 'none';
+      document.getElementById('lockCodeInput').focus();
+      return;
+    }
+    const secs = Math.ceil(remainingMs / 1000);
+    textEl.textContent = `Try again in ${Math.floor(secs/60)}:${String(secs%60).padStart(2,'0')}`;
+  };
+  tick();
+  const timer = setInterval(tick, 1000);
+}
+
+function initLockScreen(){
+  const overlay = document.getElementById('lockScreen');
+  if(overlay.style.display !== 'flex') return; // already unlocked, nothing to wire up
+
+  // If a lockout was already in progress from before a page refresh,
+  // resume the countdown instead of letting a reload reset it for free.
+  const existingLockUntil = Number(localStorage.getItem(LOCK_UNTIL_KEY) || 0);
+  if(existingLockUntil > Date.now()){
+    lockEnterCountdown(existingLockUntil);
+  } else {
+    document.getElementById('lockCodeInput').focus();
+  }
+
+  async function attemptUnlock(){
+    const guess = document.getElementById('lockCodeInput').value.trim();
+    if(!/^\d{6}$/.test(guess)){
+      lockShowError('Enter all 6 digits.');
+      return;
+    }
+    if(!supabaseClient){
+      lockShowError('Cannot verify right now — no connection. Try again once online.');
+      return;
+    }
+    document.getElementById('lockUnlockBtn').disabled = true;
+    try{
+      const { data: correct, error } = await supabaseClient.rpc('check_lock_code', { guess });
+      if(error) throw error;
+      if(correct){
+        localStorage.setItem(LOCK_UNLOCKED_KEY, 'true');
+        localStorage.setItem(LOCK_ATTEMPTS_KEY, '0');
+        overlay.style.display = 'none';
+        return;
+      }
+      const attempts = Number(localStorage.getItem(LOCK_ATTEMPTS_KEY) || 0) + 1;
+      localStorage.setItem(LOCK_ATTEMPTS_KEY, String(attempts));
+      document.getElementById('lockCodeInput').value = '';
+      if(attempts >= LOCK_MAX_ATTEMPTS){
+        lockEnterCountdown(Date.now() + LOCK_DURATION_MS);
+      } else {
+        lockShowError(`Incorrect code — ${LOCK_MAX_ATTEMPTS - attempts} attempt${LOCK_MAX_ATTEMPTS-attempts===1?'':'s'} remaining`);
+        document.getElementById('lockCodeInput').focus();
+      }
+    } catch(e){
+      console.error(e);
+      lockShowError('Something went wrong checking that — try again.');
+    } finally {
+      document.getElementById('lockUnlockBtn').disabled = false;
+    }
+  }
+
+  document.getElementById('lockUnlockBtn').onclick = attemptUnlock;
+  document.getElementById('lockCodeInput').addEventListener('keydown', (e)=>{ if(e.key==='Enter') attemptUnlock(); });
+  document.getElementById('lockCodeInput').addEventListener('input', (e)=>{
+    e.target.value = e.target.value.replace(/\D/g,'').slice(0,6);
+    document.getElementById('lockError').style.display = 'none';
+  });
+
+  document.getElementById('lockForgotBtn').onclick = async ()=>{
+    const btn = document.getElementById('lockForgotBtn');
+    const original = btn.textContent;
+    btn.textContent = 'Sending...';
+    try{
+      const resp = await fetch(`${SUPABASE_URL}/functions/v1/send-lock-code`, {
+        headers: { 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
+      });
+      if(!resp.ok) throw new Error('request failed');
+      btn.textContent = 'Sent! Check your email.';
+    }catch(e){
+      console.error(e);
+      btn.textContent = 'Could not send — try again later.';
+    }
+    setTimeout(()=>{ btn.textContent = original; }, 4000);
+  };
+}
+initLockScreen();
 
 let syncPending = false; // true if we have local changes not yet confirmed saved to the cloud
 
