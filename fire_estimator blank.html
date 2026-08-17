@@ -1,0 +1,3010 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FIRE Estimator</title>
+<style>
+  :root{
+    --navy:#0f1a2e;
+    --navy-2:#16233c;
+    --bg:#f2f5f9;
+    --card:#ffffff;
+    --border:#e7ebf1;
+    --text:#111827;
+    --muted:#6b7686;
+    --muted-2:#8b94a3;
+    --rust:#a35c3a;
+    --rust-dark:#8a4c2f;
+    --cream:#ded4c2;
+    --green:#2f7d4f;
+    --green-bg:#e0f0e4;
+    --red:#c0392b;
+    --red-bg:#fbe7e4;
+    --amber:#b8863b;
+    --amber-bg:#f7ecd9;
+    --radius:14px;
+    --shadow: 0 1px 2px rgba(16,24,40,.04), 0 1px 3px rgba(16,24,40,.06);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, Helvetica, Arial, sans-serif;
+    background:var(--bg);
+    color:var(--text);
+    display:flex;
+    min-height:100vh;
+  }
+  a{color:inherit;text-decoration:none;}
+
+  /* SIDEBAR */
+  .sidebar{
+    width:250px;
+    min-width:250px;
+    background:var(--navy);
+    color:#e7ecf3;
+    display:flex;
+    flex-direction:column;
+    padding:22px 16px;
+    position:sticky;
+    top:0;
+    height:100vh;
+  }
+  .brand{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:6px 10px 18px 10px;
+    border-bottom:1px solid rgba(255,255,255,.08);
+    margin-bottom:14px;
+  }
+  .brand-icon{
+    width:34px;height:34px;border-radius:9px;
+    background:linear-gradient(135deg,var(--rust),#c07b52);
+    display:flex;align-items:center;justify-content:center;
+    font-size:17px;
+    flex-shrink:0;
+  }
+  .brand-text .name{font-weight:700;font-size:15.5px;color:#fff;}
+  .brand-text .name span{color:var(--muted-2);font-weight:500;font-size:12px;margin-left:4px;}
+  .brand-text .sub{font-size:11.5px;color:#8d97a8;margin-top:1px;}
+
+  .nav{display:flex;flex-direction:column;gap:2px;margin-top:6px;}
+  .nav a{
+    display:flex;align-items:center;gap:11px;
+    padding:9px 11px;border-radius:9px;
+    font-size:13.8px;font-weight:600;color:#c3cad6;
+    transition:background .15s, color .15s;
+  }
+  .nav a:hover{background:rgba(255,255,255,.05);color:#fff;}
+  .nav a.active{background:#1f2c46;color:#fff;}
+  .nav a .dot{width:16px;text-align:center;font-size:14px;opacity:.9;}
+
+  .sidebar-foot{
+    margin-top:auto;
+    font-size:11.5px;
+    color:#7a8494;
+    line-height:1.5;
+    padding:14px 10px 4px 10px;
+    border-top:1px solid rgba(255,255,255,.08);
+  }
+
+  /* MAIN */
+  .main{flex:1;padding:32px 40px 60px 40px;max-width:1180px;}
+  .page-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;flex-wrap:wrap;gap:14px;}
+  h1{font-size:26px;margin:0 0 6px 0;letter-spacing:-0.02em;}
+  .page-head p{margin:0;color:var(--muted);font-size:14.5px;}
+  .status-pill{
+    display:inline-flex;align-items:center;gap:6px;
+    background:var(--green-bg);color:var(--green);
+    font-weight:700;font-size:12.5px;
+    padding:6px 12px;border-radius:20px;
+    white-space:nowrap;height:fit-content;
+  }
+  .status-pill.behind{background:var(--red-bg);color:var(--red);}
+
+  /* CURRENCY BAR */
+  .currency-bar{
+    display:flex;align-items:center;gap:16px;flex-wrap:wrap;
+    background:var(--card);border:1px solid var(--border);border-radius:12px;
+    padding:12px 18px;margin-bottom:18px;box-shadow:var(--shadow);
+  }
+  .seg{display:flex;background:#f0f2f6;border-radius:9px;padding:3px;}
+  .seg button{
+    border:none;background:transparent;padding:6px 14px;border-radius:7px;
+    font-size:13px;font-weight:700;color:var(--muted);cursor:pointer;font-family:inherit;
+  }
+  .seg button.active{background:var(--navy);color:#fff;}
+  .fx-field{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);flex-shrink:0;white-space:nowrap;}
+  .fx-field input{width:90px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;flex-shrink:0;}
+  .fx-note{font-size:12px;color:var(--muted-2);}
+
+  /* ALERT */
+  .alert{
+    display:flex;align-items:center;gap:12px;
+    border:1px solid #f1b9ae;
+    background:#fff;
+    border-radius:12px;
+    padding:14px 18px;
+    margin-bottom:22px;
+    font-size:14px;
+  }
+  .alert.ok{border-color:#b7ddc4;}
+  .alert .ico{font-size:16px;}
+  .alert.behind .ico{color:var(--red);}
+  .alert.ok .ico{color:var(--green);}
+  .alert b{font-weight:700;}
+
+  /* STAT CARDS */
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px;}
+  .stat-card{
+    background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+    padding:18px 20px;box-shadow:var(--shadow);
+  }
+  .stat-card .label{font-size:11.5px;font-weight:700;letter-spacing:.05em;color:var(--muted-2);text-transform:uppercase;margin-bottom:8px;}
+  .stat-card .value{font-size:24px;font-weight:700;letter-spacing:-0.01em;word-break:break-word;}
+  .stat-card .value.green{color:var(--green);}
+  .stat-card .value.red{color:var(--red);}
+  .stat-card .sub{font-size:12px;color:var(--muted);margin-top:4px;}
+
+  /* CARD */
+  .card{
+    background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+    padding:22px 24px;box-shadow:var(--shadow);margin-bottom:24px;
+  }
+  .card-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:16px;flex-wrap:wrap;gap:8px;}
+  .card-head h2{font-size:16.5px;margin:0;font-weight:700;}
+  .card-head .hint{font-size:12.5px;color:var(--muted);}
+
+  section{scroll-margin-top:24px;}
+
+  /* CHART */
+  .chart-wrap{width:100%;overflow-x:auto;}
+  svg text{font-family:inherit;}
+  .legend{display:flex;gap:18px;margin-top:10px;font-size:12.5px;color:var(--muted);flex-wrap:wrap;}
+  .legend .swatch{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:middle;}
+
+  /* FORM GRID */
+  .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:32px;}
+  .form-col-title{font-size:11.5px;font-weight:700;letter-spacing:.05em;color:var(--muted-2);text-transform:uppercase;margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid var(--border);}
+  .field{margin-bottom:15px;}
+  .field label{display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:5px;}
+  .field .desc{font-size:11.5px;color:var(--muted-2);margin-top:4px;}
+  .input-wrap{position:relative;}
+  .input-wrap .prefix{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:14px;pointer-events:none;}
+  .input-wrap.has-prefix input{padding-left:28px;}
+  .input-wrap .suffix{position:absolute;right:12px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:13px;pointer-events:none;}
+  .input-wrap.has-suffix input{padding-right:32px;}
+  input[type=number]::-webkit-inner-spin-button,
+  input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0;}
+  input[type=number]{-moz-appearance:textfield;}
+  input[type=number], input[type=text]{
+    width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:9px;
+    font-size:14px;color:var(--text);background:#fafbfc;
+    font-family:inherit;
+    transition:border-color .15s, background .15s;
+  }
+  input[type=number]:focus, input[type=text]:focus{
+    outline:none;border-color:var(--rust);background:#fff;
+  }
+  input[type=range]{width:100%;accent-color:var(--rust);}
+
+  /* TABLE */
+  table{width:100%;border-collapse:collapse;font-size:13.5px;}
+  thead th{
+    text-align:left;font-size:11px;font-weight:700;letter-spacing:.05em;color:var(--muted-2);
+    text-transform:uppercase;padding:10px 14px;border-bottom:1px solid var(--border);background:#f9fafb;
+  }
+  thead th:first-child{border-top-left-radius:9px;}
+  thead th:last-child{border-top-right-radius:9px;}
+  tbody td{padding:11px 14px;border-bottom:1px solid var(--border);white-space:nowrap;}
+  .table-compact thead th{padding:8px 8px;font-size:10px;}
+  .table-compact tbody td{padding:7px 8px;font-size:12.5px;}
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr.hl{background:#fbf5ef;}
+  tbody tr.gift td{background:#fdf2ee;}
+  tbody tr.retiring td{background:#fbf8f4;}
+  .pill{display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:700;}
+  .pill.yes{background:var(--green-bg);color:var(--green);}
+  .pill.no{background:var(--red-bg);color:var(--red);}
+  .table-scroll{max-height:360px;overflow-y:auto;overflow-x:auto;border:1px solid var(--border);border-radius:10px;}
+  .table-scroll table{margin:0;}
+  .table-scroll thead th{position:sticky;top:0;z-index:1;}
+
+  /* MIX BARS */
+  .mix-row{display:flex;align-items:center;gap:12px;margin-bottom:12px;}
+  .mix-row .mlabel{width:70px;font-size:13px;font-weight:600;flex-shrink:0;}
+  .mix-row input[type=range]{flex:1;}
+  .mix-row .mval{width:52px;text-align:right;font-size:13px;font-weight:700;color:var(--rust-dark);flex-shrink:0;}
+  .mix-total{font-size:12.5px;color:var(--muted);margin-top:8px;}
+  .mix-total.err{color:var(--red);font-weight:700;}
+
+  .accordion-item{border-bottom:1px solid var(--border);}
+  .accordion-item:last-child{border-bottom:none;}
+  .accordion-head{
+    display:flex;justify-content:space-between;align-items:center;
+    padding:12px 4px;cursor:pointer;font-weight:600;font-size:14px;
+  }
+  .accordion-head .amt{color:var(--muted);font-weight:700;}
+  .accordion-body{display:none;padding:0 4px 12px 4px;}
+  .accordion-body.open{display:block;}
+  .exp-line{display:flex;justify-content:space-between;align-items:center;padding:6px 0;font-size:13px;color:var(--muted);border-top:1px dashed var(--border);gap:10px;}
+  .exp-line .input-wrap{width:140px;flex-shrink:0;}
+  .exp-line input{width:100%;text-align:right;padding:5px 8px;font-size:13px;}
+  .chevron{transition:transform .15s;color:var(--muted-2);display:inline-block;}
+  .chevron.open{transform:rotate(90deg);}
+
+  .btn{
+    background:var(--navy);color:#fff;border:none;border-radius:9px;
+    padding:9px 16px;font-size:13px;font-weight:700;cursor:pointer;
+    display:inline-flex;align-items:center;gap:6px;font-family:inherit;
+  }
+  .btn:hover{background:var(--navy-2);}
+  .btn.ghost{background:#fff;color:var(--text);border:1px solid var(--border);}
+  .btn.ghost:hover{background:#f5f6f8;}
+  .btn.danger{background:#fff;color:var(--red);border:1px solid #f1c3bd;}
+  .btn.danger:hover{background:var(--red-bg);}
+  .btn.danger-solid{background:var(--red);color:#fff;}
+  .btn.danger-solid:hover{background:#a5312a;}
+
+  .modal-overlay{
+    position:fixed;inset:0;background:rgba(15,26,46,0.55);
+    display:flex;align-items:center;justify-content:center;z-index:100;padding:20px;
+  }
+  .modal-card{
+    background:#fff;border-radius:14px;padding:24px 26px;max-width:420px;width:100%;
+    box-shadow:0 20px 50px rgba(0,0,0,0.25);
+  }
+  .modal-card h3{margin:0 0 10px 0;font-size:17px;color:var(--text);}
+  .modal-card p{margin:0 0 20px 0;font-size:13.5px;line-height:1.6;color:var(--muted);}
+  .modal-card p b{color:var(--red);}
+  .modal-actions{display:flex;justify-content:flex-end;gap:10px;}
+
+  .foot-note{font-size:11.5px;color:var(--muted-2);margin-top:18px;line-height:1.6;}
+
+  .compare-row{display:flex;align-items:center;gap:14px;margin-bottom:16px;}
+  .compare-row .clabel{width:150px;font-size:13px;font-weight:600;flex-shrink:0;}
+  .compare-track{flex:1;background:#f0f2f6;border-radius:8px;height:26px;position:relative;overflow:hidden;}
+  .compare-fill{height:100%;border-radius:8px;display:flex;align-items:center;padding-left:10px;}
+  .compare-val{width:150px;text-align:right;font-size:13.5px;font-weight:700;flex-shrink:0;}
+  .insight{font-size:13px;color:var(--muted);background:#f9fafb;border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-top:6px;}
+
+  .link-btn{
+    background:none;border:none;color:var(--rust-dark);font-size:12.5px;font-weight:700;
+    cursor:pointer;font-family:inherit;padding:2px 4px;
+  }
+  .link-btn:hover{text-decoration:underline;}
+  .insight b{color:var(--text);}
+
+  .event-row{
+    display:grid;grid-template-columns:150px 1fr 170px 90px 34px;gap:10px;align-items:center;
+    padding:12px 0;border-bottom:1px solid var(--border);position:relative;
+  }
+  .event-row:first-child{padding-top:0;}
+  .event-row select{
+    width:100%;padding:9px 10px;border:1px solid var(--border);border-radius:9px;
+    font-size:13px;font-family:inherit;background:#fafbfc;color:var(--text);
+  }
+  .event-row .del-btn{
+    background:none;border:none;color:var(--muted-2);cursor:pointer;font-size:17px;
+    width:34px;height:34px;border-radius:8px;
+  }
+  .event-row .del-btn:hover{background:var(--red-bg);color:var(--red);}
+  .event-row input[type=text].label-input{font-size:13px;}
+  .new-cat-popover{
+    position:absolute;top:calc(100% - 4px);left:0;z-index:10;
+    background:#fff;border:1px solid var(--border);border-radius:9px;box-shadow:var(--shadow);
+    padding:10px;display:flex;gap:6px;width:230px;
+  }
+  .new-cat-popover input{flex:1;padding:6px 8px;font-size:12.5px;border:1px solid var(--border);border-radius:6px;font-family:inherit;}
+  .new-cat-popover button{
+    border:none;border-radius:6px;font-size:12.5px;font-weight:700;padding:6px 9px;cursor:pointer;font-family:inherit;
+  }
+  .new-cat-popover .confirm{background:var(--navy);color:#fff;}
+  .new-cat-popover .cancel{background:#f0f2f6;color:var(--muted);}
+  @media (max-width:800px){
+    .event-row{grid-template-columns:1fr;gap:8px;padding:14px 0;}
+    .event-row .del-btn{justify-self:end;}
+  }
+
+  .recur-head-row{
+    display:grid;grid-template-columns:1fr 170px 90px 90px 34px;gap:10px;
+    font-size:11px;font-weight:700;letter-spacing:.04em;color:var(--muted-2);text-transform:uppercase;
+    padding-bottom:8px;border-bottom:1px solid var(--border);margin-bottom:2px;
+  }
+  .recur-row{
+    display:grid;grid-template-columns:1fr 170px 90px 90px 34px;gap:10px;align-items:center;
+    padding:11px 0;border-bottom:1px solid var(--border);
+  }
+  .recur-row:first-child{padding-top:0;}
+  .recur-row .del-btn{
+    background:none;border:none;color:var(--muted-2);cursor:pointer;font-size:17px;
+    width:34px;height:34px;border-radius:8px;
+  }
+  .recur-row .del-btn:hover{background:var(--red-bg);color:var(--red);}
+  @media (max-width:800px){
+    .recur-head-row{display:none;}
+    .recur-row{grid-template-columns:1fr;gap:8px;padding:14px 0;}
+    .recur-row .del-btn{justify-self:end;}
+  }
+
+  .wealth-head-row{
+    display:grid;grid-template-columns:130px 1fr 110px 110px;gap:14px;
+    font-size:11px;font-weight:700;letter-spacing:.04em;color:var(--muted-2);text-transform:uppercase;
+    padding-bottom:8px;border-bottom:1px solid var(--border);margin-bottom:2px;
+  }
+  .wealth-row{
+    display:grid;grid-template-columns:130px 1fr 110px 110px;gap:14px;align-items:center;
+    padding:11px 0;border-bottom:1px solid var(--border);
+  }
+  .wealth-row:first-child{padding-top:0;}
+  .wlabel{display:flex;align-items:center;gap:9px;font-size:14px;font-weight:600;}
+  .wdot{width:11px;height:11px;border-radius:50%;flex-shrink:0;}
+  .wealth-bar{
+    display:flex;width:100%;height:22px;border-radius:8px;overflow:hidden;background:#f0f2f6;margin-top:8px;
+  }
+  .wealth-bar .seg{height:100%;transition:width .2s;}
+  @media (max-width:800px){
+    .wealth-head-row{display:none;}
+    .wealth-row{grid-template-columns:1fr;gap:8px;}
+  }
+
+  .readonly-summary{
+    display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;
+    background:#f5f6f8;border:1px dashed var(--border);border-radius:9px;
+    padding:10px 14px;font-size:15px;font-weight:700;color:var(--text);
+  }
+  .readonly-summary a{font-size:12px;font-weight:700;color:var(--rust-dark);white-space:nowrap;}
+  .readonly-summary a:hover{text-decoration:underline;}
+
+  .steps-list{display:flex;flex-direction:column;gap:2px;}
+  .step-row{
+    display:flex;align-items:flex-start;gap:12px;
+    padding:10px 8px;border-radius:9px;text-decoration:none;
+    transition:background .15s;
+  }
+  .step-row:hover{background:#f5f6f8;}
+  .step-num{
+    flex-shrink:0;width:24px;height:24px;border-radius:50%;margin-top:1px;
+    background:var(--navy);color:#fff;font-size:12px;font-weight:700;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .step-text{font-size:13.5px;line-height:1.55;color:var(--muted);}
+  .step-text b{color:var(--text);}
+
+  .info-btn{
+    display:inline-flex;align-items:center;justify-content:center;
+    width:19px;height:19px;border-radius:50%;
+    background:#eef1f5;color:var(--muted);border:none;
+    font-size:11px;font-weight:700;cursor:pointer;
+    margin-left:7px;flex-shrink:0;vertical-align:middle;
+    transition:background .15s, color .15s;
+    font-family:inherit;padding:0;
+  }
+  .info-btn:hover{background:var(--rust);color:#fff;}
+  .info-btn.active{background:var(--rust);color:#fff;}
+  .info-panel{
+    display:none;font-size:12.5px;color:var(--muted);line-height:1.6;
+    background:#f9fafb;border:1px solid var(--border);border-radius:9px;
+    padding:11px 14px;margin-top:10px;
+  }
+  .info-panel.open{display:block;}
+
+  .mobile-nav{display:none;}
+
+  @media (max-width:900px){
+    .sidebar{display:none;}
+    .mobile-nav{
+      display:block;position:sticky;top:0;z-index:30;
+      background:var(--navy);padding:10px 16px;
+    }
+    .mobile-nav select{
+      width:100%;padding:9px 12px;border-radius:8px;border:none;
+      background:#1f2c46;color:#fff;font-size:13.5px;font-weight:700;font-family:inherit;
+    }
+    .stats{grid-template-columns:repeat(2,1fr);}
+    .form-grid{grid-template-columns:1fr;}
+    .main{padding:20px;}
+    .compare-row{flex-wrap:wrap;}
+    .compare-val, .compare-row .clabel{width:auto;}
+  }
+</style>
+</head>
+<body>
+<div class="mobile-nav">
+  <select id="mobileNavSelect">
+    <option value="#overview">◆ Overview</option>
+    <option value="#household">▤ Household &amp; Goal</option>
+    <option value="#wealth">◈ Sources of Wealth</option>
+    <option value="#expenses">▥ Monthly Expenses</option>
+    <option value="#events">✦ Life Events &amp; Income</option>
+    <option value="#sensitivity">≈ Sensitivity</option>
+    <option value="#runway">➝ Growth &amp; Runway</option>
+    <option value="#projection">▲ Projection</option>
+  </select>
+</div>
+
+<aside class="sidebar">
+  <div class="brand">
+    <div class="brand-icon">🔥</div>
+    <div class="brand-text">
+      <div class="name">FIRE Estimator <span>v2</span></div>
+      <div class="sub">Retirement readiness</div>
+    </div>
+  </div>
+  <nav class="nav">
+    <a href="#overview" class="active"><span class="dot">◆</span>Overview</a>
+    <a href="#household"><span class="dot">▤</span>Household &amp; Goal</a>
+    <a href="#wealth"><span class="dot">◈</span>Sources of Wealth</a>
+    <a href="#expenses"><span class="dot">▥</span>Monthly Expenses</a>
+    <a href="#events"><span class="dot">✦</span>Life Events &amp; Income</a>
+    <a href="#sensitivity"><span class="dot">≈</span>Sensitivity</a>
+    <a href="#runway"><span class="dot">➝</span>Growth &amp; Runway</a>
+    <a href="#projection"><span class="dot">▲</span>Projection</a>
+  </nav>
+  <div class="sidebar-foot">
+    Every figure recalculates instantly as you edit inputs.<br>Nothing here leaves your browser.
+  </div>
+</aside>
+
+<main class="main">
+
+  <section id="overview">
+    <div class="page-head">
+      <div>
+        <h1>Retirement Dashboard</h1>
+        <p>Your path to Financial Independence, Retire Early — updated live from your inputs below.</p>
+      </div>
+      <div id="headerStatus" class="status-pill">On track</div>
+    </div>
+
+    <div class="currency-bar">
+      <div class="seg">
+        <button id="curTHB" class="active" onclick="setCurrency('THB')">฿ THB</button>
+        <button id="curUSD" onclick="setCurrency('USD')">$ USD</button>
+      </div>
+      <div class="fx-field">
+        <span>1 USD =</span>
+        <input type="number" id="fxRateInput" value="33" step="0.01">
+        <span>THB</span>
+      </div>
+      <div class="fx-note">All figures are stored in THB. Toggle currency to view your own USD conversion — everything recalculates instantly.</div>
+      <div style="display:flex;gap:8px;margin-left:auto;">
+        <button class="btn ghost" id="exportBtn">⬇ Save data</button>
+        <button class="btn ghost" id="importBtn">⬆ Load data</button>
+        <input type="file" id="importFile" accept="application/json" style="display:none;">
+        <button class="btn danger" id="resetDataBtn">⟲ Reset data</button>
+      </div>
+    </div>
+
+    <div id="resetConfirmOverlay" class="modal-overlay" style="display:none;">
+      <div class="modal-card">
+        <h3>Reset all data?</h3>
+        <p>This sets every input — age, income, savings, balances, expenses, life events, everything — back to <b>0 or blank</b>, as if you're opening this tool for the first time. <b>This can't be undone.</b> If you want to keep your current numbers, use "Save data" first.</p>
+        <div class="modal-actions">
+          <button class="btn ghost" id="resetCancelBtn">Cancel</button>
+          <button class="btn danger-solid" id="resetConfirmBtn">Yes, reset everything</button>
+        </div>
+      </div>
+    </div>
+    <div class="fx-note" id="autosaveNote" style="margin:-10px 0 12px 2px;"></div>
+    <div class="fx-note" style="margin:-2px 0 18px 2px;">📌 Amounts are in today's dollars. Investments grow at real rates; expenses rise with inflation each year.</div>
+
+    <div class="card" id="gettingStarted">
+      <div class="card-head">
+        <h2>Getting Started</h2>
+        <button class="link-btn" id="toggleGettingStarted">Hide</button>
+      </div>
+      <div class="hint" style="margin-bottom:12px;">A suggested path through the tool, in order — tap any step to jump there</div>
+      <div id="gettingStartedBody">
+        <div class="steps-list">
+          <a class="step-row" href="#household">
+            <span class="step-num">1</span>
+            <span class="step-text"><b>Household &amp; Goal</b> — your age, income, expenses, savings, and target retirement age</span>
+          </a>
+          <a class="step-row" href="#wealth">
+            <span class="step-num">2</span>
+            <span class="step-text"><b>Sources of Wealth</b> — your balances in Thailand, USA, and Singapore, plus expected returns</span>
+          </a>
+          <a class="step-row" href="#expenses">
+            <span class="step-num">3</span>
+            <span class="step-text"><b>Monthly Expenses</b> — optional category breakdown that can sync into your annual expenses figure</span>
+          </a>
+          <a class="step-row" href="#events">
+            <span class="step-num">4</span>
+            <span class="step-text"><b>Life Events &amp; Additional Income</b> — one-time costs or gifts, plus recurring income/expenses with a start age and duration</span>
+          </a>
+          <a class="step-row" href="#sensitivity">
+            <span class="step-num">5</span>
+            <span class="step-text"><b>Sensitivity</b> — stress-test your plan against a range of market returns</span>
+          </a>
+          <a class="step-row" href="#runway">
+            <span class="step-num">6</span>
+            <span class="step-text"><b>Growth &amp; Runway</b> — see your balance over time and whether it lasts through retirement</span>
+          </a>
+          <a class="step-row" href="#projection">
+            <span class="step-num">7</span>
+            <span class="step-text"><b>Projection</b> — check the year-by-year numbers, or export to Excel to cross-check by hand</span>
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <div id="alertBox" class="alert ok">
+      <span class="ico">●</span>
+      <div id="alertText"><b>You're on track.</b> Keep this plan updated as your numbers change.</div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <h2>Retirement Summary<button class="info-btn" data-target="info-summary" aria-expanded="false">?</button></h2>
+        <div class="hint">A planner's read on the plan, in relative terms</div>
+      </div>
+      <div class="info-panel" id="info-summary">Everything here is a percentage or a year count on purpose — no dollar figures — so it reads the same whether the numbers behind it are small or large. <b>Savings Rate</b> is projected to your target retirement age using your income and savings growth rates, not just today's snapshot. <b>Target Achievement</b> compares your projected balance at retirement to what you actually need. <b>Retirement Years Funded</b> and <b>Extra Spending Capacity</b> both come straight from the same projection engine that drives the chart and table below, so they'll always agree with what you see there.</div>
+
+      <div style="display:flex;align-items:center;gap:16px;margin-bottom:18px;flex-wrap:wrap;">
+        <div id="readinessBadge" style="width:64px;height:64px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;color:#fff;flex-shrink:0;background:var(--muted-2);">—</div>
+        <div>
+          <div style="font-size:11px;font-weight:700;letter-spacing:.05em;color:var(--muted-2);text-transform:uppercase;">Retirement Readiness Score</div>
+          <div id="readinessLabel" style="font-size:16px;font-weight:700;color:var(--text);margin:2px 0 3px 0;">—</div>
+          <button class="link-btn" id="toggleReadinessBreakdown" style="padding:0;">See how this is calculated</button>
+        </div>
+      </div>
+      <div class="info-panel" id="readinessBreakdown">
+        <div style="font-size:12.5px;color:var(--muted-2);margin-bottom:12px;">Four factors, weighted — a plan needs to be strong across <i>all</i> of them to score highly. Hitting your target exactly (100%) is treated as adequate, not exceptional, since it leaves no margin for error.</div>
+        <div id="readinessBreakdownBody"></div>
+      </div>
+
+      <p id="plannerNarrative" style="font-size:14.5px;line-height:1.7;color:var(--text);margin:0 0 18px 0;"></p>
+      <div class="stats" id="plannerStats" style="margin-bottom:0;"></div>
+    </div>
+
+    <div class="stats">
+      <div class="stat-card">
+        <div class="label">Estimated Retirement Age</div>
+        <div class="value" id="statRetireAge">—</div>
+        <div class="sub" id="statRetireSub">vs. target age</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Target Portfolio Needed</div>
+        <div class="value" id="statTargetPortfolio">—</div>
+        <div class="sub">to sustain retirement</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Additional Needed</div>
+        <div class="value" id="statAdditional">—</div>
+        <div class="sub">beyond current savings</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Annual Spend Supported</div>
+        <div class="value" id="statAnnualSupport">—</div>
+        <div class="sub">by your portfolio in retirement</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <h2>Expenses vs. Savings vs. Portfolio</h2>
+        <div class="hint">How your yearly flows compare to what you've already built up</div>
+      </div>
+      <div id="compareChart"></div>
+      <div class="insight" id="compareInsight"></div>
+    </div>
+  </section>
+
+  <section id="household">
+    <div class="card">
+      <div class="card-head">
+        <h2>Household &amp; Retirement Goal</h2>
+        <div class="hint">All figures are annual, in today's money</div>
+      </div>
+      <div class="form-grid">
+        <div>
+          <div class="form-col-title">Current situation</div>
+          <div class="field">
+            <label>Current age</label>
+            <input type="number" id="currentAge" value="35">
+          </div>
+          <div class="field">
+            <label>Household annual income from work</label>
+            <div class="input-wrap has-prefix"><span class="prefix curSym">฿</span><input type="text" inputmode="decimal" id="annualIncome" data-amount="1"></div>
+          </div>
+          <div class="field">
+            <label>Annual income growth rate</label>
+            <div class="input-wrap has-suffix"><input type="number" step="0.1" id="incomeGrowthRate" value="2.0"><span class="suffix">%</span></div>
+            <div class="desc">Raises over time — used to project your Savings Rate forward to your retirement age.</div>
+          </div>
+          <div class="field">
+            <label>Household annual expenses</label>
+            <div class="input-wrap has-prefix"><span class="prefix curSym">฿</span><input type="text" inputmode="decimal" id="annualExpenses" data-amount="1"></div>
+            <div class="desc">Synced from Monthly Expenses below — edit either one. Deducted every year, working or retired.</div>
+          </div>
+          <div class="field">
+            <label>Annual expense inflation rate</label>
+            <div class="input-wrap has-suffix"><input type="number" step="0.1" id="inflationRate" value="3.0"><span class="suffix">%</span></div>
+            <div class="desc">How much your cost of living rises each year, compounded annually.</div>
+          </div>
+          <div class="field">
+            <label>Household annual savings</label>
+            <div class="input-wrap has-prefix"><span class="prefix curSym">฿</span><input type="text" inputmode="decimal" id="annualSavings" data-amount="1"></div>
+          </div>
+          <div class="field">
+            <label>Annual savings growth rate</label>
+            <div class="input-wrap has-suffix"><input type="number" step="0.001" id="savingsGrowth" value="0.5"><span class="suffix">%</span></div>
+          </div>
+          <div class="field">
+            <label>Current investment portfolio</label>
+            <div class="readonly-summary">
+              <span id="currentPortfolioTotal">—</span>
+              <a href="#wealth">Edit in Sources of Wealth →</a>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="form-col-title">At retirement</div>
+          <div class="field">
+            <label>Target retirement age</label>
+            <input type="number" id="targetAge" value="59">
+          </div>
+          <div class="field">
+            <label>Withdrawal rate in retirement</label>
+            <div class="input-wrap has-suffix"><input type="number" step="0.1" id="withdrawalRate" value="3.3"><span class="suffix">%</span></div>
+            <div class="desc">A commonly cited safe withdrawal rate is 3–4% per year.</div>
+          </div>
+          <div class="field">
+            <label>Retirement expenses ratio</label>
+            <div class="input-wrap has-suffix"><input type="number" step="1" id="retirementRatio" value="80"><span class="suffix">%</span></div>
+            <div class="desc">Spending in retirement as a % of current spending. Rule of thumb: 70–80%.</div>
+          </div>
+          <div class="insight" style="margin-top:6px;border-color:#e8d4c8;background:#fdf8f5;display:flex;gap:10px;align-items:flex-start;">
+            <span style="font-size:15px;line-height:1.4;">💡</span>
+            <span>Other income, medical costs, and one-time expenses are now modeled in <a href="#events" style="color:var(--rust-dark);font-weight:700;">Life Events &amp; Additional Income</a> below, so they can start and end at specific ages instead of applying as flat, permanent numbers.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="wealth">
+    <div class="card">
+      <div class="card-head">
+        <h2>Sources of Wealth</h2>
+        <div class="hint">One clear growth rate per country — for what you already have, and for new savings</div>
+      </div>
+      <div class="insight" style="margin-bottom:18px;">
+        Each country below has <b>one growth rate</b>, applied consistently. Your <b>current balance</b> in that country compounds at that rate, and any share of your <b>new annual savings</b> you allocate there compounds at the same rate too — no separate assumption elsewhere. How much you spend in retirement is unaffected by this split; it's calculated the same way regardless of where the money sits.
+      </div>
+
+      <div class="wealth-head-row">
+        <div></div><div>Current Balance</div><div>Growth Rate</div><div>New Savings %</div><div></div>
+      </div>
+      <div class="wealth-row" data-loc="thailand">
+        <div class="wlabel"><span class="wdot" style="background:#a35c3a;"></span>Thailand</div>
+        <div class="input-wrap has-prefix"><span class="prefix curSym">฿</span><input type="text" inputmode="decimal" id="wealthThailand"></div>
+        <div class="input-wrap has-suffix"><input type="number" step="0.1" id="wealthThailandRate" value="3.3"><span class="suffix">%</span></div>
+        <div class="input-wrap has-suffix"><input type="number" step="1" id="savingsAllocThailand" value="100"><span class="suffix">%</span></div>
+      </div>
+      <div class="wealth-row" data-loc="usa">
+        <div class="wlabel"><span class="wdot" style="background:#3b6fa8;"></span>USA</div>
+        <div class="input-wrap has-prefix"><span class="prefix">$</span><input type="text" inputmode="decimal" id="wealthUSA"></div>
+        <div class="input-wrap has-suffix"><input type="number" step="0.1" id="wealthUSARate" value="6.0"><span class="suffix">%</span></div>
+        <div class="input-wrap has-suffix"><input type="number" step="1" id="savingsAllocUSA" value="0"><span class="suffix">%</span></div>
+      </div>
+      <div class="wealth-row" data-loc="singapore">
+        <div class="wlabel"><span class="wdot" style="background:#2f9e8f;"></span>Singapore</div>
+        <div class="input-wrap has-prefix"><span class="prefix">$</span><input type="text" inputmode="decimal" id="wealthSG"></div>
+        <div class="input-wrap has-suffix"><input type="number" step="0.1" id="wealthSGRate" value="4.0"><span class="suffix">%</span></div>
+        <div class="input-wrap has-suffix"><input type="number" step="1" id="savingsAllocSG" value="0"><span class="suffix">%</span></div>
+      </div>
+      <div class="mix-total" id="savingsAllocTotal">New Savings % total: 100%</div>
+      <div class="fx-note" style="margin:8px 0 16px 0;">USA and Singapore balances are always entered in USD, converted to THB internally using your FX rate. "New Savings %" splits your annual savings across the three each year and should add up to 100%.</div>
+
+      <div id="wealthBar" class="wealth-bar"></div>
+      <div class="legend" id="wealthLegend" style="margin-top:10px;"></div>
+
+      <div class="insight" id="wealthInsight" style="margin-top:14px;"></div>
+    </div>
+  </section>
+
+  <section id="expenses">
+    <div class="card">
+      <div class="card-head">
+        <h2>Monthly Expenses</h2>
+        <div class="hint" id="monthlyTotalHint">Total: ฿0 / mo</div>
+      </div>
+      <div id="expenseAccordion"></div>
+      <div style="margin-top:14px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+        <button class="btn" id="syncExpensesBtn">Use this total × 12 as annual expenses</button>
+        <span class="fx-note" id="expenseDriftNote" style="margin:0;"></span>
+      </div>
+    </div>
+  </section>
+
+  <section id="events">
+    <div class="card">
+      <div class="card-head">
+        <h2>Life Events<button class="info-btn" data-target="info-events" aria-expanded="false">?</button></h2>
+        <div class="hint">One-time money out (or gifts) at a specific age — home purchase, car, medical care, inheritance, and more</div>
+      </div>
+      <div class="info-panel" id="info-events">Three related tools here, each for a different pattern of money. <b>Life Events</b> (this card) are a single one-time hit — money leaves your portfolio exactly once, in the year you choose. <b>Additional Income</b> and <b>Additional Expenses</b> (below) are the opposite: a recurring amount every year for a limited stretch you define with a start age and a number of years — a board seat for 10 years, medical costs from age 65 for 15 years, and so on. Use Life Events for a single moment; use the recurring lists for anything ongoing but not permanent.</div>
+      <div id="eventsList"></div>
+      <div id="eventsEmpty" class="foot-note" style="margin-top:0;">No life events yet — add one below.</div>
+      <button class="btn" id="addEventBtn" style="margin-top:6px;">+ Add life event</button>
+      <div class="foot-note">Each event subtracts its amount from your portfolio balance in the year you reach that age. Multiple events at the same age are combined. Add your own category any time.</div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <h2>Additional Income</h2>
+        <div class="hint">Recurring income for a limited time — board seat, rental income, part-time work, pension, etc.</div>
+      </div>
+      <div class="recur-head-row">
+        <div>Label</div><div>Amount / year</div><div>Start age</div><div>Years</div><div></div>
+      </div>
+      <div id="incomeList"></div>
+      <div id="incomeEmpty" class="foot-note" style="margin-top:0;">No additional income yet — add one below.</div>
+      <button class="btn" id="addIncomeBtn" style="margin-top:6px;">+ Add additional income</button>
+      <div class="foot-note">Applies every year from the start age through the number of years you set, whether that falls before or after retirement. Reduces what's drawn from your portfolio.</div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <h2>Additional Expenses</h2>
+        <div class="hint">Recurring extra cost for a limited time — medical care, tuition, caregiving, etc.</div>
+      </div>
+      <div class="recur-head-row">
+        <div>Label</div><div>Amount / year</div><div>Start age</div><div>Years</div><div></div>
+      </div>
+      <div id="expenseItemsList"></div>
+      <div id="expenseItemsEmpty" class="foot-note" style="margin-top:0;">No additional expenses yet — add one below.</div>
+      <button class="btn" id="addExpenseItemBtn" style="margin-top:6px;">+ Add additional expense</button>
+      <div class="foot-note">Applies every year from the start age through the number of years you set. Adds to what's drawn from your portfolio.</div>
+    </div>
+  </section>
+
+  <section id="sensitivity">
+    <div class="card">
+      <div class="card-head">
+        <h2>Sensitivity: What if growth is higher or lower?<button class="info-btn" data-target="info-sensitivity" aria-expanded="false">?</button></h2>
+        <div class="hint">Stress-test your plan against market surprises</div>
+      </div>
+      <div class="info-panel" id="info-sensitivity">This slider shifts your growth rates up or down by the amount you choose — the middle value (0%) uses your rates exactly as entered. It also sets the width of the conservative–optimistic range shown on the Growth &amp; Runway chart. That range doesn't stay at full width forever: it's strongest for about the first 15 years, then gradually narrows toward roughly a third of its original width, since real markets don't hold a fixed edge for decades on end. Your Year-by-year table always reflects the middle (expected) case.</div>
+      <div class="field">
+        <label>Adjust portfolio growth rate by</label>
+        <input type="range" id="sensitivitySlider" min="-3" max="3" step="0.1" value="0">
+        <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-top:4px;">
+          <span>−3%</span><span id="sensitivityVal" style="font-weight:700;color:var(--rust-dark);">+0.0%</span><span>+3%</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="runway">
+    <div class="card">
+      <div class="card-head">
+        <h2>Portfolio Growth &amp; Retirement Runway<button class="info-btn" data-target="info-runway" aria-expanded="false">?</button></h2>
+        <div class="hint">Your full lifetime in one chart — hover to see your balance at any age. Axis switches to log only when the shown range gets too wide for linear to stay readable</div>
+      </div>
+      <div class="info-panel" id="info-runway">The top panel is your balance: rust while you're still working and saving, red once you're withdrawing in retirement. The shaded band is the conservative-to-optimistic range from your Sensitivity setting. The bottom panel shows the actual cash moving each year — green bars for investment return, red bars for whatever's going out (expenses or withdrawal), and a dashed grey line for your full cost of living. Drag "Show chart through age" to focus on a shorter window — the axis will automatically switch back to linear once the range is narrow enough to read comfortably, and to log if you stretch it out across the full decades-long horizon.</div>
+      <div style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-end;margin-bottom:4px;">
+        <div class="field" style="max-width:220px;margin-bottom:0;">
+          <label>Plan until age</label>
+          <input type="number" id="planUntilAge" value="95">
+          <div class="desc">A common conservative planning horizon is 90–100.</div>
+        </div>
+        <label style="display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;padding-bottom:18px;">
+          <input type="checkbox" id="showBandToggle" checked style="width:15px;height:15px;accent-color:var(--rust);">
+          Show conservative–optimistic range
+        </label>
+      </div>
+      <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-bottom:14px;">
+        <div class="field" style="flex:1;min-width:240px;max-width:420px;margin-bottom:0;">
+          <label>Show chart through age: <span id="chartWindowLabel">95</span></label>
+          <input type="range" id="chartWindowSlider" min="45" max="95" value="95" step="1">
+        </div>
+        <span id="chartScaleBadge" style="display:inline-flex;align-items:center;padding:5px 12px;border-radius:20px;font-size:12px;font-weight:700;"></span>
+      </div>
+      <div class="chart-wrap">
+        <svg id="runwaySvg" width="100%" height="370" viewBox="0 0 1000 370" preserveAspectRatio="none" style="cursor:crosshair;"></svg>
+      </div>
+      <div class="legend">
+        <span><span class="swatch" style="background:#a35c3a;"></span>Balance: accumulating</span>
+        <span><span class="swatch" style="background:#e63946;"></span>Balance: withdrawing</span>
+        <span><span class="swatch" style="background:#111;opacity:.35;"></span>Retirement age</span>
+        <span><span class="swatch" style="background:#2f7d4f;"></span>Return (per year)</span>
+        <span><span class="swatch" style="background:#e63946;opacity:.55;"></span>Outflow — Expenses or Withdrawal (per year)</span>
+        <span><span class="swatch" style="background:#8b94a3;"></span>Full expenses (per year)</span>
+        <span id="runwayBandLegend"><span class="swatch" style="background:#2a78d6;opacity:.35;"></span>Conservative–optimistic range (tapers over long horizons)</span>
+        <span id="runwayGiftLegend" style="display:none;"><span class="swatch" style="background:#c0392b;"></span>Life event</span>
+      </div>
+      <div class="insight" id="runwayGrowthInsight" style="margin-top:12px;"></div>
+      <div class="alert" id="runwayAlert" style="margin-top:10px;margin-bottom:0;">
+        <span class="ico">●</span>
+        <div id="runwayText"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="projection">
+    <div class="card">
+      <div class="card-head">
+        <h2>Year-by-year projection</h2>
+        <div class="hint">Full lifetime — accumulation, then retirement drawdown with inflation-adjusted spending</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap;">
+        <button class="btn" id="exportExcelBtn">⬇ Export to Excel</button>
+        <span class="fx-note" id="exportExcelNote" style="margin:0;">Exports every year from your current age through your Plan-until age, with every tracked field broken into its own column (per-country balances, inflation cost, cumulative contributions vs. growth, and more) — first click loads a small formatting library (needs internet once).</span>
+      </div>
+      <div class="table-scroll">
+        <table class="table-compact">
+          <thead>
+            <tr>
+              <th>Age</th><th>Year</th><th>Begin Balance</th><th>Return</th><th>Income In</th><th>Outflow</th><th>Life Events</th><th>End Balance</th><th>Target met?</th>
+            </tr>
+          </thead>
+          <tbody id="projectionBody"></tbody>
+        </table>
+      </div>
+      <div class="foot-note" style="margin-top:0;margin-bottom:6px;">
+        <b>Math check, every row:</b> working years: End = Begin + Return + Savings − Expenses (± Additional Income/Expenses). Retirement years: End = Begin + Return − Withdrawal (± Life Events), where Withdrawal = Expenses × Retirement Ratio, adjusted for Additional Income/Expenses. "Income In" combines Savings and any active Additional Income; "Outflow" is Expenses pre-retirement or Withdrawal after. Expenses already include your inflation assumption, compounded annually.
+      </div>
+      <div class="foot-note">
+        This is an educational estimator, not personalized financial advice. Market returns are uncertain and every investment carries risk — actual outcomes will differ. For guidance specific to your situation, consult a licensed financial advisor. FX rate is user-supplied and for reference only, not a live market rate.
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <h2>Appendix: Portfolio Growth by Country</h2>
+        <div class="hint">Balance by age, split across Thailand / USA / Singapore — hover for the exact breakdown</div>
+      </div>
+      <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin-bottom:14px;">
+        <div class="field" style="flex:1;min-width:240px;max-width:420px;margin-bottom:0;">
+          <label>Show chart through age: <span id="appendixGrowthWindowLabel">95</span></label>
+          <input type="range" id="appendixGrowthWindowSlider" min="45" max="95" value="95" step="1">
+        </div>
+        <span id="appendixGrowthScaleBadge" style="display:inline-flex;align-items:center;padding:5px 12px;border-radius:20px;font-size:12px;font-weight:700;"></span>
+      </div>
+      <div class="chart-wrap">
+        <svg id="appendixGrowthSvg" width="100%" height="480" viewBox="0 0 1000 480" preserveAspectRatio="none" style="cursor:crosshair;"></svg>
+      </div>
+      <div class="legend">
+        <span><span class="swatch" style="background:#a35c3a;"></span>Thailand</span>
+        <span><span class="swatch" style="background:#3b6fa8;"></span>USA</span>
+        <span><span class="swatch" style="background:#2f9e8f;"></span>Singapore</span>
+        <span><span class="swatch" style="background:#0f1a2e;"></span>Combined total (log scale only)</span>
+        <span><span class="swatch" style="background:#e63946;"></span>Withdrawal (separate panel, own scale)</span>
+        <span><span class="swatch" style="background:#111;opacity:.35;"></span>Target portfolio line</span>
+        <span><span class="swatch" style="background:#111;opacity:.3;"></span>Retirement age</span>
+        <span id="appendixGrowthGiftLegend" style="display:none;"><span class="swatch" style="background:#c0392b;"></span>Life event (amount removed)</span>
+      </div>
+      <div class="foot-note" id="appendixGrowthNote" style="margin-top:10px;"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <h2>Appendix: Return vs. Spend</h2>
+        <div class="hint">A bigger view of the same cash flow shown in the chart above — hover any bar for the exact numbers</div>
+      </div>
+      <div class="chart-wrap">
+        <svg id="appendixSvg" width="100%" height="420" viewBox="0 0 1000 420" preserveAspectRatio="none" style="cursor:crosshair;"></svg>
+      </div>
+      <div class="legend">
+        <span><span class="swatch" style="background:#2f7d4f;"></span>Return (per year)</span>
+        <span><span class="swatch" style="background:#e63946;opacity:.65;"></span>Outflow — Expenses or Withdrawal (per year)</span>
+        <span><span class="swatch" style="background:#8b94a3;"></span>Full expenses (per year)</span>
+        <span><span class="swatch" style="background:#111;opacity:.35;"></span>Retirement age</span>
+      </div>
+    </div>
+  </section>
+
+
+
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+
+// ---------- Number formatting (comma-separated, live) ----------
+function parseNum(str){
+  if (str === null || str === undefined) return 0;
+  const n = parseFloat(String(str).replace(/,/g,''));
+  return isNaN(n) ? 0 : n;
+}
+
+function commafy(raw){
+  let neg = raw.startsWith('-');
+  if (neg) raw = raw.slice(1);
+  const parts = raw.split('.');
+  let intPart = parts[0].replace(/[^0-9]/g,'');
+  intPart = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  let result = intPart;
+  if (parts.length > 1) result += '.' + parts[1].replace(/[^0-9]/g,'');
+  return (neg ? '-' : '') + result;
+}
+
+// Live comma-format a text input as the user types, preserving cursor position.
+function commafyInput(el){
+  const rawBefore = el.value;
+  const posBefore = el.selectionStart ?? rawBefore.length;
+  const digitsBeforeCursor = rawBefore.slice(0, posBefore).replace(/[^0-9]/g,'').length;
+
+  let raw = rawBefore.replace(/,/g,'');
+  const leadingMinus = raw.startsWith('-');
+  raw = (leadingMinus ? '-' : '') + raw.replace(/[^0-9.]/g,'');
+  const dotIndex = raw.indexOf('.');
+  if (dotIndex !== -1){
+    raw = raw.slice(0, dotIndex+1) + raw.slice(dotIndex+1).replace(/\./g,'');
+  }
+
+  const formatted = commafy(raw);
+  el.value = formatted;
+
+  let count = 0, pos = formatted.length;
+  for (let i = 0; i < formatted.length; i++){
+    if (/[0-9]/.test(formatted[i])) count++;
+    if (count === digitsBeforeCursor){ pos = i+1; break; }
+  }
+  el.setSelectionRange(pos, pos);
+}
+
+function formatStatic(n){
+  const rounded = Math.round((n + Number.EPSILON) * 100) / 100;
+  return commafy(String(rounded));
+}
+
+
+let currency = 'THB'; // 'THB' or 'USD'
+let fxRate = 33; // THB per 1 USD
+
+function toDisplay(thb){ return currency === 'USD' ? thb / fxRate : thb; }
+function toBase(displayVal){ return currency === 'USD' ? displayVal * fxRate : displayVal; }
+
+function fmtMoney(thb){
+  const symbol = currency === 'USD' ? '$' : '฿';
+  const val = toDisplay(thb);
+  const sign = val < 0 ? '-' : '';
+  return sign + symbol + Math.abs(Math.round(val)).toLocaleString();
+}
+
+// Round to N significant figures while staying in normal decimal notation
+// (avoids JS's default switch to exponential notation for large numbers).
+function roundToSigFigs(num, sig){
+  if (num === 0) return 0;
+  const d = Math.ceil(Math.log10(Math.abs(num)));
+  const power = sig - d;
+  const magnitude = Math.pow(10, power);
+  return Math.round(num * magnitude) / magnitude;
+}
+
+// Compact "hover" formatting: THB rounds to 3 significant figures (e.g. ฿700M, ฿12.3M),
+// USD shows 2 decimal places (e.g. $21.23M) — always expressed in millions.
+function fmtCompact(thb){
+  const symbol = currency === 'USD' ? '$' : '฿';
+  const val = toDisplay(thb);
+  const sign = val < 0 ? '-' : '';
+  const millions = Math.abs(val) / 1e6;
+  if (currency === 'USD'){
+    return sign + symbol + millions.toFixed(2) + 'M';
+  }
+  const rounded = roundToSigFigs(millions, 3);
+  return sign + symbol + rounded.toLocaleString() + 'M';
+}
+
+// Short filename stamp, e.g. "Fire_10jun26_1230" (day + 3-letter month + 2-digit year, then 24h HHMM)
+function shortDateTimeFilename(prefix){
+  const now = new Date();
+  const day = String(now.getDate()).padStart(2, '0');
+  const months = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+  const month = months[now.getMonth()];
+  const year = String(now.getFullYear()).slice(-2);
+  const hh = String(now.getHours()).padStart(2, '0');
+  const mm = String(now.getMinutes()).padStart(2, '0');
+  return `${prefix}_${day}${month}${year}_${hh}${mm}`;
+}
+
+function setCurrency(c){
+  currency = c;
+  $('curTHB').classList.toggle('active', c==='THB');
+  $('curUSD').classList.toggle('active', c==='USD');
+  document.querySelectorAll('.curSym').forEach(el => el.textContent = c==='USD' ? '$' : '฿');
+  renderAmountInputs();
+  renderExpenseInputs();
+  renderEventAmounts();
+  incomeList.renderAmounts();
+  expenseItemsList.renderAmounts();
+  recalc();
+}
+
+$('fxRateInput').addEventListener('input', ()=>{
+  const v = parseFloat($('fxRateInput').value);
+  if (v > 0) fxRate = v;
+  renderAmountInputs();
+  renderExpenseInputs();
+  renderEventAmounts();
+  incomeList.renderAmounts();
+  expenseItemsList.renderAmounts();
+  recalc();
+});
+
+// ---------- Base amounts (always stored in THB) ----------
+const S = {
+  annualIncome: 1650000,
+  annualExpenses: 1221000,
+  annualSavings: 594000,
+  wealthThailand: 3300000,
+};
+const amountFields = ['annualIncome','annualExpenses','annualSavings','wealthThailand'];
+
+// USA / Singapore are always entered in USD, independent of the currency toggle.
+const wealthFixedUSD = { wealthUSA: 0, wealthSG: 0 };
+function renderFixedWealthInputs(){
+  Object.keys(wealthFixedUSD).forEach(id => { $(id).value = formatStatic(wealthFixedUSD[id]); });
+}
+Object.keys(wealthFixedUSD).forEach(id => {
+  $(id).addEventListener('input', () => {
+    commafyInput($(id));
+    wealthFixedUSD[id] = parseNum($(id).value);
+    recalc();
+  });
+});
+['wealthThailandRate','wealthUSARate','wealthSGRate'].forEach(id => {
+  $(id).addEventListener('input', recalc);
+});
+
+function renderAmountInputs(){
+  amountFields.forEach(id => {
+    const el = $(id);
+    if (!el) return;
+    const dv = toDisplay(S[id]);
+    const rounded = currency === 'USD' ? Math.round(dv*100)/100 : Math.round(dv);
+    el.value = formatStatic(rounded);
+  });
+}
+amountFields.forEach(id => {
+  $(id).addEventListener('input', () => {
+    commafyInput($(id));
+    S[id] = toBase(parseNum($(id).value));
+    recalc();
+  });
+});
+
+// ---------- Monthly expenses data (base values in THB) ----------
+const expenseCategories = [
+  { name:"Housing", items:[["Mortgage or rent",33000],["Phone",3000],["Electricity",1900],["Water and sewer",700],["Cable",1150],["Maintenance or repairs",0],["Supplies",0],["House insurance",0],["Other",0]] },
+  { name:"Food", items:[["Groceries",33000],["Dining out",0],["Other",0]] },
+  { name:"Transportation", items:[["Vehicle payment",0],["Insurance",0],["Licensing",0],["Fuel",0],["Maintenance",0],["Other",0]] },
+  { name:"Travel & Health", items:[["Travel",0],["Entertainment",0],["Health Insurance",0],["Fitness",0],["Other",0]] },
+];
+
+function buildAccordion(){
+  const root = $('expenseAccordion');
+  root.innerHTML = '';
+  const symbol = currency === 'USD' ? '$' : '฿';
+  expenseCategories.forEach((cat, ci) => {
+    const item = document.createElement('div');
+    item.className = 'accordion-item';
+    const subtotal = cat.items.reduce((s,i)=>s+i[1],0);
+    item.innerHTML = `
+      <div class="accordion-head" data-idx="${ci}">
+        <span><span class="chevron">▸</span> ${cat.name}</span>
+        <span class="amt cat-subtotal" data-ci="${ci}">${fmtMoney(subtotal)}</span>
+      </div>
+      <div class="accordion-body">
+        ${cat.items.map((it,ii)=>`
+          <div class="exp-line">
+            <span>${it[0]}</span>
+            <div class="input-wrap has-prefix">
+              <span class="prefix curSym">${symbol}</span>
+              <input type="text" inputmode="decimal" data-cat="${ci}" data-item="${ii}" value="${formatStatic(toDisplay(it[1]))}">
+            </div>
+          </div>`).join('')}
+      </div>`;
+    root.appendChild(item);
+  });
+
+  root.querySelectorAll('.accordion-head').forEach(h=>{
+    h.addEventListener('click', ()=>{
+      const body = h.nextElementSibling;
+      const chev = h.querySelector('.chevron');
+      body.classList.toggle('open');
+      chev.classList.toggle('open');
+    });
+  });
+  root.querySelectorAll('.exp-line input').forEach(inp=>{
+    inp.addEventListener('input', e=>{
+      e.stopPropagation();
+      commafyInput(inp);
+      const ci = +inp.dataset.cat, ii = +inp.dataset.item;
+      expenseCategories[ci].items[ii][1] = toBase(parseNum(inp.value));
+      refreshExpenseTotals();
+    });
+    inp.addEventListener('click', e=>e.stopPropagation());
+  });
+  refreshExpenseTotals();
+}
+
+function renderExpenseInputs(){
+  // re-render values/symbols without losing open/closed state
+  document.querySelectorAll('#expenseAccordion .exp-line input').forEach(inp=>{
+    const ci = +inp.dataset.cat, ii = +inp.dataset.item;
+    const base = expenseCategories[ci].items[ii][1];
+    inp.value = formatStatic(toDisplay(base));
+  });
+  refreshExpenseTotals();
+}
+
+function refreshExpenseTotals(){
+  let grand = 0;
+  expenseCategories.forEach((cat,ci)=>{
+    const sub = cat.items.reduce((s,i)=>s+i[1],0);
+    const cell = document.querySelector(`.cat-subtotal[data-ci="${ci}"]`);
+    if (cell) cell.textContent = fmtMoney(sub);
+    grand += sub;
+  });
+  $('monthlyTotalHint').textContent = `Total: ${fmtMoney(grand)} / mo · ${fmtMoney(grand*12)} / yr`;
+
+  const annualFromMonthly = grand * 12;
+  const driftNote = $('expenseDriftNote');
+  if (driftNote){
+    const diff = Math.abs(S.annualExpenses - annualFromMonthly);
+    const pctDiff = annualFromMonthly > 0 ? diff / annualFromMonthly : 0;
+    if (pctDiff > 0.02 && diff > 1){
+      driftNote.innerHTML = `⚠️ Your annual expenses field (${fmtMoney(S.annualExpenses)}) no longer matches this monthly total × 12 (${fmtMoney(annualFromMonthly)}) — click the button to re-sync, or leave as-is if that's intentional.`;
+    } else {
+      driftNote.textContent = '';
+    }
+  }
+  return grand;
+}
+
+$('annualExpenses').addEventListener('input', refreshExpenseTotals);
+
+$('syncExpensesBtn').addEventListener('click', ()=>{
+  const monthlyBase = expenseCategories.reduce((s,c)=>s+c.items.reduce((ss,i)=>ss+i[1],0),0);
+  S.annualExpenses = monthlyBase * 12;
+  renderAmountInputs();
+  recalc();
+});
+
+// ---------- Life Events (major expenditures, gifts, inheritance, etc.) ----------
+let eventCategories = ['Home','Car','Medical Care','Inheritance / Gift','Education','Other'];
+let lifeEvents = []; // {id, category, label, amount (THB base), age}
+let eventIdSeq = 1;
+
+function showNewCategoryPopover(row, selectEl, ev){
+  const prevValue = ev.category;
+  document.querySelectorAll('.new-cat-popover').forEach(p => p.remove());
+
+  const pop = document.createElement('div');
+  pop.className = 'new-cat-popover';
+  pop.innerHTML = `<input type="text" placeholder="New category name" /><button class="confirm">Add</button><button class="cancel">×</button>`;
+  row.appendChild(pop);
+  const input = pop.querySelector('input');
+  input.focus();
+
+  const commit = () => {
+    const name = input.value.trim();
+    if (name){
+      if (!eventCategories.includes(name)) eventCategories.push(name);
+      ev.category = name;
+    } else {
+      selectEl.value = prevValue;
+    }
+    pop.remove();
+    renderEvents();
+    recalc();
+  };
+  const cancel = () => {
+    selectEl.value = prevValue;
+    pop.remove();
+  };
+
+  pop.querySelector('.confirm').addEventListener('click', commit);
+  pop.querySelector('.cancel').addEventListener('click', cancel);
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') commit();
+    if (e.key === 'Escape') cancel();
+  });
+}
+
+function addLifeEvent(prefill){
+  lifeEvents.push({
+    id: eventIdSeq++,
+    category: (prefill && prefill.category) || 'Home',
+    label: (prefill && prefill.label) || '',
+    amount: (prefill && prefill.amount) || 0,
+    age: (prefill && prefill.age) || (+$('currentAge').value + 10),
+  });
+  renderEvents();
+  recalc();
+}
+
+$('addEventBtn').addEventListener('click', () => addLifeEvent());
+
+function renderEvents(){
+  const root = $('eventsList');
+  $('eventsEmpty').style.display = lifeEvents.length ? 'none' : 'block';
+  root.innerHTML = lifeEvents.map(ev => `
+    <div class="event-row" data-id="${ev.id}">
+      <select class="ev-category">
+        ${eventCategories.map(c => `<option value="${c}" ${c===ev.category?'selected':''}>${c}</option>`).join('')}
+        <option value="__new__">+ New category…</option>
+      </select>
+      <input type="text" class="label-input ev-label" placeholder="e.g., Down payment on house" value="${ev.label}">
+      <div class="input-wrap has-prefix"><span class="prefix curSym">${currency==='USD'?'$':'฿'}</span><input type="text" inputmode="decimal" class="ev-amount" value="${formatStatic(toDisplay(ev.amount))}"></div>
+      <input type="number" class="ev-age" value="${ev.age}" title="Age this happens">
+      <button class="del-btn" title="Remove">×</button>
+    </div>
+  `).join('');
+
+  root.querySelectorAll('.event-row').forEach(row => {
+    const id = +row.dataset.id;
+    const ev = lifeEvents.find(e => e.id === id);
+
+    row.querySelector('.ev-category').addEventListener('change', e => {
+      if (e.target.value === '__new__'){
+        showNewCategoryPopover(row, e.target, ev);
+      } else {
+        ev.category = e.target.value;
+        recalc();
+      }
+    });
+
+    row.querySelector('.ev-label').addEventListener('input', e => {
+      ev.label = e.target.value;
+      recalc();
+    });
+
+    const amountInput = row.querySelector('.ev-amount');
+    amountInput.addEventListener('input', () => {
+      commafyInput(amountInput);
+      ev.amount = toBase(parseNum(amountInput.value));
+      recalc();
+    });
+
+    row.querySelector('.ev-age').addEventListener('input', e => {
+      ev.age = +e.target.value || 0;
+      recalc();
+    });
+
+    row.querySelector('.del-btn').addEventListener('click', () => {
+      lifeEvents = lifeEvents.filter(e => e.id !== id);
+      renderEvents();
+      recalc();
+    });
+  });
+}
+
+function renderEventAmounts(){
+  // called on currency toggle to reformat displayed amounts without rebuilding rows
+  document.querySelectorAll('#eventsList .event-row').forEach(row => {
+    const id = +row.dataset.id;
+    const ev = lifeEvents.find(e => e.id === id);
+    if (!ev) return;
+    row.querySelector('.prefix').textContent = currency==='USD' ? '$' : '฿';
+    row.querySelector('.ev-amount').value = formatStatic(toDisplay(ev.amount));
+  });
+}
+
+// ---------- Additional Income / Additional Expenses (recurring, time-limited) ----------
+let additionalIncomeItems = [];
+let additionalExpenseItems = [];
+let recurIdSeq = 1;
+
+function makeRecurringList(config){
+  const { listId, emptyId, addBtnId, itemsRef, setItemsRef, labelPlaceholder } = config;
+  const placeholder = labelPlaceholder || 'e.g., Board seat';
+
+  function add(prefill){
+    const items = itemsRef();
+    items.push({
+      id: recurIdSeq++,
+      label: (prefill && prefill.label) || '',
+      amount: (prefill && prefill.amount) || 0,
+      startAge: (prefill && prefill.startAge) || (+$('currentAge').value || 35),
+      duration: (prefill && prefill.duration) || 10,
+    });
+    render();
+    recalc();
+  }
+
+  function render(){
+    const items = itemsRef();
+    const root = $(listId);
+    $(emptyId).style.display = items.length ? 'none' : 'block';
+    root.innerHTML = items.map(it => `
+      <div class="recur-row" data-id="${it.id}">
+        <input type="text" class="label-input recur-label" placeholder="${placeholder}" value="${it.label}">
+        <div class="input-wrap has-prefix"><span class="prefix curSym">${currency==='USD'?'$':'฿'}</span><input type="text" inputmode="decimal" class="recur-amount" value="${formatStatic(toDisplay(it.amount))}"></div>
+        <input type="number" class="recur-start" value="${it.startAge}" title="Start age">
+        <input type="number" class="recur-duration" value="${it.duration}" min="1" title="Number of years">
+        <button class="del-btn" title="Remove">×</button>
+      </div>
+    `).join('');
+
+    root.querySelectorAll('.recur-row').forEach(row => {
+      const id = +row.dataset.id;
+      const it = itemsRef().find(x => x.id === id);
+
+      row.querySelector('.recur-label').addEventListener('input', e => {
+        it.label = e.target.value;
+        recalc();
+      });
+
+      const amountInput = row.querySelector('.recur-amount');
+      amountInput.addEventListener('input', () => {
+        commafyInput(amountInput);
+        it.amount = toBase(parseNum(amountInput.value));
+        recalc();
+      });
+
+      row.querySelector('.recur-start').addEventListener('input', e => {
+        it.startAge = +e.target.value || 0;
+        recalc();
+      });
+
+      row.querySelector('.recur-duration').addEventListener('input', e => {
+        it.duration = Math.max(1, +e.target.value || 1);
+        recalc();
+      });
+
+      row.querySelector('.del-btn').addEventListener('click', () => {
+        setItemsRef(itemsRef().filter(x => x.id !== id));
+        render();
+        recalc();
+      });
+    });
+  }
+
+  function renderAmounts(){
+    document.querySelectorAll(`#${listId} .recur-row`).forEach(row => {
+      const id = +row.dataset.id;
+      const it = itemsRef().find(x => x.id === id);
+      if (!it) return;
+      row.querySelector('.prefix').textContent = currency==='USD' ? '$' : '฿';
+      row.querySelector('.recur-amount').value = formatStatic(toDisplay(it.amount));
+    });
+  }
+
+  $(addBtnId).addEventListener('click', () => add());
+
+  return { add, render, renderAmounts };
+}
+
+const incomeList = makeRecurringList({
+  listId: 'incomeList', emptyId: 'incomeEmpty', addBtnId: 'addIncomeBtn',
+  itemsRef: () => additionalIncomeItems,
+  setItemsRef: (v) => { additionalIncomeItems = v; },
+  labelPlaceholder: 'e.g., Board seat',
+});
+const expenseItemsList = makeRecurringList({
+  listId: 'expenseItemsList', emptyId: 'expenseItemsEmpty', addBtnId: 'addExpenseItemBtn',
+  itemsRef: () => additionalExpenseItems,
+  setItemsRef: (v) => { additionalExpenseItems = v; },
+  labelPlaceholder: 'e.g., Medical care',
+});
+
+function renderWealthComposition(thailandAmt, usaAmt, sgAmt, thailandRate, usaRate, sgRate){
+  const total = thailandAmt + usaAmt + sgAmt;
+  const segs = [
+    { label:'Thailand', val:thailandAmt, color:'#a35c3a' },
+    { label:'USA', val:usaAmt, color:'#3b6fa8' },
+    { label:'Singapore', val:sgAmt, color:'#2f9e8f' },
+  ];
+  const bar = $('wealthBar');
+  bar.innerHTML = segs.map(s => {
+    const pct = total > 0 ? (s.val/total*100) : 0;
+    return `<div class="seg" style="width:${pct}%;background:${s.color};" title="${s.label}: ${fmtMoney(s.val)}"></div>`;
+  }).join('');
+
+  $('wealthLegend').innerHTML = segs.map(s => `
+    <span><span class="swatch" style="background:${s.color};"></span>${s.label}: ${fmtMoney(s.val)}</span>
+  `).join('');
+
+  const weighted = total > 0 ? (thailandAmt*thailandRate + usaAmt*usaRate + sgAmt*sgRate) / total : 0;
+  $('wealthInsight').innerHTML = `Combined current portfolio: <b>${fmtMoney(total)}</b>. Weighted current return across all three: <b>${(weighted*100).toFixed(2)}%</b> (today's mix — shifts over time as each location grows at its own rate).`;
+}
+
+// ---------- Savings Allocation (which country new annual savings flow into) ----------
+function normalizeSavingsAlloc(){
+  let t = +$('savingsAllocThailand').value || 0;
+  let u = +$('savingsAllocUSA').value || 0;
+  let s = +$('savingsAllocSG').value || 0;
+  const total = t+u+s;
+  const el = $('savingsAllocTotal');
+  if (total !== 100){
+    el.classList.add('err');
+    el.textContent = `New Savings % total: ${total}% — should sum to 100%`;
+  } else {
+    el.classList.remove('err');
+    el.textContent = `New Savings % total: 100%`;
+  }
+  return { t, u, s, total };
+}
+['savingsAllocThailand','savingsAllocUSA','savingsAllocSG'].forEach(id=>{
+  $(id).addEventListener('input', ()=>{ normalizeSavingsAlloc(); recalc(); });
+});
+
+// ---------- Sensitivity ----------
+$('sensitivitySlider').addEventListener('input', ()=>{
+  const v = parseFloat($('sensitivitySlider').value);
+  $('sensitivityVal').textContent = (v>=0?'+':'') + v.toFixed(1) + '%';
+  recalc();
+});
+
+// ---------- Other live-recalc inputs ----------
+['currentAge','targetAge','withdrawalRate','retirementRatio','savingsGrowth','planUntilAge','inflationRate','incomeGrowthRate']
+ .forEach(id => $(id).addEventListener('input', recalc));
+$('showBandToggle').addEventListener('change', recalc);
+$('chartWindowSlider').addEventListener('input', () => {
+  $('chartWindowSlider').dataset.userSet = '1';
+  recalc();
+});
+
+function computeFullProjection(p, sensOverride, extraSpend){
+  extraSpend = extraSpend || 0;
+  const { currentAge, targetAge, retirementRatio,
+          annualExpenses, annualSavings, savingsGrowth, inflationRate,
+          thailandRate, usaRate, sgRate, thailandAmt, usaAmt, sgAmt,
+          allocThailand, allocUSA, allocSG, targetPortfolio, planUntilAge } = p;
+  const sensFn = typeof sensOverride === 'function' ? sensOverride : (() => sensOverride);
+  const fullMaxY = Math.max(0, planUntilAge - currentAge);
+
+  let ftBal = thailandAmt, fuBal = usaAmt, fsBal = sgAmt;
+  let fCumulativeContrib = thailandAmt + usaAmt + sgAmt;
+  const fullRows = [];
+  const fAppliedEventIds = new Set();
+  const fActiveEvents = lifeEvents.filter(e => e.amount > 0 && e.age >= currentAge && e.age <= currentAge+fullMaxY);
+  let depletedAge = null;
+
+  for (let y = 0; y <= fullMaxY; y++){
+    const age = currentAge + y;
+    const sensitivity = sensFn(y);
+    const retiring = age >= targetAge;
+    const inflationFactor = Math.pow(1+inflationRate, y);
+    const expensesThisYear = annualExpenses * inflationFactor;
+    const inflationCost = expensesThisYear - annualExpenses;
+
+    // Recurring additional income / expenses active this specific year (time-limited)
+    const incomeExtra = additionalIncomeItems
+      .filter(it => age >= it.startAge && age < it.startAge + it.duration)
+      .reduce((s,it) => s + it.amount, 0);
+    const expenseExtra = additionalExpenseItems
+      .filter(it => age >= it.startAge && age < it.startAge + it.duration)
+      .reduce((s,it) => s + it.amount, 0);
+
+    const begin = ftBal + fuBal + fsBal;
+    const tRet = ftBal*(thailandRate+sensitivity), uRet = fuBal*(usaRate+sensitivity), sRet = fsBal*(sgRate+sensitivity);
+    const ret = tRet+uRet+sRet;
+
+    let tEnd = ftBal+tRet, uEnd = fuBal+uRet, sEnd = fsBal+sRet;
+    let save = 0, withdrawal = 0, outflow = 0;
+    if (!retiring){
+      save = annualSavings * Math.pow(1+savingsGrowth, y);
+      tEnd += save*allocThailand; uEnd += save*allocUSA; sEnd += save*allocSG;
+      // Expenses are deducted every year now, working or retired — offset by any active
+      // additional income, increased by any active additional expenses.
+      outflow = expensesThisYear - incomeExtra + expenseExtra;
+    } else {
+      withdrawal = expensesThisYear*retirementRatio - incomeExtra + expenseExtra + extraSpend*inflationFactor;
+      outflow = withdrawal;
+    }
+    let totalBeforeEvents = tEnd+uEnd+sEnd;
+
+    const eventsThisYear = fActiveEvents.filter(e => e.age === age && !fAppliedEventIds.has(e.id));
+    const eventTotal = eventsThisYear.reduce((s,e)=>s+e.amount, 0);
+    eventsThisYear.forEach(e => fAppliedEventIds.add(e.id));
+
+    const totalOut = eventTotal + outflow;
+    const ratio = totalBeforeEvents > 0 ? Math.max(0, (totalBeforeEvents-totalOut)/totalBeforeEvents) : 1;
+    tEnd *= ratio; uEnd *= ratio; sEnd *= ratio;
+    let end = tEnd+uEnd+sEnd;
+    if (end < 0) end = 0;
+
+    fCumulativeContrib += save - eventTotal - outflow;
+    if (fCumulativeContrib < 0) fCumulativeContrib = 0;
+    if (fCumulativeContrib > end) fCumulativeContrib = end;
+    const cumulativeGrowth = end - fCumulativeContrib;
+
+    const met = end >= targetPortfolio;
+    fullRows.push({
+      age, year:y, begin, ret, save, withdrawal, outflow, incomeExtra, expenseExtra,
+      expenses:expensesThisYear, inflationCost, gift:eventTotal, eventDetails:eventsThisYear,
+      end, met, retiring, totalBeforeEvents,
+      breakdown: { thailand:tEnd, usa:uEnd, singapore:sEnd },
+      cumulativeContrib:fCumulativeContrib, cumulativeGrowth,
+    });
+
+    if (end <= 0 && depletedAge === null){
+      depletedAge = age;
+      break;
+    }
+    ftBal = tEnd; fuBal = uEnd; fsBal = sEnd;
+  }
+
+  return { rows: fullRows, depletedAge, planUntilAge };
+}
+
+// Solves for the maximum extra annual spending (on top of currently modeled expenses,
+// growing with inflation like everything else) the plan can absorb while still lasting
+// through the full planning horizon under the expected-case assumptions.
+function computeMaxAffordableExtraSpend(projInputs, sensitivity){
+  const baseline = computeFullProjection(projInputs, sensitivity, 0);
+  if (baseline.depletedAge !== null) return 0; // plan doesn't even cover current spending — no surplus to report
+
+  let low = 0, high = Math.max(1, projInputs.annualExpenses) * 3;
+  for (let guard = 0; guard < 6; guard++){
+    const testHigh = computeFullProjection(projInputs, sensitivity, high);
+    if (testHigh.depletedAge !== null) break;
+    high *= 2;
+  }
+  for (let iter = 0; iter < 28; iter++){
+    const mid = (low + high) / 2;
+    const result = computeFullProjection(projInputs, sensitivity, mid);
+    if (result.depletedAge === null) low = mid; else high = mid;
+  }
+  return low;
+}
+
+function recalc(){
+  const currentAge = +$('currentAge').value || 0;
+  const targetAge = +$('targetAge').value || 0;
+  const withdrawalRate = (+$('withdrawalRate').value || 0) / 100;
+  const retirementRatio = (+$('retirementRatio').value || 0) / 100;
+  const savingsGrowth = (+$('savingsGrowth').value || 0) / 100;
+  const incomeGrowthRate = (+$('incomeGrowthRate').value || 0) / 100;
+  const sensitivity = (parseFloat($('sensitivitySlider').value) || 0) / 100;
+  const inflationRate = (+$('inflationRate').value || 0) / 100;
+  const planUntilAge = Math.max(currentAge, +$('planUntilAge').value || 95);
+
+  const annualExpenses = S.annualExpenses;
+  const annualSavings = S.annualSavings;
+
+  const thailandRate = (+$('wealthThailandRate').value || 0) / 100;
+  const usaRate = (+$('wealthUSARate').value || 0) / 100;
+  const sgRate = (+$('wealthSGRate').value || 0) / 100;
+  const thailandAmt = S.wealthThailand;
+  const usaAmt = wealthFixedUSD.wealthUSA * fxRate;
+  const sgAmt = wealthFixedUSD.wealthSG * fxRate;
+  const currentPortfolio = thailandAmt + usaAmt + sgAmt;
+  $('currentPortfolioTotal').textContent = formatStatic(toDisplay(currentPortfolio)).replace(/^/, currency==='USD'?'$':'฿');
+
+  const alloc = normalizeSavingsAlloc();
+  const allocThailand = alloc.t / 100, allocUSA = alloc.u / 100, allocSG = alloc.s / 100;
+
+  // "Annual Spend Supported" is a today's-dollars snapshot; other income/extra expenses now
+  // live in the time-limited Additional Income/Expenses lists and only affect the year-by-year
+  // projection, not this static anchor figure.
+  const annualSupport = annualExpenses * retirementRatio;
+  const targetPortfolio = withdrawalRate > 0 ? annualSupport / withdrawalRate : 0;
+  const additionalNeeded = targetPortfolio - currentPortfolio;
+
+  $('statTargetPortfolio').textContent = fmtMoney(targetPortfolio);
+  $('statAdditional').textContent = fmtMoney(additionalNeeded);
+  $('statAdditional').className = 'value ' + (additionalNeeded > 0 ? 'red' : 'green');
+  $('statAnnualSupport').textContent = fmtMoney(annualSupport);
+
+  renderWealthComposition(thailandAmt, usaAmt, sgAmt, thailandRate, usaRate, sgRate);
+
+  // ---- Full lifetime projection (accumulation + retirement drawdown), with inflation ----
+  // Computed 3x: expected (current sensitivity), and a conservative/optimistic band ±3 points
+  // wide around that, so the chart and summary can show a range rather than one guess.
+  const projInputs = {
+    currentAge, targetAge, retirementRatio,
+    annualExpenses, annualSavings, savingsGrowth, inflationRate,
+    thailandRate, usaRate, sgRate, thailandAmt, usaAmt, sgAmt,
+    allocThailand, allocUSA, allocSG, targetPortfolio, planUntilAge,
+  };
+  // The ±3-point band represents near-term market uncertainty. Holding that same fixed
+  // offset compounded for 40-55+ years produces mathematically-correct but unrealistic
+  // figures (markets don't sustain a flat edge for half a century). Taper it toward a
+  // smaller residual spread the further out we go — full strength for ~15 years, then
+  // decaying toward 35% of its original width, never vanishing entirely.
+  const bandWidth = 0.03, bandDecayYears = 15, bandFloor = 0.35;
+  const bandTaper = y => bandFloor + (1 - bandFloor) * Math.exp(-y / bandDecayYears);
+  const expected = computeFullProjection(projInputs, sensitivity);
+  const conservative = computeFullProjection(projInputs, y => sensitivity - bandWidth * bandTaper(y));
+  const optimistic = computeFullProjection(projInputs, y => sensitivity + bandWidth * bandTaper(y));
+  const fullRows = expected.rows;
+  lastFullRows = fullRows;
+  const depletedAge = expected.depletedAge;
+  const maxExtraSpend = computeMaxAffordableExtraSpend(projInputs, sensitivity);
+
+  // Estimated retirement age comes straight from the same full-lifetime projection —
+  // first age at which the balance meets or exceeds the target portfolio.
+  const metRow = fullRows.find(r => r.met);
+  const minRetireAge = metRow ? metRow.age : null;
+  const maxYears = Math.max(0, planUntilAge - currentAge);
+
+  const statRetireAge = $('statRetireAge');
+  const statRetireSub = $('statRetireSub');
+  const headerStatus = $('headerStatus');
+  const alertBox = $('alertBox');
+  const alertText = $('alertText');
+
+  if (minRetireAge === null){
+    statRetireAge.textContent = `${maxYears}+ yrs`;
+    statRetireSub.textContent = 'target not reached in projection window';
+    headerStatus.textContent = 'Behind target';
+    headerStatus.classList.add('behind');
+    alertBox.className = 'alert behind';
+    alertText.innerHTML = `<b>Your plan doesn't reach your target</b> within the projection window. Consider saving more, lowering planned retirement spending, or adjusting your target age.`;
+  } else {
+    const diff = targetAge - minRetireAge;
+    statRetireAge.textContent = minRetireAge;
+    statRetireSub.textContent = `vs. target age ${targetAge}`;
+    if (diff === 0){
+      headerStatus.textContent = 'On track';
+      headerStatus.classList.remove('behind');
+      alertBox.className = 'alert ok';
+      alertText.innerHTML = `<b>You're on track to hit your target.</b> Well done — keep this plan updated.`;
+    } else if (diff > 0){
+      headerStatus.textContent = `Ahead by ${diff} yr${diff===1?'':'s'}`;
+      headerStatus.classList.remove('behind');
+      alertBox.className = 'alert ok';
+      alertText.innerHTML = `<b>You can retire ${diff} year${diff===1?'':'s'} ahead of target.</b> Well done — stay the course.`;
+    } else {
+      const abs = Math.abs(diff);
+      headerStatus.textContent = `Behind by ${abs} yr${abs===1?'':'s'}`;
+      headerStatus.classList.add('behind');
+      alertBox.className = 'alert behind';
+      alertText.innerHTML = `<b>You're ${abs} year${abs===1?'':'s'} behind your target age.</b> Consider spending less in retirement, saving more now, or pushing your target age out.`;
+    }
+  }
+
+  renderTable(fullRows);
+  renderAppendixGrowthChart(fullRows, targetPortfolio, planUntilAge);
+  renderAppendixChart(fullRows);
+  renderCompareChart(annualExpenses, annualSavings, currentPortfolio);
+  renderRetirementChart(expected.rows, conservative.rows, optimistic.rows, targetAge, depletedAge, planUntilAge);
+  renderPlannerSummary({
+    minRetireAge, targetAge, annualIncome: S.annualIncome, incomeGrowthRate, annualSavings, savingsGrowth,
+    targetPortfolio, expectedRows: expected.rows, conservativeRows: conservative.rows, depletedAge, planUntilAge,
+    annualExpenses, maxExtraSpend,
+  });
+
+  const retireRow = expected.rows.find(r => r.age === targetAge) || expected.rows[expected.rows.length - 1];
+  if (retireRow && retireRow.end > 0){
+    const growthPct = retireRow.cumulativeGrowth / retireRow.end * 100;
+    $('runwayGrowthInsight').innerHTML = `By age <b>${retireRow.age}</b>, about <b>${growthPct.toFixed(0)}%</b> of your balance (${fmtMoney(retireRow.cumulativeGrowth)}) comes from investment growth rather than money you contributed (${fmtMoney(retireRow.cumulativeContrib)}).`;
+  }
+
+  clearTimeout(window._saveTimer);
+  window._saveTimer = setTimeout(saveLocal, 400);
+}
+
+function renderTable(rows){
+  const body = $('projectionBody');
+  body.innerHTML = rows.map(r => {
+    const detail = (r.eventDetails && r.eventDetails.length)
+      ? r.eventDetails.map(e => `${e.category}${e.label ? ' — '+e.label : ''}: ${fmtMoney(e.amount)}`).join(' | ')
+      : '';
+
+    // Income In = Savings (pre-retirement) + any active Additional Income, whichever phase
+    const incomeIn = (r.save > 0 ? r.save : 0) + (r.incomeExtra > 0 ? r.incomeExtra : 0);
+    const incomeParts = [];
+    if (r.save > 0) incomeParts.push(`Savings: ${fmtMoney(r.save)}`);
+    if (r.incomeExtra > 0) incomeParts.push(`Additional Income: ${fmtMoney(r.incomeExtra)}`);
+    const incomeTitle = incomeParts.join(' | ');
+
+    // Outflow = Expenses (pre-retirement, net of additional income/expense) or Withdrawal (retirement)
+    const outflowParts = [];
+    if (r.retiring){
+      outflowParts.push(`Expenses × Retirement Ratio: ${fmtMoney(r.expenses)}`);
+    } else if (r.expenses > 0){
+      outflowParts.push(`Expenses: ${fmtMoney(r.expenses)}`);
+    }
+    if (r.expenseExtra > 0) outflowParts.push(`Additional Expense: ${fmtMoney(r.expenseExtra)}`);
+    if (r.incomeExtra > 0) outflowParts.push(`Less Additional Income: ${fmtMoney(r.incomeExtra)}`);
+    const outflowTitle = outflowParts.join(' | ');
+
+    return `
+    <tr class="${r.gift>0 ? 'gift' : (r.retiring ? 'retiring' : (r.met ? 'hl' : ''))}">
+      <td>${r.age}</td>
+      <td>${r.year}</td>
+      <td>${fmtMoney(r.begin)}</td>
+      <td>${fmtMoney(r.ret)}</td>
+      <td ${incomeTitle ? `title="${incomeTitle.replace(/"/g,'&quot;')}"` : ''}>${incomeIn > 0 ? fmtMoney(incomeIn) : '–'}</td>
+      <td ${outflowTitle ? `title="${outflowTitle.replace(/"/g,'&quot;')}"` : ''}>${r.outflow ? (r.outflow>0?'-':'+')+fmtMoney(Math.abs(r.outflow)) : '–'}</td>
+      <td ${detail ? `title="${detail.replace(/"/g,'&quot;')}"` : ''}>${r.gift>0 ? '-'+fmtMoney(r.gift) : '–'}</td>
+      <td><b>${fmtMoney(r.end)}</b></td>
+      <td><span class="pill ${r.met?'yes':'no'}">${r.met?'Yes':'No'}</span></td>
+    </tr>
+  `;
+  }).join('');
+}
+
+function renderPlannerSummary(p){
+  const { minRetireAge, targetAge, annualIncome, incomeGrowthRate, annualSavings, savingsGrowth,
+          targetPortfolio, expectedRows, conservativeRows, depletedAge, planUntilAge, annualExpenses, maxExtraSpend } = p;
+
+  // Savings Rate projected to retirement age — both Income and Savings grow at their own
+  // rate between now and then, so this reflects the rate you'll actually be at when it matters,
+  // not just today's snapshot (this is the whole point of having an income growth rate at all).
+  const currentAge = expectedRows.length ? expectedRows[0].age : targetAge;
+  const yearsToRetirement = Math.max(0, targetAge - currentAge);
+  const projectedIncome = annualIncome * Math.pow(1 + (incomeGrowthRate||0), yearsToRetirement);
+  const projectedSavings = annualSavings * Math.pow(1 + (savingsGrowth||0), yearsToRetirement);
+  const savingsRatePct = projectedIncome > 0 ? (projectedSavings / projectedIncome * 100) : 0;
+
+  const expRow = expectedRows.find(r => r.age === targetAge) || expectedRows[expectedRows.length - 1];
+  const targetAchievementPct = (expRow && targetPortfolio > 0) ? (expRow.end / targetPortfolio * 100) : 0;
+
+  // Years of retirement the expected scenario actually funds, out of the years planned
+  const yearsPlanned = Math.max(0, planUntilAge - targetAge);
+  const yearsCovered = depletedAge !== null ? Math.max(0, depletedAge - targetAge) : yearsPlanned;
+  const fundedNote = depletedAge !== null
+    ? `funds ${yearsCovered} of the ${yearsPlanned} planned retirement years before being exhausted`
+    : `funds the full ${yearsPlanned}-year planned retirement period without running out`;
+
+  // Additional annual spending the plan could absorb (as % of current expenses) and still last the full horizon
+  const extraSpendPct = annualExpenses > 0 ? (maxExtraSpend / annualExpenses * 100) : 0;
+  const spendNote = depletedAge !== null
+    ? `the plan does not currently fund the full retirement horizon even at today's spending level, so there is no additional capacity — consider increasing savings or reducing planned expenses before adding discretionary spending`
+    : `there is room for roughly ${extraSpendPct.toFixed(0)}% in additional annual spending, on top of currently modeled expenses, before the plan would be expected to run out by the end of the planning horizon`;
+
+  let timingPhrase;
+  if (minRetireAge === null){
+    timingPhrase = 'behind schedule, not reaching target within the projection window';
+  } else {
+    const diff = targetAge - minRetireAge;
+    if (diff === 0) timingPhrase = 'exactly on schedule';
+    else if (diff > 0) timingPhrase = 'ahead of schedule';
+    else timingPhrase = 'behind the stated target';
+  }
+
+  // ---- Retirement Readiness Score (1-10) ----
+  // Four weighted factors, each scored 0-10 on a deliberately unforgiving curve so a plan has
+  // to be strong on every front to land a 9 or 10 — hitting your target exactly (100%) only
+  // earns half marks on that factor, since it leaves zero margin for a bad year.
+  const targetScore = Math.max(0, Math.min(10, (targetAchievementPct - 50) / 10));
+  const durationPct = yearsPlanned > 0 ? (yearsCovered / yearsPlanned * 100) : 100;
+  const durationScore = Math.max(0, Math.min(10, durationPct / 10));
+  const savingsScore = Math.max(0, Math.min(10, savingsRatePct / 3));
+  // No margin of safety at all if the plan doesn't even fund the full horizon —
+  // there's nothing left to call "extra capacity" in that case.
+  const marginScore = depletedAge !== null ? 0 : Math.max(0, Math.min(10, extraSpendPct / 3));
+
+  const weightedScore = targetScore*0.30 + durationScore*0.30 + savingsScore*0.20 + marginScore*0.20;
+  const readinessScore = Math.max(1, Math.min(10, Math.round(weightedScore)));
+
+  let readinessLabel, readinessColor;
+  if (readinessScore >= 9){ readinessLabel = 'Excellent'; readinessColor = '#2f7d4f'; }
+  else if (readinessScore >= 7){ readinessLabel = 'Good'; readinessColor = '#5a9c6a'; }
+  else if (readinessScore >= 5){ readinessLabel = 'Fair — room to improve'; readinessColor = '#b8863b'; }
+  else if (readinessScore >= 3){ readinessLabel = 'Needs attention'; readinessColor = '#c0765a'; }
+  else { readinessLabel = 'At risk'; readinessColor = '#c0392b'; }
+
+  const badge = $('readinessBadge');
+  if (badge){ badge.textContent = readinessScore; badge.style.background = readinessColor; }
+  const labelEl = $('readinessLabel');
+  if (labelEl) labelEl.textContent = readinessLabel;
+
+  const breakdownItems = [
+    { label: 'Target Achievement', score: targetScore, detail: `${targetAchievementPct.toFixed(0)}% of target at retirement` },
+    { label: 'Retirement Duration Funded', score: durationScore, detail: `${durationPct.toFixed(0)}% of planned years covered` },
+    { label: 'Savings Rate', score: savingsScore, detail: `${savingsRatePct.toFixed(0)}% projected at retirement` },
+    { label: 'Margin of Safety', score: marginScore, detail: depletedAge !== null ? 'none — plan doesn\'t fund full horizon' : `${extraSpendPct.toFixed(0)}% extra spending capacity` },
+  ];
+  const breakdownBody = $('readinessBreakdownBody');
+  if (breakdownBody){
+    breakdownBody.innerHTML = breakdownItems.map(it => `
+      <div class="compare-row">
+        <div class="clabel" style="width:190px;">${it.label}</div>
+        <div class="compare-track">
+          <div class="compare-fill" style="width:${(it.score*10).toFixed(0)}%;background:${it.score>=7?'#2f7d4f':it.score>=4?'#b8863b':'#c0392b'};"></div>
+        </div>
+        <div class="compare-val" style="width:auto;min-width:60px;">${it.score.toFixed(1)}/10</div>
+      </div>
+      <div class="foot-note" style="margin-top:-8px;margin-bottom:10px;">${it.detail}</div>
+    `).join('');
+  }
+
+  const narrative = `Based on current assumptions, this plan is tracking ${timingPhrase}. Projected to your target retirement age, the household is on pace to save ${savingsRatePct.toFixed(0)}% of gross income annually, and projected assets are expected to cover ${targetAchievementPct.toFixed(0)}% of the calculated income need at that point. Under the expected scenario, the portfolio ${fundedNote}. Beyond currently modeled expenses, ${spendNote}.`;
+
+  $('plannerNarrative').textContent = narrative;
+
+  const stats = [
+    { label: 'Savings Rate (at Retirement)', value: savingsRatePct.toFixed(0) + '%' },
+    { label: 'Target Achievement (Expected)', value: targetAchievementPct.toFixed(0) + '%' },
+    { label: 'Retirement Years Funded', value: `${yearsCovered} / ${yearsPlanned} yrs` },
+    { label: 'Extra Spending Capacity', value: (depletedAge !== null ? '0%' : '+' + extraSpendPct.toFixed(0) + '%') },
+  ];
+  $('plannerStats').innerHTML = stats.map(s => `
+    <div class="stat-card">
+      <div class="label">${s.label}</div>
+      <div class="value" style="font-size:22px;">${s.value}</div>
+    </div>
+  `).join('');
+}
+
+function renderCompareChart(annualExpenses, annualSavings, currentPortfolio){
+  const items = [
+    { label:'Annual Expenses', val: annualExpenses, color:'var(--red)' },
+    { label:'Annual Savings', val: annualSavings, color:'var(--rust)' },
+    { label:'Current Portfolio', val: currentPortfolio, color:'var(--navy)' },
+  ];
+  const maxVal = Math.max(...items.map(i=>i.val), 1);
+  const root = $('compareChart');
+  root.innerHTML = items.map(i => {
+    const pct = Math.max(2, (i.val/maxVal)*100);
+    return `
+      <div class="compare-row">
+        <div class="clabel">${i.label}</div>
+        <div class="compare-track">
+          <div class="compare-fill" style="width:${pct}%;background:${i.color};"></div>
+        </div>
+        <div class="compare-val">${fmtMoney(i.val)}</div>
+      </div>`;
+  }).join('');
+
+  const savingsRate = annualExpenses+annualSavings > 0 ? (annualSavings/(annualExpenses+annualSavings)*100) : 0;
+  const yearsCovered = annualExpenses > 0 ? (currentPortfolio/annualExpenses) : 0;
+  $('compareInsight').innerHTML = `Your current portfolio covers roughly <b>${yearsCovered.toFixed(1)} years</b> of your current annual expenses. Of what you spend and save combined, about <b>${savingsRate.toFixed(0)}%</b> goes to savings.`;
+}
+
+// ---------- Hover tooltip for the Portfolio Growth & Retirement Runway chart ----------
+let runwayHoverState = null;
+let lastFullRows = [];
+
+function onRunwayHover(evt){
+  if (!runwayHoverState) return;
+  const svg = evt.currentTarget;
+  const { rows, xAt, yAt, mainY0, mainY1, padL, padR, W } = runwayHoverState;
+  const n = rows.length;
+  if (n === 0) return;
+
+  const rect = svg.getBoundingClientRect();
+  if (rect.width === 0) return;
+  const scaleX = W / rect.width;
+  const localX = (evt.clientX - rect.left) * scaleX;
+
+  const plotW = W - padL - padR;
+  let idx = Math.round(((localX - padL) / plotW) * (n - 1));
+  idx = Math.max(0, Math.min(n - 1, idx));
+  const row = rows[idx];
+  const x = xAt(idx), y = yAt(row.end);
+
+  const crosshair = svg.querySelector('#hoverCrosshair');
+  const dot = svg.querySelector('#hoverDot');
+  const tooltipBg = svg.querySelector('#hoverTooltipBg');
+  const tooltipText = svg.querySelector('#hoverTooltipText');
+  if (!crosshair || !dot || !tooltipBg || !tooltipText) return;
+
+  crosshair.setAttribute('x1', x); crosshair.setAttribute('x2', x);
+  crosshair.setAttribute('y1', mainY0); crosshair.setAttribute('y2', mainY1);
+  crosshair.style.display = 'block';
+
+  dot.setAttribute('cx', x); dot.setAttribute('cy', y);
+  dot.style.display = 'block';
+
+  const label = `Age ${row.age}: ${fmtCompact(row.end)}`;
+  const tw = label.length * 6.4 + 14;
+  const th = 22;
+  const clampedTextX = Math.min(Math.max(x, padL + tw/2), W - padR - tw/2);
+  const boxY = Math.max(y - 38, mainY0 + 2);
+
+  tooltipBg.setAttribute('width', tw);
+  tooltipBg.setAttribute('height', th);
+  tooltipBg.setAttribute('x', clampedTextX - tw/2);
+  tooltipBg.setAttribute('y', boxY);
+  tooltipBg.style.display = 'block';
+
+  tooltipText.textContent = label;
+  tooltipText.setAttribute('x', clampedTextX);
+  tooltipText.setAttribute('y', boxY + th - 7);
+  tooltipText.style.display = 'block';
+}
+
+function onRunwayLeave(evt){
+  const svg = evt.currentTarget;
+  ['hoverCrosshair','hoverDot','hoverTooltipBg','hoverTooltipText'].forEach(id => {
+    const el = svg.querySelector('#'+id);
+    if (el) el.style.display = 'none';
+  });
+}
+
+$('runwaySvg').addEventListener('mousemove', onRunwayHover);
+$('runwaySvg').addEventListener('mouseleave', onRunwayLeave);
+
+function renderRetirementChart(fullRowsIn, conservativeRowsIn, optimisticRowsIn, targetAge, depletedAgeIn, planUntilAge){
+  const svg = $('runwaySvg');
+  const W = 1000, H = 370;
+  const padL = 92, padR = 20, padT = 16;
+  const mainH = 210, gap = 26, subH = 78, padB = 34;
+  const mainY0 = padT, mainY1 = padT + mainH;
+  const subY0 = mainY1 + gap, subMid = subY0 + subH/2, subY1 = subY0 + subH;
+  const plotW = W - padL - padR;
+
+  // ---- Age-range window: lets you focus on a shorter span instead of the full plan ----
+  const currentAge = fullRowsIn.length ? fullRowsIn[0].age : 0;
+  const sliderEl = $('chartWindowSlider');
+  let windowEnd = planUntilAge;
+  if (sliderEl){
+    sliderEl.min = currentAge;
+    sliderEl.max = planUntilAge;
+    if (!sliderEl.dataset.userSet){
+      sliderEl.value = planUntilAge;
+    } else {
+      let v = +sliderEl.value;
+      if (v > planUntilAge) v = planUntilAge;
+      if (v < currentAge) v = currentAge;
+      sliderEl.value = v;
+    }
+    windowEnd = +sliderEl.value;
+    $('chartWindowLabel').textContent = windowEnd;
+  }
+
+  const rows = fullRowsIn.filter(r => r.age <= windowEnd);
+  const conservativeRows = conservativeRowsIn.filter(r => r.age <= windowEnd);
+  const optimisticRows = optimisticRowsIn.filter(r => r.age <= windowEnd);
+  const depletedAge = (depletedAgeIn !== null && depletedAgeIn <= windowEnd) ? depletedAgeIn : null;
+
+  const n = rows.length;
+  const xAt = i => padL + (n <= 1 ? 0 : (i/(n-1)) * plotW);
+  const showBand = $('showBandToggle') ? $('showBandToggle').checked : true;
+
+  // Linear by default — easiest to read for most people. Only switch to log once the visible
+  // range spans too wide a ratio for a linear axis to stay legible (compounding over many
+  // decades makes early values invisible next to late ones on a linear scale).
+  const allVals = showBand
+    ? [...rows.map(r=>r.end), ...conservativeRows.map(r=>r.end), ...optimisticRows.map(r=>r.end)]
+    : rows.map(r=>r.end);
+  const maxVal = Math.max(...allVals, 1) * 1.15;
+  const positiveVals = allVals.filter(v => v > 0);
+  const minVal = Math.max(1, positiveVals.length ? Math.min(...positiveVals) : 1);
+  const RATIO_THRESHOLD = 8;
+  const useLog = (maxVal / minVal) > RATIO_THRESHOLD;
+
+  let yAt, logMin, logSpan;
+  if (useLog){
+    logMin = Math.log10(Math.max(minVal, 1));
+    const logMax = Math.log10(Math.max(maxVal, minVal * 10));
+    logSpan = Math.max(logMax - logMin, 0.5);
+    yAt = v => {
+      const vv = Math.max(v, minVal);
+      const t = (Math.log10(vv) - logMin) / logSpan;
+      return mainY0 + mainH - Math.max(0, Math.min(1, t)) * mainH;
+    };
+  } else {
+    yAt = v => mainY0 + mainH - (Math.max(0, v) / maxVal) * mainH;
+  }
+
+  const badge = $('chartScaleBadge');
+  if (badge){
+    badge.textContent = useLog ? 'Log scale' : 'Linear scale';
+    badge.style.background = useLog ? 'var(--red-bg)' : '#e8f0fb';
+    badge.style.color = useLog ? 'var(--red)' : '#2a78d6';
+  }
+
+  const retireIdx = rows.findIndex(r => r.retiring);
+
+  // Shade the retirement/withdrawal zone in the main panel
+  let shading = '';
+  if (retireIdx >= 0){
+    const shadeX = xAt(retireIdx);
+    shading = `<rect x="${shadeX.toFixed(1)}" y="${mainY0}" width="${(W-padR-shadeX).toFixed(1)}" height="${mainH}" fill="#c0392b" fill-opacity="0.06"></rect>`;
+  }
+
+  // Scenario band: shaded area between conservative and optimistic, so a client sees a
+  // range of outcomes rather than one deterministic guess. Always spans the FULL timeline —
+  // if the conservative scenario depletes early, its edge holds at 0 for the remainder rather
+  // than the band simply vanishing (which read as a rendering bug).
+  let bandFill = '';
+  if (showBand && n > 1){
+    const topPts = [], botPts = [];
+    for (let i=0;i<n;i++){
+      const optV = i < optimisticRows.length ? optimisticRows[i].end : (optimisticRows[optimisticRows.length-1]?.end || 0);
+      const consV = i < conservativeRows.length ? conservativeRows[i].end : 0;
+      topPts.push(`${xAt(i).toFixed(1)},${yAt(optV).toFixed(1)}`);
+      botPts.push(`${xAt(i).toFixed(1)},${yAt(consV).toFixed(1)}`);
+    }
+    const bandPath = `M${topPts.join(' L')} L${botPts.reverse().join(' L')} Z`;
+    bandFill = `<path d="${bandPath}" fill="#2a78d6" fill-opacity="0.10"></path>`;
+  }
+  const bandLegendEl = $('runwayBandLegend');
+  if (bandLegendEl) bandLegendEl.style.display = showBand ? 'inline' : 'none';
+
+  const preSegs = [], postSegs = [];
+  for (let i=0; i<n-1; i++){
+    const seg = { x1:xAt(i), y1:yAt(rows[i].end), x2:xAt(i+1), y2:yAt(rows[i+1].end) };
+    (rows[i+1].retiring ? postSegs : preSegs).push(seg);
+  }
+  const lineSeg = (s,color,w) => `<line x1="${s.x1.toFixed(1)}" y1="${s.y1.toFixed(1)}" x2="${s.x2.toFixed(1)}" y2="${s.y2.toFixed(1)}" stroke="${color}" stroke-width="${w}"></line>`;
+  const lines = preSegs.map(s=>lineSeg(s,'#a35c3a',2.5)).join('') + postSegs.map(s=>lineSeg(s,'#e63946',3)).join('');
+
+  const retireVertLine = retireIdx >= 0 ? `<line x1="${xAt(retireIdx).toFixed(1)}" y1="${mainY0}" x2="${xAt(retireIdx).toFixed(1)}" y2="${subY1}" stroke="#111" stroke-opacity="0.35" stroke-width="1.5" stroke-dasharray="5,4"></line>` : '';
+
+  // One-time life-event drops — dashed markers drawn first (always at the correct x), independent of label stagger
+  let eventDots = '';
+  let hasEvents = false;
+  rows.forEach((r,i) => {
+    if (r.gift > 0){
+      hasEvents = true;
+      const gx = xAt(i), gy = yAt(r.end);
+      eventDots += `<line x1="${gx.toFixed(1)}" y1="${mainY0}" x2="${gx.toFixed(1)}" y2="${mainY1}" stroke="#c0392b" stroke-width="1.3" stroke-dasharray="3,3"></line>
+        <circle cx="${gx.toFixed(1)}" cy="${gy.toFixed(1)}" r="3.5" fill="#c0392b"></circle>`;
+    }
+  });
+  $('runwayGiftLegend').style.display = hasEvents ? 'inline' : 'none';
+
+  // ---- Label collision avoidance ----
+  const minGap = 78, step = 20;
+  const eventLabels = [];
+  rows.forEach((r,i) => {
+    if (r.gift > 0){
+      eventLabels.push({ x: xAt(i), baseY: yAt(r.end)-9, text: `−${fmtMoney(r.gift)}`, color: '#c0392b', fontSize: 10, weight: 700, bg:'#ffffff' });
+    }
+  });
+  eventLabels.sort((a,b) => a.x - b.x);
+  let lastX = -Infinity, level = 0;
+  eventLabels.forEach(lc => {
+    level = (lc.x - lastX < minGap) ? (level + 1) % 3 : 0;
+    lc.y = Math.max(10, lc.baseY - level*step);
+    lastX = lc.x;
+  });
+
+  let retireLabel = null;
+  if (retireIdx >= 0){
+    retireLabel = { x: xAt(retireIdx), y: mainY0+12, text: 'Retire', color: '#6b7686', fontSize: 10.5, weight: 600, bg:'#f4f6f9' };
+    const requiredGap = 22;
+    eventLabels.forEach(lc => {
+      if (Math.abs(lc.x - retireLabel.x) < minGap && Math.abs(lc.y - retireLabel.y) < requiredGap){
+        lc.y = retireLabel.y + requiredGap;
+      }
+    });
+  }
+
+  const labelCandidates = retireLabel ? [retireLabel, ...eventLabels] : eventLabels;
+  const labelMarkup = labelCandidates.map(lc => {
+    const w = lc.text.length * lc.fontSize * 0.62 + 10;
+    const h = lc.fontSize + 7;
+    return `<rect x="${(lc.x-w/2).toFixed(1)}" y="${(lc.y-lc.fontSize-1).toFixed(1)}" width="${w.toFixed(1)}" height="${h.toFixed(1)}" rx="4" fill="${lc.bg}" fill-opacity="0.92"></rect>
+      <text x="${lc.x.toFixed(1)}" y="${lc.y.toFixed(1)}" text-anchor="middle" font-size="${lc.fontSize}" font-weight="${lc.weight}" fill="${lc.color}">${lc.text}</text>`;
+  }).join('');
+
+  let ylabels = '';
+  const ticks = 4;
+  for (let t=0;t<=ticks;t++){
+    const v = useLog ? Math.pow(10, logMin + (logSpan * t / ticks)) : (maxVal / ticks * t);
+    const yy = yAt(v).toFixed(1);
+    ylabels += `<text x="${padL-10}" y="${(+yy+4)}" text-anchor="end" font-size="10.5" fill="#8b94a3">${fmtMoney(v)}</text>
+      <line x1="${padL}" y1="${yy}" x2="${W-padR}" y2="${yy}" stroke="#eef0f4" stroke-width="1"></line>`;
+  }
+
+  let depletedMark = '';
+  if (depletedAge !== null){
+    const di = rows.findIndex(r => r.age === depletedAge);
+    if (di >= 0){
+      depletedMark = `<circle cx="${xAt(di).toFixed(1)}" cy="${yAt(0).toFixed(1)}" r="5" fill="#c0392b"></circle>
+        <text x="${xAt(di).toFixed(1)}" y="${(yAt(0)-10).toFixed(1)}" text-anchor="middle" font-size="10.5" fill="#c0392b" font-weight="700">Runs out</text>`;
+    }
+  }
+
+  // ---- Flow sub-panel: Return (up, green) vs Outflow (down, red) vs Expenses (down, grey dashed line) ----
+  const maxFlow = Math.max(...rows.map(r=>Math.max(r.ret||0, r.outflow||0, r.expenses||0)), 1) * 1.15;
+  const flowUpY = v => subMid - (v/maxFlow)*(subH/2);
+  const flowDownY = v => subMid + (v/maxFlow)*(subH/2);
+  const barW = Math.max(1.5, (plotW/n) * 0.5);
+
+  let flowBars = '';
+  const expensesPts = [];
+  rows.forEach((r,i) => {
+    const cx = xAt(i);
+    if (r.ret > 0){
+      const topY = flowUpY(r.ret);
+      flowBars += `<rect x="${(cx-barW/2).toFixed(1)}" y="${topY.toFixed(1)}" width="${barW.toFixed(1)}" height="${(subMid-topY).toFixed(1)}" fill="#2f7d4f" fill-opacity="0.8" rx="1"></rect>`;
+    }
+    if (r.outflow > 0){
+      const botY = flowDownY(r.outflow);
+      flowBars += `<rect x="${(cx-barW/2).toFixed(1)}" y="${subMid.toFixed(1)}" width="${barW.toFixed(1)}" height="${(botY-subMid).toFixed(1)}" fill="#e63946" fill-opacity="0.55" rx="1"></rect>`;
+    }
+    if (r.expenses > 0){
+      expensesPts.push(`${cx.toFixed(1)},${flowDownY(r.expenses).toFixed(1)}`);
+    }
+  });
+  const expensesLine = expensesPts.length > 1
+    ? `<polyline points="${expensesPts.join(' ')}" fill="none" stroke="#8b94a3" stroke-width="1.5" stroke-dasharray="4,3"></polyline>`
+    : '';
+
+  const subBaseline = `<line x1="${padL}" y1="${subMid.toFixed(1)}" x2="${W-padR}" y2="${subMid.toFixed(1)}" stroke="#e7ebf1" stroke-width="1"></line>`;
+  const subLabel = `<text x="${padL-10}" y="${(subMid+4).toFixed(1)}" text-anchor="end" font-size="10" fill="#8b94a3">฿0</text>
+    <text x="${padL-10}" y="${(subY0+10).toFixed(1)}" text-anchor="end" font-size="9.5" fill="#8b94a3">Return</text>
+    <text x="${padL-10}" y="${(subY1-2).toFixed(1)}" text-anchor="end" font-size="9.5" fill="#8b94a3">Spend</text>`;
+
+  let xlabels = '';
+  const labelEvery = Math.max(1, Math.ceil(n/12));
+  rows.forEach((r,i)=>{
+    if (i % labelEvery === 0 || i === n-1){
+      xlabels += `<text x="${xAt(i).toFixed(1)}" y="${subY1+16}" text-anchor="middle" font-size="10.5" fill="#8b94a3">${r.age}</text>`;
+    }
+  });
+
+  const retireLineSub = retireIdx >= 0 ? `<line x1="${xAt(retireIdx).toFixed(1)}" y1="${subY0}" x2="${xAt(retireIdx).toFixed(1)}" y2="${subY1}" stroke="#111" stroke-opacity="0.2" stroke-width="1.2" stroke-dasharray="4,3"></line>` : '';
+
+  svg.innerHTML = `
+    <g>${ylabels}</g>
+    ${shading}
+    ${bandFill}
+    ${retireVertLine}
+    ${lines}
+    ${eventDots}
+    ${depletedMark}
+    <line x1="${padL}" y1="${mainY0}" x2="${padL}" y2="${mainY1}" stroke="#e7ebf1"></line>
+    ${labelMarkup}
+
+    ${subBaseline}
+    ${retireLineSub}
+    ${flowBars}
+    ${expensesLine}
+    ${subLabel}
+    <line x1="${padL}" y1="${subY0}" x2="${padL}" y2="${subY1}" stroke="#e7ebf1"></line>
+
+    <g>${xlabels}</g>
+
+    <line id="hoverCrosshair" x1="0" y1="0" x2="0" y2="0" stroke="#111" stroke-opacity="0.28" stroke-width="1" stroke-dasharray="3,3" style="display:none;"></line>
+    <circle id="hoverDot" cx="0" cy="0" r="4.5" fill="#111" stroke="#fff" stroke-width="1.5" style="display:none;"></circle>
+    <rect id="hoverTooltipBg" x="0" y="0" width="0" height="24" rx="5" fill="#1f2c46" fill-opacity="0.95" style="display:none;"></rect>
+    <text id="hoverTooltipText" x="0" y="0" text-anchor="middle" font-size="11.5" font-weight="700" fill="#fff" style="display:none;"></text>
+  `;
+
+  runwayHoverState = { rows, xAt, yAt, mainY0, mainY1, padL, padR, W, H };
+
+  const alertBox = $('runwayAlert');
+  const text = $('runwayText');
+  if (depletedAgeIn !== null){
+    alertBox.className = 'alert behind';
+    text.innerHTML = `<b>Your portfolio is projected to run out at age ${depletedAgeIn}</b> — ${depletedAgeIn-targetAge} year${(depletedAgeIn-targetAge)===1?'':'s'} into retirement, under your current withdrawal rate and assumptions.`;
+  } else {
+    alertBox.className = 'alert ok';
+    text.innerHTML = `<b>Your portfolio is projected to last through age ${planUntilAge}</b> without running out, under your current withdrawal rate and assumptions.`;
+  }
+}
+
+// ---------- Appendix: larger standalone Portfolio Growth by Country chart, with hover ----------
+let appendixGrowthHoverState = null;
+
+function renderAppendixGrowthChart(fullRowsIn, targetPortfolio, planUntilAge){
+  const svg = $('appendixGrowthSvg');
+  const W = 1000, H = 480;
+  const padL = 100, padR = 24, padT = 20, padB = 40;
+  const mainH = 280, gap = 26, subH = 90;
+  const mainY0 = padT, mainY1 = padT + mainH;
+  const subY0 = mainY1 + gap, subY1 = subY0 + subH;
+  const plotW = W - padL - padR;
+
+  // ---- Age-range window, same pattern as the main Growth & Runway chart ----
+  const currentAge = fullRowsIn.length ? fullRowsIn[0].age : 0;
+  const sliderEl = $('appendixGrowthWindowSlider');
+  let windowEnd = planUntilAge;
+  if (sliderEl){
+    sliderEl.min = currentAge;
+    sliderEl.max = planUntilAge;
+    if (!sliderEl.dataset.userSet){
+      sliderEl.value = planUntilAge;
+    } else {
+      let v = +sliderEl.value;
+      if (v > planUntilAge) v = planUntilAge;
+      if (v < currentAge) v = currentAge;
+      sliderEl.value = v;
+    }
+    windowEnd = +sliderEl.value;
+    $('appendixGrowthWindowLabel').textContent = windowEnd;
+  }
+
+  const rows = fullRowsIn.filter(r => r.age <= windowEnd);
+  const n = rows.length;
+  const xAt = i => padL + (n <= 1 ? 0 : (i/(n-1)) * plotW);
+
+  // ---- Main panel: linear by default, auto-switch to log once the visible range is too wide ----
+  const allVals = [...rows.map(r=>r.end), targetPortfolio];
+  const maxVal = Math.max(...allVals, 1) * 1.15;
+  const positiveVals = allVals.filter(v => v > 0);
+  const minVal = Math.max(1, positiveVals.length ? Math.min(...positiveVals) : 1);
+  const RATIO_THRESHOLD = 8;
+  const useLog = (maxVal / minVal) > RATIO_THRESHOLD;
+
+  let yAt, logMin, logSpan;
+  if (useLog){
+    logMin = Math.log10(Math.max(minVal, 1));
+    const logMax = Math.log10(Math.max(maxVal, minVal * 10));
+    logSpan = Math.max(logMax - logMin, 0.5);
+    yAt = v => {
+      const vv = Math.max(v, minVal);
+      const t = (Math.log10(vv) - logMin) / logSpan;
+      return mainY0 + mainH - Math.max(0, Math.min(1, t)) * mainH;
+    };
+  } else {
+    yAt = v => mainY0 + mainH - (Math.max(0, v) / maxVal) * mainH;
+  }
+
+  const badge = $('appendixGrowthScaleBadge');
+  if (badge){
+    badge.textContent = useLog ? 'Log scale' : 'Linear scale';
+    badge.style.background = useLog ? 'var(--red-bg)' : '#e8f0fb';
+    badge.style.color = useLog ? 'var(--red)' : '#2a78d6';
+  }
+  const note = $('appendixGrowthNote');
+  if (note){
+    note.textContent = useLog
+      ? 'Zoomed out far enough that stacking by country would misrepresent the numbers on a log scale, so bars show total balance only at this zoom — narrow the window above to see the country split again. Withdrawal below always uses its own independent, linear scale, so it stays accurate regardless.'
+      : 'Balance stacked by country above; withdrawal below uses its own independent, linear scale — the two are never forced to share one axis.';
+  }
+
+  const retireIdx = rows.findIndex(r => r.retiring);
+  const retireLine = retireIdx >= 0 ? `<line x1="${xAt(retireIdx).toFixed(1)}" y1="${mainY0}" x2="${xAt(retireIdx).toFixed(1)}" y2="${subY1}" stroke="#111" stroke-opacity="0.3" stroke-width="1.5" stroke-dasharray="5,4"></line>
+    <text x="${xAt(retireIdx).toFixed(1)}" y="${mainY0+14}" text-anchor="middle" font-size="11.5" fill="#6b7686">Retire</text>` : '';
+
+  // Shade the retirement zone in the main panel so withdrawal is visually obvious even before hovering
+  let shading = '';
+  if (retireIdx >= 0){
+    const shadeX = xAt(retireIdx);
+    shading = `<rect x="${shadeX.toFixed(1)}" y="${mainY0}" width="${(W-padR-shadeX).toFixed(1)}" height="${mainH}" fill="#c0392b" fill-opacity="0.05"></rect>`;
+  }
+
+  const bucketColors = { thailand:'#a35c3a', usa:'#3b6fa8', singapore:'#2f9e8f' };
+  const bucketOrder = ['thailand','usa','singapore'];
+  const barW = Math.max(2, (plotW/n) * 0.62);
+
+  let bars = '';
+  let hasEvents = false;
+  const eventLabels = [];
+  rows.forEach((r,i) => {
+    const cx = xAt(i);
+    if (useLog){
+      // Can't stack meaningfully on a log axis — draw total balance as one bar.
+      // Navy, not any single country's color — this represents the combined total.
+      const h = mainY0 + mainH - yAt(r.end);
+      bars += `<rect x="${(cx-barW/2).toFixed(1)}" y="${yAt(r.end).toFixed(1)}" width="${barW.toFixed(1)}" height="${h.toFixed(1)}" fill="#0f1a2e" rx="1"></rect>`;
+    } else {
+      // Stack bottom-up using cumulative sums so each segment's height is proportional in linear space
+      let cum = 0;
+      bucketOrder.forEach(key => {
+        const val = Math.max(0, r.breakdown[key] || 0);
+        if (val <= 0) return;
+        const yTop = yAt(cum + val);
+        const yBottom = yAt(cum);
+        bars += `<rect x="${(cx-barW/2).toFixed(1)}" y="${yTop.toFixed(1)}" width="${barW.toFixed(1)}" height="${(yBottom-yTop).toFixed(1)}" fill="${bucketColors[key]}" rx="1"></rect>`;
+        cum += val;
+      });
+    }
+
+    if (r.gift > 0){
+      hasEvents = true;
+      const withdrawOffset = 0; // withdrawal no longer occupies main-panel height — see sub-panel below
+      const yBefore = yAt(r.totalBeforeEvents);
+      const yGiftBottom = yAt(r.end + withdrawOffset);
+      const removedH = Math.max(1, yGiftBottom - yBefore);
+      bars += `<rect x="${(cx-barW/2).toFixed(1)}" y="${yBefore.toFixed(1)}" width="${barW.toFixed(1)}" height="${removedH.toFixed(1)}" fill="#c0392b" fill-opacity="0.75" rx="1"></rect>`;
+      eventLabels.push({ x: cx, y: yBefore - 8, text: `−${fmtMoney(r.gift)}` });
+    }
+  });
+  const giftLegend = $('appendixGrowthGiftLegend');
+  if (giftLegend) giftLegend.style.display = hasEvents ? 'inline' : 'none';
+
+  let eventLabelMarkup = '';
+  eventLabels.forEach(lc => {
+    const w = lc.text.length * 10.5 * 0.62 + 10;
+    eventLabelMarkup += `<rect x="${(lc.x-w/2).toFixed(1)}" y="${(lc.y-19).toFixed(1)}" width="${w.toFixed(1)}" height="17" rx="4" fill="#ffffff" fill-opacity="0.92"></rect>
+      <text x="${lc.x.toFixed(1)}" y="${lc.y.toFixed(1)}" text-anchor="middle" font-size="10.5" font-weight="700" fill="#c0392b">${lc.text}</text>`;
+  });
+
+  // Target line + label rendered AFTER bars (below, in draw order) so it's never obscured
+  // by a tall bar reaching up near the target — this used to sit behind the bars.
+  const targetY = yAt(targetPortfolio).toFixed(1);
+  const targetLabelText = `Target ${fmtMoney(targetPortfolio)}`;
+  const targetLabelW = targetLabelText.length * 6.2 + 10;
+  const targetLine = `<line x1="${padL}" y1="${targetY}" x2="${W-padR}" y2="${targetY}" stroke="#111" stroke-opacity="0.32" stroke-width="1.5" stroke-dasharray="6,4"></line>
+    <rect x="${(W-padR-targetLabelW).toFixed(1)}" y="${(+targetY-20).toFixed(1)}" width="${targetLabelW.toFixed(1)}" height="16" fill="#f2f5f9" fill-opacity="0.9" rx="3"></rect>
+    <text x="${W-padR}" y="${(+targetY-8).toFixed(1)}" text-anchor="end" font-size="11" fill="#6b7686">${targetLabelText}</text>`;
+
+  let ylabels = '';
+  const ticks = 4;
+  for (let t=0; t<=ticks; t++){
+    const v = useLog ? Math.pow(10, logMin + (logSpan * t / ticks)) : (maxVal / ticks * t);
+    const yy = yAt(v).toFixed(1);
+    ylabels += `<text x="${padL-12}" y="${(+yy+4)}" text-anchor="end" font-size="11" fill="#8b94a3">${fmtMoney(v)}</text>
+      <line x1="${padL}" y1="${yy}" x2="${W-padR}" y2="${yy}" stroke="#eef0f4" stroke-width="1"></line>`;
+  }
+
+  // ---- Sub-panel: withdrawal, always linear, always its own independent scale ----
+  // Inverted on purpose: 0 sits at the shared boundary with the balance panel above, and bars
+  // hang downward as withdrawal grows — mirrors the balance panel's upward growth, reading
+  // intuitively as money leaving rather than another "bigger is higher" chart.
+  const maxWithdraw = Math.max(...rows.map(r => r.withdrawal || 0), 1) * 1.2;
+  const subYAt = v => subY0 + (Math.max(0, v) / maxWithdraw) * subH;
+  const subBarW = Math.max(2, (plotW/n) * 0.5);
+  let subBars = '';
+  rows.forEach((r,i) => {
+    if (r.retiring && r.withdrawal > 0){
+      const cx = xAt(i);
+      const yBottom = subYAt(r.withdrawal);
+      subBars += `<rect x="${(cx-subBarW/2).toFixed(1)}" y="${subY0.toFixed(1)}" width="${subBarW.toFixed(1)}" height="${(yBottom-subY0).toFixed(1)}" fill="#e63946" fill-opacity="0.85" rx="1"></rect>`;
+    }
+  });
+  let subYlabels = '';
+  const subTicks = 2;
+  for (let t=0; t<=subTicks; t++){
+    const v = maxWithdraw / subTicks * t;
+    const yy = subYAt(v).toFixed(1);
+    const labelText = v === 0 ? fmtMoney(0) : '-' + fmtMoney(v);
+    subYlabels += `<text x="${padL-12}" y="${(+yy+4)}" text-anchor="end" font-size="10.5" fill="#8b94a3">${labelText}</text>
+      <line x1="${padL}" y1="${yy}" x2="${W-padR}" y2="${yy}" stroke="#eef0f4" stroke-width="1"></line>`;
+  }
+  const subLabel = `<text x="${padL-12}" y="${(subY0-8).toFixed(1)}" text-anchor="end" font-size="10" font-weight="700" fill="#6b7686">WITHDRAWAL</text>`;
+  const retireLineSub = retireIdx >= 0 ? `<line x1="${xAt(retireIdx).toFixed(1)}" y1="${subY0}" x2="${xAt(retireIdx).toFixed(1)}" y2="${subY1}" stroke="#111" stroke-opacity="0.2" stroke-width="1.2" stroke-dasharray="4,3"></line>` : '';
+
+  let xlabels = '';
+  const labelEvery = Math.max(1, Math.ceil(n/14));
+  rows.forEach((r,i) => {
+    if (i % labelEvery === 0 || i === n-1){
+      xlabels += `<text x="${xAt(i).toFixed(1)}" y="${subY1+18}" text-anchor="middle" font-size="11" fill="#8b94a3">${r.age}</text>`;
+    }
+  });
+
+  svg.innerHTML = `
+    <g>${ylabels}</g>
+    ${shading}
+    ${retireLine}
+    ${bars}
+    ${targetLine}
+    ${eventLabelMarkup}
+    <line x1="${padL}" y1="${mainY0}" x2="${padL}" y2="${mainY1}" stroke="#e7ebf1"></line>
+
+    ${subLabel}
+    ${subYlabels}
+    ${retireLineSub}
+    ${subBars}
+    <line x1="${padL}" y1="${subY0}" x2="${padL}" y2="${subY1}" stroke="#e7ebf1"></line>
+
+    <g>${xlabels}</g>
+
+    <line id="appendixGrowthCrosshair" x1="0" y1="0" x2="0" y2="0" stroke="#111" stroke-opacity="0.25" stroke-width="1" stroke-dasharray="3,3" style="display:none;"></line>
+    <rect id="appendixGrowthTooltipBg" x="0" y="0" width="0" height="0" rx="6" fill="#1f2c46" fill-opacity="0.95" style="display:none;"></rect>
+    <text id="appendixGrowthTooltipTitle" x="0" y="0" text-anchor="middle" font-size="12" font-weight="700" fill="#fff" style="display:none;"></text>
+    <text id="appendixGrowthTooltipThailand" x="0" y="0" text-anchor="middle" font-size="11" fill="#e0b8a4" style="display:none;"></text>
+    <text id="appendixGrowthTooltipUSA" x="0" y="0" text-anchor="middle" font-size="11" fill="#a9c8e8" style="display:none;"></text>
+    <text id="appendixGrowthTooltipSG" x="0" y="0" text-anchor="middle" font-size="11" fill="#9fe0d3" style="display:none;"></text>
+    <text id="appendixGrowthTooltipTotal" x="0" y="0" text-anchor="middle" font-size="11.5" font-weight="700" fill="#fff" style="display:none;"></text>
+    <text id="appendixGrowthTooltipWithdraw" x="0" y="0" text-anchor="middle" font-size="11" fill="#f3a6ab" style="display:none;"></text>
+  `;
+
+  appendixGrowthHoverState = { rows, xAt, yAt, padL, padR, padT: mainY0, plotH: mainH, W, H, mainY0, subY1 };
+}
+
+function onAppendixGrowthHover(evt){
+  if (!appendixGrowthHoverState) return;
+  const svg = evt.currentTarget;
+  const { rows, xAt, yAt, padL, padR, padT, plotH, W, H, mainY0, subY1 } = appendixGrowthHoverState;
+  const n = rows.length;
+  if (n === 0) return;
+
+  const rect = svg.getBoundingClientRect();
+  if (rect.width === 0) return;
+  const scaleX = W / rect.width;
+  const localX = (evt.clientX - rect.left) * scaleX;
+
+  const plotW = W - padL - padR;
+  let idx = Math.round(((localX - padL) / plotW) * (n - 1));
+  idx = Math.max(0, Math.min(n - 1, idx));
+  const row = rows[idx];
+  const x = xAt(idx);
+
+  const crosshair = svg.querySelector('#appendixGrowthCrosshair');
+  const bg = svg.querySelector('#appendixGrowthTooltipBg');
+  const title = svg.querySelector('#appendixGrowthTooltipTitle');
+  const thText = svg.querySelector('#appendixGrowthTooltipThailand');
+  const usText = svg.querySelector('#appendixGrowthTooltipUSA');
+  const sgText = svg.querySelector('#appendixGrowthTooltipSG');
+  const totalText = svg.querySelector('#appendixGrowthTooltipTotal');
+  const withdrawText = svg.querySelector('#appendixGrowthTooltipWithdraw');
+  if (!crosshair || !bg || !title || !thText || !usText || !sgText || !totalText || !withdrawText) return;
+
+  crosshair.setAttribute('x1', x); crosshair.setAttribute('x2', x);
+  crosshair.setAttribute('y1', mainY0); crosshair.setAttribute('y2', subY1);
+  crosshair.style.display = 'block';
+
+  const titleLine = `Age ${row.age}${row.retiring ? ' — Retired' : ''}`;
+  const thLine = `Thailand: ${fmtMoney(row.breakdown.thailand)}`;
+  const usLine = `USA: ${fmtMoney(row.breakdown.usa)}`;
+  const sgLine = `Singapore: ${fmtMoney(row.breakdown.singapore)}`;
+  const totalLine = `Total: ${fmtMoney(row.end)}`;
+  const withdrawLine = row.retiring && row.withdrawal > 0 ? `Withdrawn this year: -${fmtMoney(row.withdrawal)}` : '';
+
+  const lines = [titleLine, thLine, usLine, sgLine, totalLine, withdrawLine].filter(Boolean);
+  const boxW = Math.max(...lines.map(l => l.length)) * 6.4 + 18;
+  const lineHeight = 16;
+  const boxH = 24 + (lines.length - 1) * lineHeight;
+  const clampedX = Math.min(Math.max(x, padL + boxW/2), W - padR - boxW/2);
+  // Position above the actual bar top, not a fixed spot — a fixed position collides with
+  // the "Retire" label or life-event labels whenever they happen to share that space.
+  const barTopY = yAt(row.end);
+  const boxY = Math.max(padT + 4, Math.min(barTopY - boxH - 12, padT + plotH - boxH - 4));
+
+  bg.setAttribute('x', clampedX - boxW/2);
+  bg.setAttribute('y', boxY);
+  bg.setAttribute('width', boxW);
+  bg.setAttribute('height', boxH);
+  bg.style.display = 'block';
+
+  title.textContent = titleLine;
+  title.setAttribute('x', clampedX); title.setAttribute('y', boxY + 16);
+  title.style.display = 'block';
+
+  thText.textContent = thLine;
+  thText.setAttribute('x', clampedX); thText.setAttribute('y', boxY + 16 + lineHeight);
+  thText.style.display = 'block';
+
+  usText.textContent = usLine;
+  usText.setAttribute('x', clampedX); usText.setAttribute('y', boxY + 16 + lineHeight*2);
+  usText.style.display = 'block';
+
+  sgText.textContent = sgLine;
+  sgText.setAttribute('x', clampedX); sgText.setAttribute('y', boxY + 16 + lineHeight*3);
+  sgText.style.display = 'block';
+
+  totalText.textContent = totalLine;
+  totalText.setAttribute('x', clampedX); totalText.setAttribute('y', boxY + 16 + lineHeight*4);
+  totalText.style.display = 'block';
+
+  if (withdrawLine){
+    withdrawText.textContent = withdrawLine;
+    withdrawText.setAttribute('x', clampedX); withdrawText.setAttribute('y', boxY + 16 + lineHeight*5);
+    withdrawText.style.display = 'block';
+  } else {
+    withdrawText.style.display = 'none';
+  }
+}
+
+function onAppendixGrowthLeave(evt){
+  const svg = evt.currentTarget;
+  ['appendixGrowthCrosshair','appendixGrowthTooltipBg','appendixGrowthTooltipTitle','appendixGrowthTooltipThailand','appendixGrowthTooltipUSA','appendixGrowthTooltipSG','appendixGrowthTooltipTotal','appendixGrowthTooltipWithdraw'].forEach(id => {
+    const el = svg.querySelector('#'+id);
+    if (el) el.style.display = 'none';
+  });
+}
+
+$('appendixGrowthSvg').addEventListener('mousemove', onAppendixGrowthHover);
+$('appendixGrowthSvg').addEventListener('mouseleave', onAppendixGrowthLeave);
+$('appendixGrowthWindowSlider').addEventListener('input', () => {
+  $('appendixGrowthWindowSlider').dataset.userSet = '1';
+  recalc();
+});
+
+// ---------- Appendix: larger standalone Return vs. Spend chart, with hover ----------
+let appendixHoverState = null;
+
+function renderAppendixChart(rows){
+  const svg = $('appendixSvg');
+  const W = 1000, H = 420;
+  const padL = 100, padR = 24, padT = 20, padB = 40;
+  const plotW = W - padL - padR, plotH = H - padT - padB;
+  const mid = padT + plotH/2;
+
+  const n = rows.length;
+  const xAt = i => padL + (n <= 1 ? 0 : (i/(n-1)) * plotW);
+
+  const retireIdx = rows.findIndex(r => r.retiring);
+  const retireLine = retireIdx >= 0 ? `<line x1="${xAt(retireIdx).toFixed(1)}" y1="${padT}" x2="${xAt(retireIdx).toFixed(1)}" y2="${H-padB}" stroke="#111" stroke-opacity="0.3" stroke-width="1.5" stroke-dasharray="5,4"></line>
+    <text x="${xAt(retireIdx).toFixed(1)}" y="${padT+14}" text-anchor="middle" font-size="11.5" fill="#6b7686">Retire</text>` : '';
+
+  const maxFlow = Math.max(...rows.map(r=>Math.max(r.ret||0, r.outflow||0, r.expenses||0)), 1) * 1.18;
+  const upY = v => mid - (v/maxFlow)*(plotH/2);
+  const downY = v => mid + (v/maxFlow)*(plotH/2);
+  const barW = Math.max(2, (plotW/n) * 0.6);
+
+  let bars = '';
+  const expPts = [];
+  rows.forEach((r,i) => {
+    const cx = xAt(i);
+    if (r.ret > 0){
+      const topY = upY(r.ret);
+      bars += `<rect x="${(cx-barW/2).toFixed(1)}" y="${topY.toFixed(1)}" width="${barW.toFixed(1)}" height="${(mid-topY).toFixed(1)}" fill="#2f7d4f" fill-opacity="0.82" rx="2"></rect>`;
+    }
+    if (r.outflow > 0){
+      const botY = downY(r.outflow);
+      bars += `<rect x="${(cx-barW/2).toFixed(1)}" y="${mid.toFixed(1)}" width="${barW.toFixed(1)}" height="${(botY-mid).toFixed(1)}" fill="#e63946" fill-opacity="0.65" rx="2"></rect>`;
+    }
+    if (r.expenses > 0) expPts.push(`${cx.toFixed(1)},${downY(r.expenses).toFixed(1)}`);
+  });
+  const expLine = expPts.length > 1
+    ? `<polyline points="${expPts.join(' ')}" fill="none" stroke="#8b94a3" stroke-width="1.8" stroke-dasharray="5,4"></polyline>`
+    : '';
+
+  let ylabels = '';
+  const ticks = 4;
+  for (let t=0; t<=ticks; t++){
+    const v = maxFlow / ticks * t;
+    const yUp = upY(v).toFixed(1), yDown = downY(v).toFixed(1);
+    ylabels += `<text x="${padL-12}" y="${(+yUp+4)}" text-anchor="end" font-size="11" fill="#8b94a3">${fmtMoney(v)}</text>
+      <line x1="${padL}" y1="${yUp}" x2="${W-padR}" y2="${yUp}" stroke="#eef0f4" stroke-width="1"></line>`;
+    if (t > 0){
+      ylabels += `<text x="${padL-12}" y="${(+yDown+4)}" text-anchor="end" font-size="11" fill="#8b94a3">${fmtMoney(v)}</text>
+        <line x1="${padL}" y1="${yDown}" x2="${W-padR}" y2="${yDown}" stroke="#eef0f4" stroke-width="1"></line>`;
+    }
+  }
+  const baseline = `<line x1="${padL}" y1="${mid.toFixed(1)}" x2="${W-padR}" y2="${mid.toFixed(1)}" stroke="#c3c8d1" stroke-width="1.2"></line>
+    <text x="${padL-12}" y="${(mid+4).toFixed(1)}" text-anchor="end" font-size="11" fill="#6b7686" font-weight="700">฿0</text>`;
+
+  let xlabels = '';
+  const labelEvery = Math.max(1, Math.ceil(n/14));
+  rows.forEach((r,i) => {
+    if (i % labelEvery === 0 || i === n-1){
+      xlabels += `<text x="${xAt(i).toFixed(1)}" y="${H-padB+18}" text-anchor="middle" font-size="11" fill="#8b94a3">${r.age}</text>`;
+    }
+  });
+
+  svg.innerHTML = `
+    <g>${ylabels}</g>
+    ${baseline}
+    ${retireLine}
+    ${bars}
+    ${expLine}
+    <g>${xlabels}</g>
+    <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${H-padB}" stroke="#e7ebf1"></line>
+
+    <line id="appendixCrosshair" x1="0" y1="0" x2="0" y2="0" stroke="#111" stroke-opacity="0.25" stroke-width="1" stroke-dasharray="3,3" style="display:none;"></line>
+    <rect id="appendixTooltipBg" x="0" y="0" width="0" height="0" rx="6" fill="#1f2c46" fill-opacity="0.95" style="display:none;"></rect>
+    <text id="appendixTooltipTitle" x="0" y="0" text-anchor="middle" font-size="12" font-weight="700" fill="#fff" style="display:none;"></text>
+    <text id="appendixTooltipReturn" x="0" y="0" text-anchor="middle" font-size="11.5" fill="#8ed6a5" style="display:none;"></text>
+    <text id="appendixTooltipSpend" x="0" y="0" text-anchor="middle" font-size="11.5" fill="#f3a6ab" style="display:none;"></text>
+  `;
+
+  appendixHoverState = { rows, xAt, padL, padR, padT, W, H, mid };
+}
+
+function onAppendixHover(evt){
+  if (!appendixHoverState) return;
+  const svg = evt.currentTarget;
+  const { rows, xAt, padL, padR, padT, W, H, mid } = appendixHoverState;
+  const n = rows.length;
+  if (n === 0) return;
+
+  const rect = svg.getBoundingClientRect();
+  if (rect.width === 0) return;
+  const scaleX = W / rect.width;
+  const localX = (evt.clientX - rect.left) * scaleX;
+
+  const plotW = W - padL - padR;
+  let idx = Math.round(((localX - padL) / plotW) * (n - 1));
+  idx = Math.max(0, Math.min(n - 1, idx));
+  const row = rows[idx];
+  const x = xAt(idx);
+
+  const crosshair = svg.querySelector('#appendixCrosshair');
+  const bg = svg.querySelector('#appendixTooltipBg');
+  const title = svg.querySelector('#appendixTooltipTitle');
+  const retText = svg.querySelector('#appendixTooltipReturn');
+  const spendText = svg.querySelector('#appendixTooltipSpend');
+  if (!crosshair || !bg || !title || !retText || !spendText) return;
+
+  crosshair.setAttribute('x1', x); crosshair.setAttribute('x2', x);
+  crosshair.setAttribute('y1', padT); crosshair.setAttribute('y2', H - 40);
+  crosshair.style.display = 'block';
+
+  const titleLine = `Age ${row.age} — ${row.retiring ? 'Retired' : 'Working'}`;
+  const returnLine = `Return: ${fmtMoney(row.ret)}`;
+  const spendLine = `${row.retiring ? 'Withdrawal' : 'Expenses'}: -${fmtMoney(row.outflow)}`;
+
+  const lines = [titleLine, returnLine, spendLine];
+  const boxW = Math.max(...lines.map(l => l.length)) * 6.4 + 18;
+  const boxH = 62;
+  const clampedX = Math.min(Math.max(x, padL + boxW/2), W - padR - boxW/2);
+  const boxY = Math.max(mid - 130, padT + 4);
+
+  bg.setAttribute('x', clampedX - boxW/2);
+  bg.setAttribute('y', boxY);
+  bg.setAttribute('width', boxW);
+  bg.setAttribute('height', boxH);
+  bg.style.display = 'block';
+
+  title.textContent = titleLine;
+  title.setAttribute('x', clampedX);
+  title.setAttribute('y', boxY + 18);
+  title.style.display = 'block';
+
+  retText.textContent = returnLine;
+  retText.setAttribute('x', clampedX);
+  retText.setAttribute('y', boxY + 36);
+  retText.style.display = 'block';
+
+  spendText.textContent = spendLine;
+  spendText.setAttribute('x', clampedX);
+  spendText.setAttribute('y', boxY + 52);
+  spendText.style.display = 'block';
+}
+
+function onAppendixLeave(evt){
+  const svg = evt.currentTarget;
+  ['appendixCrosshair','appendixTooltipBg','appendixTooltipTitle','appendixTooltipReturn','appendixTooltipSpend'].forEach(id => {
+    const el = svg.querySelector('#'+id);
+    if (el) el.style.display = 'none';
+  });
+}
+
+$('appendixSvg').addEventListener('mousemove', onAppendixHover);
+$('appendixSvg').addEventListener('mouseleave', onAppendixLeave);
+
+// ---------- Save / load (localStorage autosave + JSON export/import) ----------
+const STORAGE_KEY = 'fireEstimatorV4';
+const idFields = ['currentAge','targetAge','withdrawalRate','retirementRatio','savingsGrowth',
+  'sensitivitySlider','wealthThailandRate','wealthUSARate','wealthSGRate','planUntilAge',
+  'savingsAllocThailand','savingsAllocUSA','savingsAllocSG','inflationRate','incomeGrowthRate'];
+function collectState(){
+  const simple = {};
+  idFields.forEach(id => simple[id] = $(id).value);
+  return {
+    version: 5,
+    currency, fxRate,
+    fields: simple,
+    amounts: {...S},
+    fixedUSD: {...wealthFixedUSD},
+    expenses: expenseCategories.map(c => ({ name:c.name, items: c.items.map(i => i[1]) })),
+    eventCategories: [...eventCategories],
+    lifeEvents: lifeEvents.map(e => ({ category:e.category, label:e.label, amount:e.amount, age:e.age })),
+    additionalIncome: additionalIncomeItems.map(it => ({ label:it.label, amount:it.amount, startAge:it.startAge, duration:it.duration })),
+    additionalExpenses: additionalExpenseItems.map(it => ({ label:it.label, amount:it.amount, startAge:it.startAge, duration:it.duration })),
+  };
+}
+
+// A true blank slate — every input at 0, no life events, no recurring income/expenses.
+// Unlike loading last-saved data, this ignores localStorage entirely and zeroes everything,
+// as if the tool were opened for the very first time with nothing filled in.
+function blankState(){
+  const zeroFields = {};
+  idFields.forEach(id => { zeroFields[id] = 0; });
+  return {
+    version: 5,
+    currency: 'THB',
+    fxRate: 33,
+    fields: zeroFields,
+    amounts: { annualIncome: 0, annualExpenses: 0, annualSavings: 0, wealthThailand: 0 },
+    fixedUSD: { wealthUSA: 0, wealthSG: 0 },
+    expenses: expenseCategories.map(c => ({ name: c.name, items: c.items.map(() => 0) })),
+    eventCategories: ['Home','Car','Medical Care','Inheritance / Gift','Education','Other'],
+    lifeEvents: [],
+    additionalIncome: [],
+    additionalExpenses: [],
+  };
+}
+
+function applyState(data){
+  if (!data) return;
+  if (data.currency) currency = data.currency;
+  if (data.fxRate) fxRate = data.fxRate;
+  $('fxRateInput').value = fxRate;
+  $('curTHB').classList.toggle('active', currency==='THB');
+  $('curUSD').classList.toggle('active', currency==='USD');
+  document.querySelectorAll('.curSym').forEach(el => el.textContent = currency==='USD' ? '$' : '฿');
+
+  if (data.fields){
+    idFields.forEach(id => { if (data.fields[id] !== undefined) $(id).value = data.fields[id]; });
+  }
+  if (data.amounts){
+    Object.keys(S).forEach(k => { if (data.amounts[k] !== undefined) S[k] = data.amounts[k]; });
+  }
+  if (data.fixedUSD){
+    Object.keys(wealthFixedUSD).forEach(k => { if (data.fixedUSD[k] !== undefined) wealthFixedUSD[k] = data.fixedUSD[k]; });
+  }
+  if (data.expenses){
+    data.expenses.forEach((cat, ci) => {
+      if (!expenseCategories[ci]) return;
+      cat.items.forEach((val, ii) => {
+        if (expenseCategories[ci].items[ii]) expenseCategories[ci].items[ii][1] = val;
+      });
+    });
+  }
+  if (data.eventCategories && data.eventCategories.length){
+    eventCategories = [...new Set([...eventCategories, ...data.eventCategories])];
+  }
+  if (data.lifeEvents){
+    lifeEvents = data.lifeEvents.map(e => ({ id: eventIdSeq++, category:e.category, label:e.label||'', amount:e.amount||0, age:e.age||0 }));
+  }
+  if (data.additionalIncome){
+    additionalIncomeItems = data.additionalIncome.map(it => ({ id: recurIdSeq++, label:it.label||'', amount:it.amount||0, startAge:it.startAge||currentAgeFallback(), duration:it.duration||10 }));
+  }
+  if (data.additionalExpenses){
+    additionalExpenseItems = data.additionalExpenses.map(it => ({ id: recurIdSeq++, label:it.label||'', amount:it.amount||0, startAge:it.startAge||currentAgeFallback(), duration:it.duration||10 }));
+  }
+
+  renderAmountInputs();
+  renderFixedWealthInputs();
+  buildAccordion();
+  renderEvents();
+  incomeList.render();
+  expenseItemsList.render();
+  normalizeSavingsAlloc();
+  recalc();
+}
+
+function currentAgeFallback(){ return +$('currentAge').value || 35; }
+
+function saveLocal(){
+  try{
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(collectState()));
+    $('autosaveNote').textContent = 'Autosaved to this browser just now.';
+  }catch(e){
+    $('autosaveNote').textContent = "Autosave isn't available in this view — use \"Save data\" to keep a copy.";
+  }
+}
+
+function loadLocal(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return false;
+    applyState(JSON.parse(raw));
+    $('autosaveNote').textContent = 'Restored your last saved entries from this browser.';
+    return true;
+  }catch(e){
+    return false;
+  }
+}
+
+$('exportBtn').addEventListener('click', ()=>{
+  const blob = new Blob([JSON.stringify(collectState(), null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'fire-estimator-data.json';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+});
+
+// ---------- Excel export (nicely formatted, for cross-checking the math by hand) ----------
+function loadScriptOnce(src){
+  return new Promise((resolve, reject) => {
+    if (window.ExcelJS) { resolve(); return; }
+    const s = document.createElement('script');
+    s.src = src;
+    s.onload = () => resolve();
+    s.onerror = () => reject(new Error('Could not load the formatting library from ' + src));
+    document.head.appendChild(s);
+  });
+}
+
+async function exportToExcel(){
+  const btn = $('exportExcelBtn');
+  const note = $('exportExcelNote');
+  const originalLabel = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Preparing…';
+  try {
+    if (typeof ExcelJS === 'undefined'){
+      await loadScriptOnce('https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js');
+    }
+
+    const wb = new ExcelJS.Workbook();
+    wb.creator = 'FIRE Estimator';
+    wb.created = new Date();
+
+    const symbolLabel = currency === 'USD' ? 'USD ($)' : 'THB (฿)';
+    const numFmt = currency === 'USD' ? '#,##0.00' : '#,##0';
+
+    // ---- Summary sheet ----
+    const sum = wb.addWorksheet('Summary');
+    sum.getColumn(1).width = 34;
+    sum.getColumn(2).width = 22;
+    const titleRow = sum.addRow(['Retirement Plan Summary', '']);
+    titleRow.getCell(1).font = { bold: true, size: 14, color: { argb: 'FF0F1A2E' } };
+    sum.addRow(['Generated', new Date().toLocaleString()]);
+    sum.addRow(['Figures shown in', symbolLabel]);
+    sum.addRow(['FX rate (THB per 1 USD)', fxRate]);
+    sum.addRow([]);
+    const assumptionHeader = sum.addRow(['Assumption', 'Value']);
+    assumptionHeader.eachCell(c => { c.font = { bold: true, color: { argb: 'FFFFFFFF' } }; c.fill = { type:'pattern', pattern:'solid', fgColor:{argb:'FF0F1A2E'} }; });
+    const assumptionRows = [
+      ['Current age', +$('currentAge').value],
+      ['Target retirement age', +$('targetAge').value],
+      ['Plan until age', +$('planUntilAge').value],
+      ['Withdrawal rate (%)', +$('withdrawalRate').value],
+      ['Retirement expenses ratio (%)', +$('retirementRatio').value],
+      ['Annual expense inflation rate (%)', +$('inflationRate').value],
+      ['Annual income growth rate (%)', +$('incomeGrowthRate').value],
+      ['Annual savings growth rate (%)', +$('savingsGrowth').value],
+      ['Sensitivity applied (%)', +$('sensitivitySlider').value],
+      ['Thailand growth rate (%)', +$('wealthThailandRate').value],
+      ['USA growth rate (%)', +$('wealthUSARate').value],
+      ['Singapore growth rate (%)', +$('wealthSGRate').value],
+      ['New savings allocated to Thailand (%)', +$('savingsAllocThailand').value],
+      ['New savings allocated to USA (%)', +$('savingsAllocUSA').value],
+      ['New savings allocated to Singapore (%)', +$('savingsAllocSG').value],
+    ];
+    assumptionRows.forEach(r => sum.addRow(r));
+    sum.getColumn(1).font = { bold: false };
+    for (let i = 6; i <= 5 + assumptionRows.length; i++){
+      sum.getRow(i).getCell(1).font = { bold: true };
+    }
+
+    // ---- Data sheet ----
+    // Every field the model tracks gets its own column — not the condensed on-screen view —
+    // since the whole point of this export is cross-checking the math by hand.
+    const sheet = wb.addWorksheet('Year-by-Year Projection');
+    const headers = [
+      'Age','Year','Phase','Begin Balance','Return','Savings','Additional Income',
+      'Expenses (incl. Inflation)','Inflation Cost','Additional Expense','Withdrawal',
+      'Life Events Total','Life Event Detail',
+      'Thailand Balance','USA Balance','Singapore Balance','End Balance',
+      'Cumulative Contributions','Cumulative Growth','Target Met?',
+    ];
+    const headerRow = sheet.addRow(headers);
+    headerRow.eachCell(cell => {
+      cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F1A2E' } };
+      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+    });
+    sheet.views = [{ state: 'frozen', ySplit: 1, xSplit: 3 }];
+
+    const moneyCols = [4,5,6,7,8,9,10,11,12,14,15,16,17,18,19];
+    lastFullRows.forEach(r => {
+      const eventDetail = (r.eventDetails && r.eventDetails.length)
+        ? r.eventDetails.map(e => `${e.category}${e.label ? ' — '+e.label : ''}: ${fmtMoney(e.amount)}`).join('; ')
+        : '';
+      const row = sheet.addRow([
+        r.age,
+        r.year,
+        r.retiring ? 'Retired' : 'Working',
+        toDisplay(r.begin),
+        toDisplay(r.ret),
+        r.save > 0 ? toDisplay(r.save) : null,
+        r.incomeExtra > 0 ? toDisplay(r.incomeExtra) : null,
+        toDisplay(r.expenses),
+        r.inflationCost > 0 ? toDisplay(r.inflationCost) : null,
+        r.expenseExtra > 0 ? -toDisplay(r.expenseExtra) : null,
+        r.withdrawal > 0 ? -toDisplay(r.withdrawal) : null,
+        r.gift > 0 ? -toDisplay(r.gift) : null,
+        eventDetail || null,
+        toDisplay(r.breakdown.thailand),
+        toDisplay(r.breakdown.usa),
+        toDisplay(r.breakdown.singapore),
+        toDisplay(r.end),
+        toDisplay(r.cumulativeContrib),
+        toDisplay(r.cumulativeGrowth),
+        r.met ? 'Yes' : 'No',
+      ]);
+      moneyCols.forEach(colIdx => { row.getCell(colIdx).numFmt = numFmt; });
+      row.getCell(1).alignment = { horizontal: 'center' };
+      row.getCell(2).alignment = { horizontal: 'center' };
+      row.getCell(3).alignment = { horizontal: 'center' };
+      const metCell = row.getCell(20);
+      metCell.alignment = { horizontal: 'center' };
+      metCell.font = { bold: true, color: { argb: r.met ? 'FF2F7D4F' : 'FFC0392B' } };
+      if (r.gift > 0){
+        row.eachCell(c => { c.fill = { type:'pattern', pattern:'solid', fgColor:{argb:'FFFDF2EE'} }; });
+      } else if (r.retiring){
+        row.eachCell(c => { c.fill = { type:'pattern', pattern:'solid', fgColor:{argb:'FFFBF8F4'} }; });
+      }
+    });
+    sheet.getColumn(1).width = 7;
+    sheet.getColumn(2).width = 7;
+    sheet.getColumn(3).width = 10;
+    for (let c = 4; c <= 12; c++) sheet.getColumn(c).width = 16;
+    sheet.getColumn(13).width = 34;
+    for (let c = 14; c <= 19; c++) sheet.getColumn(c).width = 16;
+    sheet.getColumn(20).width = 12;
+
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = shortDateTimeFilename('Fire') + '.xlsx';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    note.textContent = 'Downloaded. Includes a Summary sheet of your assumptions plus the full year-by-year data.';
+  } catch (err){
+    note.textContent = 'Could not export: ' + err.message;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalLabel;
+  }
+}
+
+$('exportExcelBtn').addEventListener('click', exportToExcel);
+
+$('importBtn').addEventListener('click', ()=> $('importFile').click());
+$('importFile').addEventListener('change', (e)=>{
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try{
+      const data = JSON.parse(ev.target.result);
+      applyState(data);
+      $('autosaveNote').textContent = 'Loaded data from file.';
+    }catch(err){
+      $('autosaveNote').textContent = "Couldn't read that file — is it a FIRE Estimator export?";
+    }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+});
+
+// ---------- Reset all data (with confirmation) ----------
+$('resetDataBtn').addEventListener('click', () => {
+  $('resetConfirmOverlay').style.display = 'flex';
+});
+$('resetCancelBtn').addEventListener('click', () => {
+  $('resetConfirmOverlay').style.display = 'none';
+});
+$('resetConfirmOverlay').addEventListener('click', (e) => {
+  if (e.target === $('resetConfirmOverlay')) $('resetConfirmOverlay').style.display = 'none';
+});
+$('resetConfirmBtn').addEventListener('click', () => {
+  applyState(blankState());
+  $('resetConfirmOverlay').style.display = 'none';
+  $('autosaveNote').textContent = 'All data reset — starting fresh.';
+});
+
+// ---------- Click-to-toggle info buttons (not hover — works on mobile too) ----------
+function initInfoToggles(){
+  document.querySelectorAll('.info-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const panel = document.getElementById(btn.dataset.target);
+      if (!panel) return;
+      const isOpen = panel.classList.toggle('open');
+      btn.classList.toggle('active', isOpen);
+      btn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+    });
+  });
+}
+
+// ---------- Getting Started collapse (remembered across visits) ----------
+const GS_KEY = 'fireEstimatorGettingStartedHidden';
+function setGettingStartedVisibility(hidden){
+  $('gettingStartedBody').style.display = hidden ? 'none' : '';
+  $('toggleGettingStarted').textContent = hidden ? 'Show' : 'Hide';
+  try { localStorage.setItem(GS_KEY, hidden ? '1' : '0'); } catch(e){}
+}
+$('toggleReadinessBreakdown').addEventListener('click', () => {
+  const panel = $('readinessBreakdown');
+  const isOpen = panel.classList.toggle('open');
+  $('toggleReadinessBreakdown').textContent = isOpen ? 'Hide breakdown' : 'See how this is calculated';
+});
+
+$('toggleGettingStarted').addEventListener('click', () => {
+  const isHidden = $('gettingStartedBody').style.display === 'none';
+  setGettingStartedVisibility(!isHidden);
+});
+try {
+  setGettingStartedVisibility(localStorage.getItem(GS_KEY) === '1');
+} catch(e){}
+
+// ---------- init ----------
+renderAmountInputs();
+renderFixedWealthInputs();
+buildAccordion();
+renderEvents();
+incomeList.render();
+expenseItemsList.render();
+normalizeSavingsAlloc();
+initInfoToggles();
+if (!loadLocal()){
+  recalc();
+} else {
+  recalc();
+}
+
+// scroll spy (desktop sidebar + mobile dropdown)
+const navLinks = document.querySelectorAll('.nav a');
+const sections = [...navLinks].map(a => document.querySelector(a.getAttribute('href')));
+const mobileNavSelect = $('mobileNavSelect');
+
+window.addEventListener('scroll', ()=>{
+  let current = sections[0];
+  sections.forEach(s => { if (s && window.scrollY >= s.offsetTop - 80) current = s; });
+  navLinks.forEach(a => a.classList.toggle('active', a.getAttribute('href') === '#'+current.id));
+  if (mobileNavSelect && current) mobileNavSelect.value = '#'+current.id;
+});
+
+mobileNavSelect.addEventListener('change', ()=>{
+  const target = document.querySelector(mobileNavSelect.value);
+  if (target) target.scrollIntoView({ behavior:'smooth' });
+});
+</script>
+</body>
+</html>
