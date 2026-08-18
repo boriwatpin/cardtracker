@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Point Tracker v3</title>
+<title>Point Tracker</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
@@ -411,7 +411,7 @@
     <div class="brand">
       <div class="logo"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21V8l8-5 8 5v13M4 21h16M9 21v-6h6v6M9 11h.01M9 15h.01M15 11h.01M15 15h.01"/></svg></div>
       <div>
-        <div class="title">Point Tracker<span class="version-tag">v3</span></div>
+        <div class="title">Point Tracker</div>
         <div class="sub">Credits &amp; free nights</div>
       </div>
     </div>
@@ -437,7 +437,7 @@
       <button class="btn btn-sm btn-primary" id="backupReminderBtn">Backup now</button>
       <button class="close-x" id="backupReminderDismiss" title="Dismiss for now"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
     </div>
-    <div class="mobile-brand-bar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21V8l8-5 8 5v13M4 21h16M9 21v-6h6v6M9 11h.01M9 15h.01M15 11h.01M15 15h.01"/></svg> Point Tracker<span class="version-tag">v3</span></div>
+    <div class="mobile-brand-bar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21V8l8-5 8 5v13M4 21h16M9 21v-6h6v6M9 11h.01M9 15h.01M15 11h.01M15 15h.01"/></svg> Point Tracker</div>
     <div class="topbar">
       <div>
         <h1 id="pageTitle">Dashboard</h1>
@@ -1909,13 +1909,17 @@ function renderDashboard(){
       <div class="panel-body" style="padding:14px 20px;display:flex;align-items:flex-start;gap:10px;">
         <span style="line-height:1.4;color:var(--red);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg></span>
         <div style="font-size:13.5px;line-height:1.6;">
-          <strong>${reminders.length} item${reminders.length===1?'':'s'} expiring within 30 days:</strong>
-          ${reminders.map(r=>{
-            if(r.isFee) return `${escHtml(r.name)} posts in ${r.daysLeft}d ($${r.amount.toLocaleString()})`;
-            return r.daysLeft<0
-              ? `<span style="text-decoration:line-through;opacity:.6;">${escHtml(r.name)}</span>`
-              : `${escHtml(r.name)} (${r.daysLeft}d left)`;
-          }).join(' · ')}
+          ${(()=>{ const expiring = reminders.filter(r=>!r.isFee); const fees = reminders.filter(r=>r.isFee);
+            const expiringHtml = expiring.length ? `<div><strong>${expiring.length} item${expiring.length===1?'':'s'} expiring within 30 days:</strong> ${expiring.map(r=>
+              r.daysLeft<0
+                ? `<span style="text-decoration:line-through;opacity:.6;">${escHtml(r.name)}</span>`
+                : `${escHtml(r.name)} (${r.daysLeft}d left)`
+            ).join(' · ')}</div>` : '';
+            const feesHtml = fees.length ? `<div${expiring.length?' style="margin-top:12px;"':''}><strong>${fees.length} fee${fees.length===1?'':'s'} due within 30 days:</strong> ${fees.map(r=>
+              `${escHtml(r.name)} posts in ${r.daysLeft}d ($${r.amount.toLocaleString()})`
+            ).join(' · ')}</div>` : '';
+            return expiringHtml + feesHtml;
+          })()}
         </div>
       </div>
     </div>` : ''}
@@ -2082,7 +2086,9 @@ function renderCards(){
       </div>
       <div class="meta">${escHtml(c.issuer)} · ${escHtml(c.program)}${c.eliteStatus?' · Elite status':''}</div>
       <div class="row"><span class="l">Annual fee</span><span class="r">$${c.fee.toLocaleString()}</span></div>
-      ${nextFee ? `<div class="row"><span class="l">Fee renews</span><span class="r">${fmtDate(nextFee)} (${daysBetween(bangkokToday(), nextFee)}d)</span></div>` : ''}
+      ${nextFee ? (()=>{ const feeDaysLeft = daysBetween(bangkokToday(), nextFee); const feePill = statusForDays(feeDaysLeft, 60);
+        return `<div class="row"><span class="l">Fee renews</span><span class="r" style="display:flex;align-items:center;gap:6px;">${fmtDate(nextFee)} (${feeDaysLeft}d) <span class="pill ${feePill.cls}">${feePill.label}</span></span></div>`;
+      })() : ''}
       <div class="row"><span class="l">Redeemed in ${selectedYear}</span><span class="r">$${value.toLocaleString()}</span></div>
       <div class="row"><span class="l">Net</span><span class="r" style="color:${net>=0?'var(--green)':'var(--red)'}">${net>=0?'+':'-'}$${Math.abs(net).toLocaleString()}</span></div>
       ${c.notes?`<div class="hint" style="margin-top:8px;">${escHtml(c.notes)}</div>`:''}
