@@ -2774,7 +2774,14 @@ function mileageRowHtml(mp, today){
     : batches.map(exp=>{
         const expiration = exp.date ? parseDate(exp.date) : null;
         const daysLeft = expiration ? daysBetween(today, expiration) : null;
-        const pill = !expiration ? {label:'No date set', cls:'pill-gray'} : statusForDays(daysLeft, 60);
+        // FIX: was calling statusForDays() unconditionally, which returns
+        // "Urgent" (red) for any daysLeft <= 30 — including negative
+        // values. An already-expired batch showed a red "Urgent" pill next
+        // to text that correctly said "X days overdue," the same
+        // mismatch the Credits/Free Nights rows already guard against
+        // with their own isExpired check. Mirrors that same pattern here.
+        const isExpired = daysLeft !== null && daysLeft < 0;
+        const pill = !expiration ? {label:'No date set', cls:'pill-gray'} : isExpired ? {label:'Expired', cls:'pill-gray'} : statusForDays(daysLeft, 60);
         return `
         <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:12.5px;gap:10px;">
           <span style="color:var(--text);">${Number(exp.amount||0).toLocaleString()} miles${expiration?` expiring ${fmtDate(expiration)}`:''}</span>
@@ -2804,7 +2811,10 @@ function voucherRowHtml(v, today){
   const hasDate = !!v.expirationDate;
   const expiration = hasDate ? parseDate(v.expirationDate) : null;
   const daysLeft = expiration ? daysBetween(today, expiration) : null;
-  const pill = !hasDate ? {label:'No date set', cls:'pill-gray'} : statusForDays(daysLeft, 60);
+  // FIX: same statusForDays() mismatch as the mileage batches above — an
+  // expired voucher showed a red "Urgent" pill instead of "Expired."
+  const isExpired = daysLeft !== null && daysLeft < 0;
+  const pill = !hasDate ? {label:'No date set', cls:'pill-gray'} : isExpired ? {label:'Expired', cls:'pill-gray'} : statusForDays(daysLeft, 60);
   return `
   <div class="list-row" data-row-id="${v.id}">
     <div style="width:20px;"></div>
