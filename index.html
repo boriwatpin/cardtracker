@@ -1194,7 +1194,7 @@ async function fetchBackups(){
 // most recent. Returns true/false so callers (the reminder banner, the
 // toolbar button, restoreBackup()'s own pre-restore safety snapshot) can
 // react to whether it actually succeeded.
-async function createBackup(){
+async function createBackup(opts={}){
   if(!supabaseClient){ toast('Backups need cloud sync connected first.'); return false; }
   const existing = await fetchBackups();
   if(existing === null){
@@ -1209,7 +1209,15 @@ async function createBackup(){
   // it's actually deep-cloned. Explicit clone here matches the same
   // pattern restoreBackup() already uses when reading a backup back out.
   const entry = { timestamp: new Date().toISOString(), data: JSON.parse(JSON.stringify(DATA)) };
-  const updated = [entry, ...existing].slice(0, MAX_BACKUPS);
+  // v2.2: yearly archives (made by the 10-year cleanup) never rotate out with
+  // ordinary backups — they are the copy of data the app has removed. The 10
+  // most recent archives are kept.
+  if(opts.archiveBeforeYear) entry.archiveBeforeYear = opts.archiveBeforeYear;
+  const archives = existing.filter(b=>b.archiveBeforeYear);
+  const normal = existing.filter(b=>!b.archiveBeforeYear);
+  const updated = opts.archiveBeforeYear
+    ? normal.slice(0, MAX_BACKUPS).concat([entry, ...archives].slice(0, 10))
+    : [entry, ...normal].slice(0, MAX_BACKUPS).concat(archives);
   try{
     // Deliberately does NOT touch `data` or `updated_at` on this row — a
     // backup snapshot isn't a change to your live tracker data, so other
@@ -1261,6 +1269,7 @@ async function restoreBackup(timestamp){
   }
 
   DATA = migrateData(JSON.parse(JSON.stringify(match.data)));
+  retentionHold = true; // v2.2: don't immediately re-remove old data you just restored (until the next reload)
   saveData();
   switchView(currentView);
   closeModal();
@@ -1333,7 +1342,7 @@ async function renderBackupsList(){
     <div class="field">
       <label>Restore from</label>
       <select id="restoreBackupSelect">
-        ${backups.map(b=>`<option value="${escAttr(b.timestamp)}">${escHtml(fmtDateTime(b.timestamp))}</option>`).join('')}
+        ${backups.map(b=>`<option value="${escAttr(b.timestamp)}">${escHtml(fmtDateTime(b.timestamp))}${b.archiveBeforeYear?` — yearly archive (data before ${b.archiveBeforeYear}), kept permanently`:''}</option>`).join('')}
       </select>
     </div>
     <div class="hint" id="restoreBackupSummary">${escHtml(summaryFor(backups[0]))}</div>
@@ -1821,7 +1830,13 @@ function runFeeRollover(){
     // otherwise a year in which the app was never opened had no fee at all and
     // disappeared from the Dashboard's year list.
     for(let yr = prior[prior.length-1] + 1; yr <= y; yr++){
-      if(c.closedDate){ const cd = parseDate(c.closedDate); if(cd && cd <= new Date(yr, 0, 1)) break; }
+      if(c.closedDate){
+        const cd = parseDate(c.closedDate);
+        if(cd && cd <= new Date(yr, 0, 1)) break;
+        // Closed during this year: only if the fee date came before the close (no fee date known = assume it did).
+        const fa = parseDate(c.feeAnchor);
+        if(cd && fa && cd <= new Date(yr, fa.getMonth(), fa.getDate())) break;
+      }
       c.feeByYear[yr] = {amount: Number(c.feeByYear[yr-1].amount)||0, confirmed: false};
       changed = true;
     }
@@ -1834,8 +1849,10 @@ function runFeeRollover(){
    full snapshot saved to Backups in Supabase AND downloaded as a JSON file —
    and only then removed: redemptions, fee rows, expired mileage batches and
    vouchers, auto-post suppression notes, and cards closed before the window
-   (with their credits and free nights). If the cloud copy can't be made,
-   nothing is removed; Setup's checklist offers "Download archive & remove". */
+   (with their credits and free nights). The cloud copy is a backup marked as a
+   yearly archive, which ordinary backups never rotate out. If it can't be made,
+   nothing is removed; Setup's checklist offers "Download archive & remove".
+   Never runs right after Import / Restore (until the next reload). */
 const KEEP_YEARS = 10;
 function retentionKeepFrom(){ return bangkokToday().getFullYear() - (KEEP_YEARS - 1); }
 function retentionPlan(){
@@ -1894,8 +1911,9 @@ function downloadArchiveFile(plan){
 }
 let retentionPending = null;   // plan waiting for the manual "Download archive & remove" step
 let retentionRunning = false;
+let retentionHold = false;     // set after Import / Restore so that data isn't removed again in the same session
 async function maybeRunRetention(){
-  if(retentionRunning) return false;
+  if(retentionRunning || retentionHold) return false;
   const plan = retentionPlan();
   if(plan.empty){
     retentionPending = null;
@@ -1908,21 +1926,23 @@ async function maybeRunRetention(){
   try{
     // The cloud copy is the safety net that doesn't depend on the browser
     // allowing a download (phones often don't without a tap).
-    const cloudOk = supabaseClient ? await createBackup() : false;
+    // Permanent cloud archive first (never rotates out, see createBackup);
+    // the download is a convenience copy the browser may or may not allow.
+    const cloudOk = supabaseClient ? await createBackup({archiveBeforeYear: plan.keepFrom}) : false;
     if(!cloudOk){ retentionPending = plan; updateSetupDot(); if(currentView.startsWith('setup')) views[currentView].render(); return false; }
     downloadArchiveFile(plan);
     applyRetention(plan);
     retentionPending = null;
     saveData();
     switchView(currentView);
-    toast(`Archived & removed data before ${plan.keepFrom} (${retentionSummary(plan)}). Copy saved in Backups and downloaded.`);
+    toast(`Archived & removed data before ${plan.keepFrom} (${retentionSummary(plan)}). A permanent copy is in Backups.`);
     return true;
   } finally { retentionRunning = false; }
 }
 function runRetentionManually(){
   const plan = retentionPlan();
   if(plan.empty){ retentionPending = null; views[currentView].render(); return; }
-  showConfirm(`Download an archive of everything, then remove data from before ${plan.keepFrom} (${retentionSummary(plan)})? Keep the downloaded file — it can be loaded back with Import.`, ()=>{
+  showConfirm(`Download an archive of everything, then remove data from before ${plan.keepFrom} (${retentionSummary(plan)})? Keep the downloaded file — it's your only copy of that data.`, ()=>{
     if(!downloadArchiveFile(plan)){ toast('The download did not start, so nothing was removed.'); return; }
     applyRetention(plan); retentionPending = null; saveData(); switchView(currentView);
     toast(`Removed data before ${plan.keepFrom}. Keep the downloaded archive file.`);
@@ -1991,15 +2011,17 @@ function runAutoRedemptions(){
     // the current period to just after the most recent logged entry for this
     // credit (max 10 periods) and log every period that was skipped. A credit
     // with nothing logged ever only gets the current period, as before.
+    // Period starts are generated forward from the anchor with the same steps
+    // currentCycle() uses, so they always match the app's own periods (no
+    // drift on e.g. 29 Feb anchors) and never go back before the anchor.
     const own = DATA.history.filter(h=>h.sourceId===cr.id).map(h=>parseDate(h.date)).filter(Boolean);
     const lastLogged = own.length ? new Date(Math.max(...own)) : null;
-    const starts = [cycle.start];
-    if(lastLogged){
-      let st = addMonths(cycle.start, -12);
-      for(let i=0; i<10 && st > lastLogged; i++){ starts.push(st); st = addMonths(st, -12); }
-    }
-    starts.forEach(st=>{
-      const c = {start: st, nextStart: addMonths(st, 12)};
+    let periods = [];
+    { let st = parseDate(cr.anchor), guard = 0;
+      while(st && st <= cycle.start && guard++ < 200){ const nx = addMonths(st, 12); periods.push({start: st, nextStart: nx}); st = nx; } }
+    periods = lastLogged ? periods.filter(p=>p.nextStart > lastLogged).slice(-10) : periods.slice(-1);
+    periods.forEach(c=>{
+      const st = c.start;
       if(historyEntriesInCycle(cr.id, c).length > 0) return;
       if(isAutoRedemptionSuppressed(cr.id, toISODate(st))) return;
       if(cardClosedOn(cr.cardId, st) || benefitEnded(cr, c)) return;
@@ -2048,6 +2070,17 @@ function unredeemItem(kind, sourceId, cycle){
 // or free-night row (only date + amount — card/type/description stay as the
 // row defines them). The full Redemption Log edit form (openHistModal)
 // covers everything for entries logged directly there.
+// v2.2: room left on a spend-down credit for the period that `dateStr` falls
+// in, not counting the entry being edited. null = no cap applies.
+function spenddownRoom(sourceId, dateStr, excludeId){
+  const cr = sourceId ? DATA.credits.find(c=>c.id===sourceId) : null;
+  if(!cr || creditUsage(cr) !== 'spenddown') return null;
+  const d = parseDate(dateStr);
+  const c = d ? creditCycle(cr, d) : null;
+  if(!c || d < c.start) return null;
+  const used = historyEntriesInCycle(cr.id, c).filter(h=>h.id!==excludeId).reduce((s,h)=>s+Number(h.amount||0), 0);
+  return Math.max(0, (Number(cr.value)||0) - used);
+}
 function openEditLinkedAmountModal(entryId){
   const entry = DATA.history.find(h=>h.id===entryId);
   if(!entry) return;
@@ -2066,9 +2099,13 @@ function openEditLinkedAmountModal(entryId){
   document.getElementById('modalSave').onclick = ()=>{
     const amount = Number(val('f_amount'))||0;
     if(amount <= 0){ toast('Enter an amount greater than $0'); return; }
-    entry.date = val('f_date');
-    entry.amount = amount;
-    entry.notes = val('f_notes').trim();
+    const live = DATA.history.find(h=>h.id===entryId); // re-find: a sync may have replaced DATA while this was open
+    if(!live){ toast('This entry changed on another device — reopen it and try again.'); closeModal(); return; }
+    const room = spenddownRoom(live.sourceId, val('f_date'), live.id);
+    if(room !== null && amount > room){ toast(`Only $${room.toLocaleString()} is left on this credit for that period`); return; }
+    live.date = val('f_date');
+    live.amount = amount;
+    live.notes = val('f_notes').trim();
     saveData(); closeModal();
     views[currentView].render();
     toast('Redemption updated');
@@ -2621,13 +2658,13 @@ function setupChecklistItems(){
     items.push({view:'setupCards', kind:'retention', text:`Data from before ${p.keepFrom} (${p.years.join(', ')}) is older than 10 years and couldn't be backed up to the cloud automatically`, fixLabel:'Download archive & remove'});
   }
   DATA.cards.forEach(c=>{
-    if(cardClosedOn(c.id, today)) return;
     const fy = c.feeByYear || {};
-    if(!fy[y]) items.push({view:'setupCards', kind:'card', id:c.id, text:`${escHtml(c.name)}: no ${y} fee recorded`});
-    // v2.1.1: every unconfirmed year up to this one (a skipped year is filled in as unconfirmed too)
+    // v2.1.1: every unconfirmed year up to this one (a skipped year is filled in as unconfirmed too) — closed cards included
     feeYears(c).filter(yr=>yr<=y && fy[yr].confirmed===false).forEach(yr=>{
       items.push({view:'setupCards', kind:'confirmfee', id:c.id, year:yr, text:`${escHtml(c.name)}: ${yr} fee $${Number(fy[yr].amount).toLocaleString()} was copied from the year before`, fixLabel:'Confirm', extraLabel:'Change'});
     });
+    if(cardClosedOn(c.id, today)) return;
+    if(!fy[y]) items.push({view:'setupCards', kind:'card', id:c.id, text:`${escHtml(c.name)}: no ${y} fee recorded`});
     if(!c.feeAnchor) items.push({view:'setupCards', kind:'card', id:c.id, text:`${escHtml(c.name)}: no fee posting date, so no fee reminders`});
   });
   DATA.credits.forEach(cr=>{
@@ -2819,7 +2856,7 @@ function openCardModal(id){
     // Keep the legacy single `fee` in step with this year's fee — older
     // copies of the app and anything else reading `fee` stay sensible.
     obj.fee = feeInfoForYear(obj, thisYear).amount;
-    if(editing){ const i = DATA.cards.findIndex(x=>x.id===id); DATA.cards[i] = {...DATA.cards[i], ...obj}; }
+    if(editing){ const i = DATA.cards.findIndex(x=>x.id===id); if(i < 0){ toast('This item changed on another device — reopen it and try again.'); closeModal(); return; } DATA.cards[i] = {...DATA.cards[i], ...obj}; }
     else DATA.cards.push(obj);
     saveData(); closeModal(); views[currentView].render(); toast('Card saved');
   };
@@ -3017,7 +3054,7 @@ function openCreditModal(id){
     const err = t.usage==='perstay' ? '' : creditAnchorError(t.frequency, t.renewalType, t.anchor);
     if(err){ toast(err); return; }
     const obj = {id: editing?id:uid('cr'), ...t};
-    if(editing){ const i = DATA.credits.findIndex(x=>x.id===id); DATA.credits[i] = {...DATA.credits[i], ...obj}; }
+    if(editing){ const i = DATA.credits.findIndex(x=>x.id===id); if(i < 0){ toast('This item changed on another device — reopen it and try again.'); closeModal(); return; } DATA.credits[i] = {...DATA.credits[i], ...obj}; }
     else DATA.credits.push(obj);
     saveData(); closeModal(); runDailyChecks(); views[currentView].render(); toast('Credit saved');
   };
@@ -3137,8 +3174,15 @@ function openFnModal(id){
       anchor: val('f_anchor')||null, certsPerCycle: repeats ? Math.max(1, parseInt(val('f_certsPerCycle'),10)||1) : 1,
       expirationOverride: val('f_expiration')||null, endsAfter: repeats ? (val('f_ends')||null) : null };
   };
+  // v2.2: a manual expiry left over from an earlier certificate (unchanged in
+  // this form) is cleared on save instead of blocking the save.
+  const isStaleUnchanged = t=>{
+    if(!editing || !t.expirationOverride || t.expirationOverride !== fn.expirationOverride || !t.anchor) return false;
+    const cycle = fnCycle(t, bangkokToday());
+    return !!cycle && !overrideAppliesToCycle(t, cycle);
+  };
   const overrideError = t=>{
-    if(!t.expirationOverride || !t.anchor) return '';
+    if(!t.expirationOverride || !t.anchor || isStaleUnchanged(t)) return '';
     const cycle = fnCycle(t, bangkokToday());
     if(!cycle) return '';
     if(!overrideAppliesToCycle(t, cycle)) return t.repeats
@@ -3153,7 +3197,7 @@ function openFnModal(id){
     document.getElementById('fnAnchorHint').textContent = t.repeats
       ? 'Any past date a certificate was issued — it repeats every 12 months. Leave blank if the first one hasn\'t been issued yet.'
       : 'The date this single certificate was issued. It shows until it expires, then stays in your history.';
-    document.getElementById('fnExpHint').textContent = (overrideError(t) || 'Leave blank to use 12 months from the issue date. Only applies to the current certificate — the next one goes back to 12 months automatically.');
+    document.getElementById('fnExpHint').textContent = (isStaleUnchanged(t) ? 'This date belonged to an earlier certificate and will be cleared when you save.' : '') + (overrideError(t) || 'Leave blank to use 12 months from the issue date. Only applies to the current certificate — the next one goes back to 12 months automatically.');
     const today = bangkokToday();
     const cycle = t.anchor ? fnCycle(t, today) : null;
     if(!cycle){ document.getElementById('fnPreview').textContent = 'Set a date to see the current certificate.'; return; }
@@ -3168,10 +3212,11 @@ function openFnModal(id){
     const t = read();
     if(!t.desc){ toast('Description is required'); return; }
     if(!t.repeats && !t.anchor){ toast('A one-off certificate needs its issue date'); return; }
+    if(isStaleUnchanged(t)) t.expirationOverride = null;
     const err = overrideError(t);
     if(err){ toast('Check the manual expiry date'); return; }
     const obj = {id: editing?id:uid('fn'), cashValue: fn.cashValue||null, ...t};
-    if(editing){ const i = DATA.freeNights.findIndex(x=>x.id===id); DATA.freeNights[i] = {...DATA.freeNights[i], ...obj}; }
+    if(editing){ const i = DATA.freeNights.findIndex(x=>x.id===id); if(i < 0){ toast('This item changed on another device — reopen it and try again.'); closeModal(); return; } DATA.freeNights[i] = {...DATA.freeNights[i], ...obj}; }
     else DATA.freeNights.push(obj);
     saveData(); closeModal(); views[currentView].render(); toast('Certificate saved');
   };
@@ -4064,6 +4109,10 @@ function renderHistory(){
   body.querySelectorAll('[data-edit-h]').forEach(b=>b.onclick=()=>openHistModal(b.dataset.editH));
   body.querySelectorAll('[data-del-h]').forEach(b=>b.onclick=()=>{
     showConfirm('Delete this redemption entry? This cannot be undone.', ()=>{
+      // v2.2: an auto-posted entry must stay deleted (otherwise the catch-up in runAutoRedemptions re-creates it)
+      const h = DATA.history.find(x=>x.id===b.dataset.delH);
+      const cr = h && h.sourceId ? DATA.credits.find(c=>c.id===h.sourceId && c.autoRedeem) : null;
+      if(cr){ const c = creditCycle(cr, parseDate(h.date)); if(c) suppressAutoRedemption(cr.id, toISODate(c.start)); }
       DATA.history=DATA.history.filter(x=>x.id!==b.dataset.delH); saveData(); renderHistory();
     });
   });
@@ -4109,7 +4158,11 @@ function openHistModal(id){
     if(!desc){ toast('Description is required'); return; }
     if(amount < 0){ toast('Amount cannot be negative'); return; }
     if(editing){
-      Object.assign(entry, { date: val('f_date'), cardId: val('f_card'), type: val('f_type'), desc, amount, notes: val('f_notes').trim() });
+      const live = DATA.history.find(h=>h.id===id); // re-find: a sync may have replaced DATA while this was open
+      if(!live){ toast('This entry changed on another device — reopen it and try again.'); closeModal(); return; }
+      const room = spenddownRoom(live.sourceId, val('f_date'), live.id);
+      if(room !== null && amount > room){ toast(`Only $${room.toLocaleString()} is left on this credit for that period`); return; }
+      Object.assign(live, { date: val('f_date'), cardId: val('f_card'), type: val('f_type'), desc, amount, notes: val('f_notes').trim() });
     } else {
       DATA.history.push({ id:uid('rh'), date: val('f_date'), cardId: val('f_card'), type: val('f_type'), sourceId:null, desc, amount, notes: val('f_notes').trim() });
     }
@@ -4189,7 +4242,7 @@ document.getElementById('importFile').onchange = (e)=>{
       const parsed = JSON.parse(reader.result);
       if(!parsed.cards || !parsed.credits) throw new Error('bad format');
       delete parsed._exportedFromAppVersion; // export-only stamp, not app data
-      DATA = migrateData(parsed); saveData(); runDailyChecks(); switchView(currentView);
+      DATA = migrateData(parsed); retentionHold = true; /* v2.2: keep imported old data until the next reload */ saveData(); runDailyChecks(); switchView(currentView);
       toast('Data imported');
     }catch(err){ toast('Could not read that file — is it a tracker backup JSON?'); }
   };
