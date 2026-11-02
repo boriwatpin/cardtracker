@@ -595,6 +595,217 @@
   .field-error{color:var(--red);font-size:12px;font-weight:600;margin-top:4px;}
   .sync-choice{display:flex;flex-direction:column;gap:8px;}
   .sync-choice .preview-box{margin-top:0;}
+  /* ============================================================
+     v2.5 REDESIGN (approved phone mockup). Loaded last, so it wins.
+     Colours: light = mockup "light"; dark = mockup "graphite" with the
+     blue accent. The mockup's names are added as aliases (--chip, --tab…)
+     and mapped onto the app's existing variables so every older screen,
+     form and the chart pick them up too.
+     ============================================================ */
+  :root{
+    --bg:#f6f6f4; --card-bg:#ffffff; --border:#e8e7e2; --border-hover:#d4d2c9;
+    --text:#1b1c1f; --text-muted:#5c5f66; --text-soft:#686b72;
+    --navy:#1b1c1f; --navy-light:#2540d9; --navy-dark:#1b1c1f;
+    --brand:#2540d9; --brand-light:#1d33b8; --brand-tint:#eaedfd; --brand-text:#2540d9; --on-brand:#ffffff;
+    --accent:#2540d9; --accent-bg:#eaedfd;
+    --green:#166534; --green-bg:#e6f4ea; --amber:#8f4306; --amber-bg:#fdf1de; --red:#a8231a; --red-bg:#fdecea;
+    --gray:#5c5f66; --gray-bg:#efeee9; --chip:#efeee9;
+    --input-bg:#ffffff; --surface-tile:#ffffff; --surface-hover:#f3f2ee; --sidebar-bg:#fbfbf9;
+    --scrim:rgba(20,20,24,.38); --tab:rgba(255,255,255,.94); --toast-bg:#1b1c1f; --toast-fg:#ffffff;
+    --chart-fee:#d6d9e0; --chart-value:#2540d9;
+    --tabbar-h:58px;
+  }
+  html[data-theme="dark"]{
+    --bg:#232326; --card-bg:#2f2f35; --border:#46464f; --border-hover:#5a5a64;
+    --text:#f5f5f7; --text-muted:#c6c6cf; --text-soft:#b1b1bb;
+    --navy:#18181b; --navy-light:#b4c0ff; --navy-dark:#18181b;
+    --brand:#b4c0ff; --brand-light:#c9d1ff; --brand-tint:rgba(150,165,255,.22); --brand-text:#b4c0ff; --on-brand:#10173d;
+    --accent:#b4c0ff; --accent-bg:rgba(150,165,255,.22);
+    --green:#80eaa8; --green-bg:rgba(110,231,160,.18); --amber:#ffd08a; --amber-bg:rgba(255,200,120,.18); --red:#ffa39b; --red-bg:rgba(255,140,130,.18);
+    --gray:#c6c6cf; --gray-bg:#3b3b43; --chip:#3b3b43;
+    --input-bg:#28282d; --surface-tile:#2f2f35; --surface-hover:#37373e; --sidebar-bg:#29292d;
+    --scrim:rgba(0,0,0,.5); --tab:rgba(47,47,53,.97); --toast-bg:#4a4a54; --toast-fg:#ffffff;
+    --chart-fee:#5c5c67; --chart-value:#b4c0ff;
+    --shadow-md:0 8px 24px rgba(0,0,0,.45);
+  }
+  .num, .kpi .value, .tile-num, .chip, .amount{font-variant-numeric:tabular-nums;}
+  body{background:var(--bg);}
+
+  /* ---- header: large title + sync dot; eyebrow = date / back link; right = action ---- */
+  .topbar{align-items:flex-end;margin-bottom:6px;padding:10px 4px 0;}
+  .topbar-text{min-width:0;flex:1;}
+  .eyebrow{font-size:13.5px;color:var(--text-muted);font-weight:500;min-height:0;}
+  .eyebrow:empty{display:none;}
+  .title-line{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+  .topbar h1{font-family:var(--font-display);font-size:32px;font-weight:650;letter-spacing:-.01em;margin:2px 0 0;line-height:1.15;}
+  .topbar p.desc{margin-top:4px;}
+  .topbar p.desc:empty{display:none;}
+  body[data-view="card"] .title-line{display:none;}
+  .sync-status{background:none !important;padding:0;font-size:12.5px;font-weight:600;display:inline-flex;align-items:center;gap:6px;color:var(--text-muted);}
+  .sync-status::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor;}
+  .sync-live{color:var(--green);}
+  .sync-synced{color:var(--text-muted);}
+  .sync-synced::before{background:var(--green);}
+  .sync-syncing{color:var(--amber);}
+  .sync-offline{color:var(--red);}
+  .topbar-actions{gap:4px;}
+  .link, .topbar-actions .link{background:none;border:0;padding:8px 6px;min-height:44px;font:inherit;font-size:14.5px;font-weight:600;color:var(--brand-text);cursor:pointer;display:inline-flex;align-items:center;gap:4px;}
+  .link.muted{color:var(--text-muted);}
+  .link:focus-visible{outline:2px solid var(--brand-text);outline-offset:2px;border-radius:8px;}
+  .back-link{margin-left:-6px;font-size:15px;}
+
+  /* ---- grouped lists (mockup .group / .row / .sec / .chip) ---- */
+  .sec{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin:22px 4px 8px;font-size:13px;font-weight:600;color:var(--text-muted);}
+  .sec select{font-size:13px;padding:4px 8px;min-height:32px;}
+  .group{background:var(--card-bg);border:1px solid var(--border);border-radius:16px;overflow:hidden;}
+  .group + .link{margin-left:4px;}
+  .row{display:flex;align-items:center;gap:12px;width:100%;padding:12px 16px;min-height:60px;background:transparent;border:0;border-top:1px solid var(--border);text-align:left;cursor:pointer;color:var(--text);font:inherit;}
+  .row:first-child{border-top:0;}
+  .row:hover{background:var(--surface-hover);}
+  .row:active{background:var(--chip);}
+  .row:focus-visible{outline:2px solid var(--brand-text);outline-offset:-2px;}
+  .row.static{cursor:default;}
+  .row.static:hover, .row.static:active{background:transparent;}
+  .row .r-main{flex:1;min-width:0;}
+  .row .r-title{display:block;font-weight:600;font-size:15px;line-height:1.3;}
+  .row .r-title.muted{color:var(--text-muted);}
+  .row .r-sub{display:block;color:var(--text-muted);font-size:13px;margin-top:2px;line-height:1.35;}
+  .row .r-right{flex:none;font-weight:600;}
+  .row .drag-handle{flex:none;margin-left:-6px;}
+  .dot{width:10px;height:10px;flex:none;border-radius:50%;}
+  .chip{flex:none;font-size:12.5px;font-weight:600;padding:4px 9px;border-radius:999px;white-space:nowrap;background:var(--chip);color:var(--text-muted);}
+  .chip-amber{background:var(--amber-bg);color:var(--amber);}
+  .chip-red{background:var(--red-bg);color:var(--red);}
+  .chip-green{background:var(--green-bg);color:var(--green);}
+  .chip-accent{background:var(--accent-bg);color:var(--brand-text);}
+  .filter-row{display:flex;gap:8px;overflow-x:auto;margin:10px -16px 0;padding:0 16px 2px;scrollbar-width:none;}
+  .filter-row::-webkit-scrollbar{display:none;}
+  .filter-row button{flex:none;border:1px solid var(--border);background:var(--card-bg);color:var(--text);font:inherit;font-size:14px;font-weight:600;padding:8px 14px;min-height:44px;border-radius:999px;cursor:pointer;}
+  .filter-row button.active{background:var(--text);color:var(--bg);border-color:var(--text);}
+  .empty-row{padding:16px;color:var(--text-muted);font-size:14px;}
+  .hint-line{font-size:12.5px;color:var(--text-muted);margin:10px 4px 0;}
+  .att-icon{width:34px;height:34px;flex:none;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;background:var(--chip);color:var(--text);}
+  .att-actions{display:flex;gap:16px;margin-top:2px;}
+  .att-actions .link{padding:6px 0;min-height:36px;font-size:13.5px;}
+
+  /* ---- Home ---- */
+  .hero{margin-top:10px;background:var(--brand);color:var(--on-brand);border-radius:18px;padding:18px 18px 16px;}
+  .hero.calm{background:var(--card-bg);color:var(--text);border:1px solid var(--border);}
+  .hero .h-label{font-size:13.5px;font-weight:600;opacity:.92;}
+  .hero .h-big{font-family:var(--font-display);font-size:40px;font-weight:650;line-height:1.05;margin-top:4px;font-variant-numeric:tabular-nums;}
+  .hero .h-sub{font-size:14px;opacity:.92;margin-top:4px;}
+  .hero .h-btn{margin-top:14px;border:0;background:rgba(255,255,255,.2);color:inherit;font:inherit;font-size:14px;font-weight:600;padding:10px 14px;min-height:44px;border-radius:10px;cursor:pointer;}
+  html[data-theme="dark"] .hero:not(.calm) .h-btn{background:rgba(16,23,61,.14);}
+  .hero.calm .h-btn{background:var(--chip);}
+  .kpi3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));}
+  .kpi3 .kpi{padding:14px;border:0;border-radius:0;background:transparent;box-shadow:none;}
+  .kpi3 .kpi + .kpi{border-left:1px solid var(--border);}
+  .kpi3 .kpi .label{font-size:12.5px;color:var(--text-muted);font-weight:500;text-transform:none;letter-spacing:0;}
+  .kpi3 .kpi .value{font-family:var(--font-display);font-size:21px;font-weight:650;margin-top:2px;letter-spacing:0;}
+  .kpi3 .kpi .value .est{font-family:var(--font-ui);font-size:11px;font-weight:600;color:var(--text-muted);}
+  .carousel{display:flex;gap:10px;overflow-x:auto;margin:0 -16px;padding:0 16px 4px;scrollbar-width:none;}
+  .carousel::-webkit-scrollbar{display:none;}
+  .card-tile2{flex:none;width:148px;height:96px;border:0;border-radius:14px;color:#ffffff;padding:11px 12px;display:flex;flex-direction:column;justify-content:space-between;text-align:left;cursor:pointer;font:inherit;}
+  .card-tile2 .ct-issuer{font-size:11px;font-weight:700;letter-spacing:.08em;opacity:.92;}
+  .card-tile2 .ct-name{display:block;font-size:14px;font-weight:600;line-height:1.2;}
+  .card-tile2 .ct-net{display:block;font-size:12.5px;opacity:.95;margin-top:2px;font-variant-numeric:tabular-nums;}
+  .card-tile2:focus-visible{outline:3px solid var(--brand-text);outline-offset:2px;}
+  .home-extra{margin-top:28px;}
+  .desk-only{display:block;}
+
+  /* ---- Card page ---- */
+  .card-hero{min-height:196px;border-radius:18px;color:#ffffff;padding:18px 20px;display:flex;flex-direction:column;justify-content:space-between;gap:16px;margin-top:6px;}
+  .card-hero .ch-top{display:flex;justify-content:space-between;align-items:center;gap:8px;}
+  .card-hero .ch-issuer{font-size:12px;font-weight:700;letter-spacing:.08em;opacity:.92;}
+  .card-hero .ch-prog{font-size:12px;font-weight:600;background:rgba(255,255,255,.18);padding:4px 9px;border-radius:999px;}
+  .card-hero .ch-name{font-family:var(--font-display);font-size:24px;font-weight:650;line-height:1.15;}
+  .card-hero .ch-fee{font-size:13.5px;opacity:.95;margin-top:6px;font-variant-numeric:tabular-nums;}
+  .stat3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:12px;}
+  .stat3 > div{background:var(--card-bg);border:1px solid var(--border);border-radius:14px;padding:12px;min-width:0;}
+  .stat3 .s-label{font-size:12.5px;color:var(--text-muted);}
+  .stat3 .s-val{font-family:var(--font-display);font-size:21px;font-weight:650;margin-top:2px;font-variant-numeric:tabular-nums;}
+  .verdict{margin-top:10px;display:flex;align-items:center;gap:8px;border-radius:12px;padding:10px 12px;font-size:14px;font-weight:600;}
+  .verdict.good{background:var(--green-bg);color:var(--green);}
+  .verdict.bad{background:var(--amber-bg);color:var(--amber);}
+  .pos-text{color:var(--green);} .neg-text{color:var(--amber);}
+
+  /* ---- Miles ---- */
+  .value-hero{margin-top:12px;background:var(--card-bg);border:1px solid var(--border);border-radius:18px;padding:16px 18px;}
+  .value-hero .vh-label{font-size:13.5px;color:var(--text-muted);font-weight:500;}
+  .value-hero .vh-big{font-family:var(--font-display);font-size:38px;font-weight:650;line-height:1.1;margin-top:2px;font-variant-numeric:tabular-nums;}
+  .value-hero .vh-sub{font-size:13.5px;color:var(--text-muted);margin-top:2px;}
+  .alert-banner{margin-top:10px;display:flex;align-items:center;gap:10px;background:var(--amber-bg);color:var(--amber);border-radius:12px;padding:11px 12px;font-size:14px;font-weight:600;}
+  .alert-banner.red{background:var(--red-bg);color:var(--red);}
+  .air-badge{width:38px;height:28px;flex:none;border-radius:7px;color:#ffffff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;}
+
+  /* ---- Sheet (redeem / benefit) content ---- */
+  .sheet-pad{padding:8px 20px 6px;}
+  .sheet-card{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-muted);font-weight:600;padding-right:36px;}
+  .sheet-title{font-family:var(--font-display);font-size:23px;font-weight:650;line-height:1.2;margin-top:6px;}
+  .sheet-meta{font-size:14px;color:var(--text-muted);margin-top:4px;font-variant-numeric:tabular-nums;}
+  .bar{height:6px;border-radius:3px;background:var(--chip);margin-top:14px;overflow:hidden;}
+  .bar > div{height:6px;background:var(--brand);}
+  .sheet-label{display:block;margin-top:16px;font-size:13px;font-weight:600;color:var(--text-muted);}
+  .date-chips{display:flex;gap:8px;margin-top:8px;}
+  .date-chips button{flex:1;border:1px solid var(--border);background:transparent;color:var(--text);font:inherit;font-size:14.5px;font-weight:600;padding:11px 0;min-height:46px;border-radius:12px;cursor:pointer;}
+  .date-chips button.active{border-color:var(--brand);background:var(--accent-bg);color:var(--brand-text);}
+  .money-field{display:flex;align-items:center;gap:6px;margin-top:8px;border:1px solid var(--border);border-radius:12px;padding:0 14px;min-height:50px;background:var(--input-bg);}
+  .money-field span{color:var(--text-muted);font-size:17px;}
+  .money-field input{flex:1;border:0 !important;box-shadow:none !important;outline:0;background:transparent;font-size:17px !important;padding:12px 0;min-width:0;}
+  .money-field:focus-within{border-color:var(--brand);box-shadow:0 0 0 3px color-mix(in srgb, var(--brand) 20%, transparent);}
+  .sheet-cta{width:100%;margin-top:18px;min-height:52px;border:0;border-radius:14px;background:var(--brand);color:var(--on-brand);font:inherit;font-size:16.5px;font-weight:650;cursor:pointer;}
+  .sheet-cta:focus-visible{outline:3px solid var(--brand-text);outline-offset:2px;}
+  .state-box{margin-top:16px;display:flex;align-items:flex-start;gap:8px;border-radius:12px;padding:12px;font-weight:600;font-size:14.5px;background:var(--chip);color:var(--text);}
+  .state-box.done{background:var(--green-bg);color:var(--green);}
+  .sheet-links{display:flex;justify-content:space-between;flex-wrap:wrap;gap:0 12px;margin-top:6px;}
+  .sheet-close{position:absolute;top:10px;right:10px;width:44px;height:44px;display:flex;align-items:center;justify-content:center;border:0;background:none;color:var(--text-muted);cursor:pointer;border-radius:50%;}
+  .modal.sheet{position:relative;}
+  .more-foot{text-align:center;color:var(--text-muted);font-size:12.5px;margin:22px 0 8px;}
+  .opt-row input{width:auto !important;margin:0;}
+
+  /* ---- Toast ---- */
+  .toast{background:var(--toast-bg);color:var(--toast-fg);font-weight:600;}
+
+  /* ---- Tab bar (phones) ---- */
+  .tabbar{display:none;}
+  @media (max-width:900px){
+    .sidebar{display:none !important;}
+    .main{margin-left:0;padding:calc(6px + env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) calc(var(--tabbar-h) + 34px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)) !important;}
+    .tabbar{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));position:fixed;left:0;right:0;bottom:0;z-index:40;
+      background:var(--tab);border-top:1px solid var(--border);padding:6px max(4px, env(safe-area-inset-right)) env(safe-area-inset-bottom) max(4px, env(safe-area-inset-left));
+      -webkit-backdrop-filter:saturate(1.6) blur(14px);backdrop-filter:saturate(1.6) blur(14px);}
+    .tabbar button{position:relative;border:0;background:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--text-muted);font:inherit;font-size:11px;font-weight:600;cursor:pointer;min-height:50px;padding:2px 0 4px;}
+    .tabbar button.active{color:var(--brand-text);}
+    .tabbar .tab-dot{position:absolute;top:4px;left:calc(50% + 8px);margin:0;width:8px;height:8px;}
+    .topbar p.desc{display:none;}
+    .topbar{padding-top:14px;}
+    .toast{left:16px;right:16px;bottom:calc(var(--tabbar-h) + 14px + env(safe-area-inset-bottom));text-align:left;padding:13px 16px;font-size:14.5px;border-radius:14px;}
+    .btn{min-height:44px;}
+    .btn-sm{min-height:40px;}
+    .chip-row button, .setup-tabs button{min-height:44px;}
+    .desk-only{display:none !important;}
+    /* modals become bottom sheets */
+    .overlay{align-items:flex-end !important;padding:0 !important;background:var(--scrim);}
+    .overlay.open .modal{animation:sheetup .22s ease-out;}
+    .modal{max-width:100% !important;width:100%;border-radius:22px 22px 0 0 !important;max-height:calc(100dvh - 20px - env(safe-area-inset-top)) !important;padding-bottom:0;position:relative;}
+    .modal::before{content:"";display:block;width:38px;height:5px;border-radius:3px;background:var(--border);margin:8px auto 0;}
+    .modal-head{border-bottom:0;padding:10px 20px 4px;}
+    .modal-body{padding:12px 20px 16px;}
+    .modal-foot{position:sticky;bottom:0;background:var(--card-bg);padding:12px 20px calc(12px + env(safe-area-inset-bottom));border-top:1px solid var(--border);}
+    .modal-foot .btn{flex:1;justify-content:center;min-height:48px;}
+    .modal.sheet .sheet-pad{padding-bottom:calc(16px + env(safe-area-inset-bottom));}
+    @keyframes sheetup{from{transform:translateY(40px);opacity:.4;}to{transform:none;opacity:1;}}
+  }
+  @media (min-width:901px){
+    .main{max-width:1180px;padding-top:22px;}
+    .phone-only{display:none !important;}
+    .content-narrow{max-width:760px;}
+    .home-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:0 28px;align-items:start;}
+    .carousel{flex-wrap:wrap;overflow:visible;margin:0;padding:0;}
+    .filter-row{flex-wrap:wrap;overflow:visible;margin:10px 0 0;padding:0;}
+    .modal.sheet .sheet-pad{padding:18px 22px 20px;}
+    .sheet-close{top:12px;right:12px;}
+  }
 </style>
 </head>
 <body>
@@ -641,62 +852,67 @@
 </script>
 
 <div class="app">
+  <!-- v2.5: desktop sidebar (hidden on phones, which use the bottom tab bar below) -->
   <div class="sidebar">
     <div class="brand">
-      <div class="logo"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21V8l8-5 8 5v13M4 21h16M9 21v-6h6v6M9 11h.01M9 15h.01M15 11h.01M15 15h.01"/></svg></div>
+      <div class="logo"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 21V8l8-5 8 5v13M4 21h16M9 21v-6h6v6M9 11h.01M9 15h.01M15 11h.01M15 15h.01"/></svg></div>
       <div>
         <div class="title">Point Tracker<span class="version-tag" data-app-version></span></div>
         <div class="sub">Credits &amp; free nights</div>
       </div>
     </div>
     <div class="nav" id="nav">
-      <button data-view="dashboard" class="active"><span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M12 20V4M20 20v-6"/></svg></span> Dashboard</button>
-      <button data-view="credits"><span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg></span> Annual Credits</button>
-      <button data-view="freenights"><span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg></span> Free Nights</button>
-      <button data-view="mileage"><span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l18-8-8 18-2-8-8-2z"/></svg></span> Miles &amp; Vouchers</button>
-      <button data-view="history"><span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/></svg></span> Redemption Log</button>
+      <button data-view="dashboard" data-tab="home" class="active"><span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5L12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg></span> Home</button>
+      <button data-view="credits" data-tab="credits"><span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M3 10h18M7 15h4"/></svg></span> Credits</button>
+      <button data-view="freenights" data-tab="nights"><span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg></span> Free nights</button>
+      <button data-view="mileage" data-tab="miles"><span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.5 13.5L3 11l1.5-1.5 7 1L16 6c1-1 2.8-1.3 3.5-.5s.5 2.5-.5 3.5l-4.5 4.5 1 7L14 22l-2.5-7.5z"/></svg></span> Miles</button>
+      <button data-view="history"><span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/></svg></span> Redemption log</button>
       <div class="nav-section">Setup</div>
-      <button data-view="setupCards" class="nav-setup-item"><span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg></span> Cards &amp; fees <span class="setup-dot" data-setup-dot></span></button>
-      <button data-view="setupCredits" class="nav-setup-item"><span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg></span> Credits</button>
-      <button data-view="setupFreeNights" class="nav-setup-item"><span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg></span> Free nights</button>
-      <button data-view="setupValues" class="nav-setup-item"><span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span> Values &amp; alerts</button>
-      <button data-view="setupCards" data-view-group="setup" class="nav-setup-mobile"><span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span> Setup <span class="setup-dot" data-setup-dot></span></button>
+      <button data-view="setupCards"><span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg></span> Cards &amp; fees <span class="setup-dot" data-setup-dot></span></button>
+      <button data-view="setupCredits"><span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg></span> Credits</button>
+      <button data-view="setupFreeNights"><span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg></span> Free nights</button>
+      <button data-view="setupValues"><span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></span> Values &amp; alerts</button>
+      <div class="nav-section">Data</div>
+      <button id="backupsBtn" type="button"><span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg></span> Backups</button>
+      <button id="exportBtn" type="button"><span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v13m0 0l-5-5m5 5l5-5"/><path d="M4 21h16"/></svg></span> Export a copy</button>
+      <button id="importBtn" type="button"><span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21V8m0 0l-5 5m5-5l5 5"/><path d="M4 3h16"/></svg></span> Import from file</button>
+      <button id="themeToggleBtn" type="button"><span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor"/></svg></span> Theme: <span data-theme-label>Match system</span></button>
     </div>
-    <div class="sidebar-foot">
-      Synced automatically across your devices.<br>Export is still a good idea as a backup.
-    </div>
+    <div class="sidebar-foot">Point Tracker <span data-app-version></span> · <span data-sync-text>not synced yet</span></div>
   </div>
 
   <div class="main">
     <div id="updateBanner" class="update-banner" role="status"><span id="updateBannerText">A new version is available.</span><button class="btn btn-sm btn-primary" id="updateBannerBtn">Update now</button></div>
     <div id="dataRiskWarning" class="data-risk-warning" style="display:none;">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;"><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg> Couldn't confirm your saved data yet, and this looks like a fresh browser/device with nothing cached locally. What you're seeing right now may just be sample data, not your real cards. <strong>Avoid making changes until this reconnects</strong> — reload once you're back online to load your real data safely.
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;" aria-hidden="true"><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg> Couldn't confirm your saved data yet, and this looks like a fresh browser/device with nothing cached locally. What you're seeing right now may just be sample data, not your real cards. <strong>Avoid making changes until this reconnects</strong> — reload once you're back online to load your real data safely.
     </div>
     <div id="backupReminder" class="backup-reminder" style="display:none;">
-      <span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg> You've made a few changes since your last backup.</span>
+      <span>You've made a few changes since your last backup.</span>
       <button class="btn btn-sm btn-primary" id="backupReminderBtn">Backup now</button>
-      <button class="close-x" id="backupReminderDismiss" title="Dismiss for now"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+      <button class="close-x" id="backupReminderDismiss" title="Dismiss for now" aria-label="Dismiss"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
     </div>
-    <div class="mobile-brand-bar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21V8l8-5 8 5v13M4 21h16M9 21v-6h6v6M9 11h.01M9 15h.01M15 11h.01M15 15h.01"/></svg> Point Tracker<span class="version-tag" data-app-version></span></div>
+    <!-- v2.5: compact large-title header. Eyebrow = date / back link; action = Sort, + Add, Edit… -->
     <div class="topbar">
-      <div>
-        <h1 id="pageTitle">Dashboard</h1>
-        <p class="desc" id="pageDesc">Fee vs. redemptions logged, by card.</p>
+      <div class="topbar-text">
+        <div class="eyebrow" id="pageEyebrow"></div>
+        <div class="title-line"><h1 id="pageTitle">Today</h1><span id="syncStatus" class="sync-status" role="status"></span></div>
+        <p class="desc" id="pageDesc"></p>
       </div>
-      <div class="topbar-actions">
-        <button class="btn btn-sm" id="themeToggleBtn" title="Toggle dark mode"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg></button>
-        <span id="syncStatus" class="sync-status"></span>
-        <button class="btn btn-sm" id="backupsBtn" title="View or create backups"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg><span class="btn-label"> Backups</span></button>
-        <button class="btn" id="exportBtn" title="Export a backup JSON file"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M12 3v13m0 0l-5-5m5 5l5-5"/><path d="M4 21h16"/></svg><span class="btn-label"> Export</span></button>
-        <button class="btn" id="importBtn" title="Import a backup JSON file"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M12 21V8m0 0l-5 5m5-5l5 5"/><path d="M4 3h16"/></svg><span class="btn-label"> Import</span></button>
-        <input type="file" id="importFile" accept="application/json" style="display:none;">
-      </div>
+      <div class="topbar-actions" id="pageAction"></div>
     </div>
-
-
+    <input type="file" id="importFile" accept="application/json" style="display:none;">
     <div id="content"></div>
   </div>
 </div>
+
+<!-- v2.5: phone tab bar -->
+<nav class="tabbar" id="tabbar" aria-label="Main">
+  <button data-view="dashboard" data-tab="home"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5L12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg><span>Home</span></button>
+  <button data-view="credits" data-tab="credits"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M3 10h18M7 15h4"/></svg><span>Credits</span></button>
+  <button data-view="freenights" data-tab="nights"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg><span>Nights</span></button>
+  <button data-view="mileage" data-tab="miles"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.5 13.5L3 11l1.5-1.5 7 1L16 6c1-1 2.8-1.3 3.5-.5s.5 2.5-.5 3.5l-4.5 4.5 1 7L14 22l-2.5-7.5z"/></svg><span>Miles</span></button>
+  <button data-view="more" data-tab="more"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg><span>More</span><span class="setup-dot tab-dot" data-setup-dot></span></button>
+</nav>
 
 <div class="overlay" id="overlay">
   <div class="modal" id="modalBox"></div>
@@ -774,7 +990,7 @@ const SEED = {
    ============================================================ */
 // Shown next to the app name (sidebar + mobile header) and stamped into
 // exported backups. Bump this one line on each deployment.
-const APP_VERSION = 'v2.4';
+const APP_VERSION = 'v2.5';
 const STORE_KEY = 'hotelCardTrackerData_v1';
 const SYNCED_AT_KEY = STORE_KEY + '_syncedAt';
 const DIRTY_KEY = STORE_KEY + '_dirty'; // FIX: persists across reloads/tab-closes
@@ -1264,10 +1480,15 @@ function setSyncStatus(state){
   const el = document.getElementById('syncStatus');
   if(!el) return;
   const shown = (state === 'synced' && liveConnected) ? 'live' : state;
-  const label = {syncing:'Syncing…', synced:'Synced', live:'Live', offline:'Offline — saved locally'}[shown] || '';
+  const label = {syncing:'Syncing…', synced:'Synced', live:'Live', offline:'Offline'}[shown] || '';
   el.textContent = label;
-  el.className = 'sync-status sync-' + (shown === 'live' ? 'synced' : shown);
-  el.title = shown === 'live' ? 'Changes from your other devices show up here automatically' : '';
+  el.className = 'sync-status sync-' + shown; // v2.5: small dot + word next to the title
+  el.title = shown === 'live' ? 'Changes from your other devices show up here automatically' : shown === 'offline' ? 'Offline — changes are saved on this device and sync when you\'re back online' : '';
+  document.querySelectorAll('[data-sync-text]').forEach(x=>x.textContent = syncText());
+}
+function syncText(){
+  const shown = (lastSyncState === 'synced' && liveConnected) ? 'live' : lastSyncState;
+  return {syncing:'syncing…', synced:'synced across your devices', live:'synced live across your devices', offline:'offline — saved on this device'}[shown] || 'not synced yet';
 }
 
 // Fetch the shared row from Supabase.
@@ -2816,15 +3037,17 @@ function valueRealizedForCardYear(cardId, year){
    VIEWS
    ============================================================ */
 const views = {
-  dashboard: { title:'Dashboard', desc:'Fee vs. redemptions logged, by card, for the selected year.', render: renderDashboard },
-  setupCards: { title:'Setup · Cards & fees', desc:'Your cards, the fee you paid each year, fee dates, and closing a card.', render: renderSetupCards },
-  setupCredits: { title:'Setup · Credits', desc:'What each statement credit is worth, when it resets, and how it is used.', render: renderSetupCredits },
-  setupValues: { title:'Setup · Values & alerts', desc:'What your miles are worth, and reminder notifications on this device.', render: renderSetupValues },
-  setupFreeNights: { title:'Setup · Free nights', desc:'Free night certificates: renewal date, how many per year, and one-off certificates.', render: renderSetupFreeNights },
-  credits: { title:'Annual Credits', desc:'Recurring statement credits. Status and days-remaining update automatically as time passes.', render: renderCredits },
-  freenights: { title:'Free Nights', desc:'Free night certificates and awards — track issue dates, expirations, and bookings.', render: renderFreeNights },
-  mileage: { title:'Miles & Vouchers', desc:'Manually-tracked mileage balances and vouchers, shared across family members.', render: renderMileage },
-  history: { title:'Redemption Log', desc:'Permanent record of every credit and free night you\'ve actually used.', render: renderHistory },
+  dashboard: { title:'Today', desc:'', render: renderDashboard },
+  card: { title:'Card', desc:'', render: renderCardPage },
+  more: { title:'More', desc:'', render: renderMore },
+  setupCards: { title:'Cards & fees', desc:'Your cards, the fee you paid each year, fee dates, and closing a card.', render: renderSetupCards },
+  setupCredits: { title:'Setup credits', desc:'What each statement credit is worth, when it resets, and how it is used.', render: renderSetupCredits },
+  setupValues: { title:'Values & alerts', desc:'What your miles are worth, and reminder notifications on this device.', render: renderSetupValues },
+  setupFreeNights: { title:'Setup free nights', desc:'Free night certificates: renewal date, how many per year, and one-off certificates.', render: renderSetupFreeNights },
+  credits: { title:'Credits', desc:'', render: renderCredits },
+  freenights: { title:'Free nights', desc:'', render: renderFreeNights },
+  mileage: { title:'Miles', desc:'', render: renderMileage },
+  history: { title:'Redemption log', desc:'Every credit and free night you\'ve actually used.', render: renderHistory },
 };
 let currentView = 'dashboard';
 let creditsSortMode = 'daysLeft'; // 'daysLeft' | 'value' | 'manual'
@@ -2909,7 +3132,7 @@ function makeDragReorderable(container, rowSelector, getId, onReordered){
       // v2.3.1 (L1): a tap on the handle without moving anything is not a
       // reorder — don't switch to manual order or save.
       const ids = rows().map(getId);
-      if(ids.join('\u0000') !== orderAtStart) onReordered(ids);
+      if(ids.join('\u0000') !== orderAtStart){ lastDragEnd = Date.now(); onReordered(ids); }
     };
 
     handle.addEventListener('pointerdown', (e)=>{
@@ -2936,12 +3159,28 @@ function makeDragReorderable(container, rowSelector, getId, onReordered){
   });
 }
 
+// v2.5: 'card:<id>' opens a card's page; 'dashboard' is the Home screen.
+let currentCardId = null, prevView = 'dashboard';
+const TAB_OF = {dashboard:'home', credits:'credits', freenights:'nights', mileage:'miles'};
 function switchView(v){
+  if(typeof v === 'string' && v.startsWith('card:')){ currentCardId = v.slice(5); if(currentView !== 'card') prevView = currentView; v = 'card'; }
+  if(!views[v]) v = 'dashboard';
+  const changed = v !== currentView;
   currentView = v;
-  document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active', b.dataset.viewGroup==='setup' ? v.startsWith('setup') : b.dataset.view===v));
+  document.body.dataset.view = v;
+  const base = v === 'card' ? prevView : v;
+  const tab = TAB_OF[base] || 'more';
+  document.querySelectorAll('#tabbar button').forEach(b=>{ const on = b.dataset.tab === tab; b.classList.toggle('active', on); if(on) b.setAttribute('aria-current','page'); else b.removeAttribute('aria-current'); });
+  document.querySelectorAll('#nav button[data-view]').forEach(b=>b.classList.toggle('active', b.dataset.view === base));
   updateSetupDot();
   document.getElementById('pageTitle').textContent = views[v].title;
-  document.getElementById('pageDesc').textContent = views[v].desc;
+  document.getElementById('pageDesc').textContent = views[v].desc || '';
+  // Default header: Home shows today's date; screens under More get a back link on phones.
+  const eyebrow = v === 'dashboard' ? escHtml(bangkokToday().toLocaleDateString('en-GB', {weekday:'long', day:'numeric', month:'long'}))
+    : (TAB_OF[v] || v === 'more' || v === 'card') ? '' : `<button class="link back-link phone-only" data-back-more>${BACK_SVG}More</button>`;
+  setHeader({eyebrow, action:''});
+  const bm = document.querySelector('[data-back-more]'); if(bm) bm.onclick = ()=>switchView('more');
+  if(changed) window.scrollTo(0, 0);
   views[v].render();
 }
 
@@ -2998,65 +3237,18 @@ function renderDashboard(){
   const totalNet = totalValue - totalFee;
   const worthKeeping = rows.filter(r=>r.net>=0).length;
 
-  const reminders = computeUpcomingReminders();
+  // v2.5: Home = hero, needs attention, the year's numbers and the card
+  // carousel on top; the fee-vs-redeemed chart and by-card table below.
   const content = document.getElementById('content');
-  content.innerHTML = `
-    ${reminders.length ? `
-    <div class="panel reminder-banner">
-      <div class="panel-body" style="padding:14px 20px;display:flex;flex-direction:column;gap:12px;">
-        ${(()=>{
-          // FIX: this used to filter into just `expiring` (everything
-          // non-fee) and `fees`, then rely on a per-row strikethrough to
-          // signal "actually already expired" — so the section header
-          // still said "3 items expiring within 30 days" even when one of
-          // those 3 had expired weeks ago. Now split into three groups so
-          // the header itself is accurate for each one.
-          const expiring = reminders.filter(r=>!r.isFee && !r.isExpired);
-          const expired = reminders.filter(r=>!r.isFee && r.isExpired);
-          const fees = reminders.filter(r=>r.isFee);
-
-          const row = (icon, html) => `<div style="display:flex;align-items:flex-start;gap:10px;">
-            <span style="line-height:1.4;color:var(--red);">${icon}</span>
-            <div style="font-size:13.5px;line-height:1.6;">${html}</div>
-          </div>`;
-
-          const bellIcon = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>`;
-          const expiredIcon = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6M9 9l6 6"/></svg>`;
-          const feeIcon = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>`;
-
-          const expiringHtml = expiring.length ? row(bellIcon, `<strong>${expiring.length} item${expiring.length===1?'':'s'} expiring within 30 days:</strong> ${expiring.map(r=>
-            `${escHtml(r.name)} (${r.daysLeft}d left)`
-          ).join(' · ')}`) : '';
-
-          const expiredHtml = expired.length ? row(expiredIcon, `<strong>${expired.length} item${expired.length===1?'':'s'} expired, still unredeemed:</strong> ${expired.map(r=>
-            `<span style="text-decoration:line-through;color:var(--text-muted);">${escHtml(r.name)} (${Math.abs(r.daysLeft)}d ago)</span>`
-          ).join(' · ')}`) : '';
-
-          const feesHtml = fees.length ? row(feeIcon, `<strong>${fees.length} fee${fees.length===1?'':'s'} due within 30 days:</strong> ${fees.map(r=>
-            `${escHtml(r.name)} posts in ${r.daysLeft}d ($${r.amount.toLocaleString()})`
-          ).join(' · ')}`) : '';
-
-          return expiringHtml + feesHtml + expiredHtml;
-        })()}
-      </div>
-    </div>` : ''}
+  content.innerHTML = `${homeTopHtml(bangkokToday())}
+    <div class="home-extra">
+    <div class="sec"><span>Fee vs. redeemed by card · ${selectedYear}</span></div>
     ${issuers.length > 1 ? `<div class="chip-row" role="group" aria-label="Filter by card provider">
       ${['all', ...issuers].map(k=>`<button data-issuer="${escAttr(k)}" class="${k===dashboardIssuer?'active':''}" aria-pressed="${k===dashboardIssuer}">${k==='all'?'All':escHtml(k)}</button>`).join('')}
     </div>` : ''}
-    <div class="kpi-row">
-      <div class="kpi"><div class="label">Annual fees ${selectedYear}${anyFeeEst?' (incl. est.)':''}</div><div class="value">$${totalFee.toLocaleString()}</div></div>
-      <div class="kpi"><div class="label">Redeemed in ${selectedYear}</div><div class="value">$${totalValue.toLocaleString()}</div></div>
-      <div class="kpi"><div class="label">Net</div><div class="value ${totalNet>=0?'pos':'neg'}">${totalNet>=0?'+':'-'}$${Math.abs(totalNet).toLocaleString()}</div></div>
-      <div class="kpi"><div class="label">Cards worth keeping</div><div class="value">${worthKeeping} / ${rows.length}</div></div>
-    </div>
-    <div class="hint" style="margin:-4px 2px 16px;">This reflects redemptions logged with a date in ${selectedYear} — switching years here doesn't add, remove, or expire any credits, free nights, or vouchers. Those always show up based on their own dates, everywhere else in the app, regardless of what year is selected here. Fees are that year's own fees, and only cards you held that year are shown.${anyFeeEst?' Fees marked <em>est.</em> were copied from the previous year and are not confirmed yet — confirm them in Setup › Cards &amp; fees.':''}</div>
-
     <div class="panel">
       <div class="panel-head" style="display:flex;justify-content:space-between;align-items:center;">
-        <h2>Fee vs. redemptions logged</h2>
-        <select id="dashboardYearSelect" style="background:var(--gray-bg);border:1px solid var(--border);color:var(--text);font-size:12.5px;font-weight:600;border-radius:20px;padding:5px 10px;cursor:pointer;">
-          ${allYears().map(y=>`<option value="${y}" ${y===selectedYear?'selected':''}>${y}</option>`).join('')}
-        </select>
+        <h2>Fee vs. redemptions logged</h2>${anyFeeEst?'<span class="hint" title="Fees marked est. were copied from the previous year and are not confirmed yet — confirm them in Setup › Cards &amp; fees.">est. = not confirmed</span>':''}
       </div>
       <div class="chart-wrap dashboard-chart-desktop" style="height:${rows.length * 64 + 110}px;"><canvas id="feeChart"></canvas></div>
       <!-- MOBILE: the rotated-label bar chart above becomes unreadable at
@@ -3091,7 +3283,7 @@ function renderDashboard(){
       </div>
     </div>
 
-    <div class="panel">
+    <div class="panel desk-only">
       <div class="panel-head"><h2>By card</h2></div>
       <div class="panel-body">
         <div class="table-scroll dashboard-table">
@@ -3132,9 +3324,11 @@ function renderDashboard(){
     <div style="text-align:center;color:var(--text-soft);font-size:11px;margin:18px 0 8px;">· · ·</div>
     <div style="display:flex;align-items:center;justify-content:center;gap:8px;padding:10px 14px 20px;flex-wrap:wrap;">
       <span style="font-size:11.5px;color:var(--text-soft);">Data cleanup:</span>
-      <button class="btn btn-sm" id="deleteYearBtn" style="background:transparent;border:1px solid var(--red-bg);color:var(--red);font-size:11.5px;padding:4px 10px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M4 7h16M9 7V4h6v3M6 7l1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13"/></svg> Delete year data</button>
+      <button class="btn btn-sm" id="deleteYearBtn" style="background:transparent;border:1px solid var(--red-bg);color:var(--red);font-size:12.5px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M4 7h16M9 7V4h6v3M6 7l1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13"/></svg> Delete year data</button>
+    </div>
     </div>
   `;
+  wireHomeTop();
 
   document.getElementById('dashboardYearSelect').onchange = (e)=>{ selectedYear = Number(e.target.value); switchView(currentView); };
   document.querySelectorAll('[data-issuer]').forEach(b=>b.onclick=()=>{ dashboardIssuer = b.dataset.issuer; renderDashboard(); });
@@ -3347,6 +3541,7 @@ function renderSetupCards(){
       </div>
       <div class="actions">
         ${unconfirmed ? `<button class="btn btn-sm btn-primary" data-confirm-fee="${escAttr(c.id)}">Confirm ${today.getFullYear()} fee</button>` : ''}
+        <button class="btn btn-sm" data-view-card="${escAttr(c.id)}">View</button>
         <button class="btn btn-sm" data-edit-card="${escAttr(c.id)}">Edit</button>
         ${c.closedDate ? `<button class="btn btn-sm" data-reopen-card="${escAttr(c.id)}">Reopen</button>` : `<button class="btn btn-sm" data-close-card="${escAttr(c.id)}">Close card</button>`}
         ${hasHistory ? '' : `<button class="btn btn-sm btn-danger" data-del-card="${escAttr(c.id)}" title="Only cards with no redemptions can be deleted">Delete</button>`}
@@ -3361,6 +3556,7 @@ function renderSetupCards(){
     <div class="hint" style="margin:-6px 4px 12px;">Each year keeps its own fee, so changing a fee never rewrites a past year. Cards with redemptions can't be deleted — close them instead, so past years stay correct. The app keeps 10 years (${retentionKeepFrom()}–${bangkokToday().getFullYear()}); older data is archived (Backups + a downloaded file) and removed automatically.</div>`);
   document.getElementById('addCardBtn').onclick = ()=>openCardModal();
   document.querySelectorAll('[data-edit-card]').forEach(b=>b.onclick=()=>openCardModal(b.dataset.editCard));
+  document.querySelectorAll('[data-view-card]').forEach(b=>b.onclick=()=>switchView('card:' + b.dataset.viewCard));
   document.querySelectorAll('[data-close-card]').forEach(b=>b.onclick=()=>openCloseCardModal(b.dataset.closeCard));
   document.querySelectorAll('[data-reopen-card]').forEach(b=>b.onclick=()=>{
     const c = cardById(b.dataset.reopenCard);
@@ -3388,6 +3584,7 @@ function openCardModal(id){
     ${modalHead(editing?'Edit card':'Add card')}
     <div class="modal-body">
       <div class="field"><label>Card name</label><input id="f_name" value="${escAttr(c.name)}"></div>
+      <div class="field"><label for="f_short">Short name (optional)</label><input id="f_short" value="${escAttr(c.shortName||'')}" placeholder="${escAttr(c.name ? autoShortName(c.name, c.issuer) : 'e.g. Venture X')}"><div class="hint">Shown on Home, the card tiles and list rows. Leave blank to shorten the name automatically.</div></div>
       <div class="field-row">
         <div class="field"><label>Issuer</label><input id="f_issuer" value="${escAttr(c.issuer||'')}"></div>
         <div class="field"><label>Rewards program</label><input id="f_program" value="${escAttr(c.program||'')}"></div>
@@ -3450,7 +3647,9 @@ function openCardModal(id){
     // Keep the legacy single `fee` in step with this year's fee — older
     // copies of the app and anything else reading `fee` stay sensible.
     obj.fee = feeInfoForYear(obj, thisYear).amount;
-    if(editing){ const i = DATA.cards.findIndex(x=>x.id===id); if(i < 0){ toast('This item was deleted on another device, so your change wasn’t saved.'); closeModal(); return; } DATA.cards[i] = {...DATA.cards[i], ...obj}; }
+    const shortName = val('f_short').trim(); // v2.5: optional; blank = automatic
+    if(shortName) obj.shortName = shortName;
+    if(editing){ const i = DATA.cards.findIndex(x=>x.id===id); if(i < 0){ toast('This item was deleted on another device, so your change wasn’t saved.'); closeModal(); return; } DATA.cards[i] = {...DATA.cards[i], ...obj}; if(!obj.shortName) delete DATA.cards[i].shortName; }
     else DATA.cards.push(obj);
     saveData(); closeModal(); views[currentView].render(); toast('Card saved');
   };
@@ -3823,297 +4022,361 @@ function openFnModal(id){
   };
 }
 
-/* ---------- Annual Credits ---------- */
-function sortedCreditsList(today){
-  const withCycle = DATA.credits.map(cr=>{
-    // DESIGN FIX: this used to switch between the live cycle and a static
-    // "preview" cycle depending on whether the top-level year selector
-    // matched this credit's own live-cycle year — cycleForSelectedYear()
-    // was built to let this tab preview a different year's schedule. In
-    // practice this caused real, repeated confusion: any credit anchored
-    // in the second half of the year shows a live cycle spanning a year
-    // boundary (e.g. Aug 2025 -> Aug 2026), so it silently flips into the
-    // static "preview" view for a large chunk of the year whenever the
-    // selector sits on the "wrong" year relative to that one credit —
-    // while every Jan-1-anchored credit keeps showing live normally. The
-    // same credit going in and out of "live" as time passes, purely based
-    // on an unrelated dropdown elsewhere on the page, isn't something
-    // anyone should have to reason about. This tab now always shows each
-    // credit's real, current status — full stop. The year selector still
-    // does something real: it controls the *historical* value-realized
-    // totals on the Dashboard and Cards tab, which is a genuinely
-    // different, backward-looking question ("how much did I get in
-    // 2025?") from "what's this credit's status right now?".
-    const cycle = creditCycle(cr, today);
-    return {cr, cycle, isLive: !!cycle};
-  }).filter(item=>creditIsLive(item.cr, today)); // v2.1: closed cards / ended benefits live only in Setup
-  if(creditsSortMode === 'value'){
-    withCycle.sort((a,b)=> b.cr.value - a.cr.value);
-  } else if(creditsSortMode === 'daysLeft'){
-    withCycle.sort((a,b)=>{
-      // v2.2.3: still to use (soonest first) → not started yet → every-stay → expired unused → used up / no date
-      const rank = x => {
-        if(creditUsage(x.cr)==='perstay') return [2, 0];
-        if(!x.cycle) return [5, 0];
-        if(today < x.cycle.start) return [1, x.cycle.start - today];
-        if(creditProgress(x.cr, x.cycle).done) return [4, daysBetween(today, x.cycle.end)];
-        const d = daysBetween(today, x.cycle.end);
-        return d < 0 ? [3, -d] : [0, d];
-      };
-      const ra = rank(a), rb = rank(b);
-      return ra[0] - rb[0] || ra[1] - rb[1];
-    });
-  }
-  // 'manual' mode: keep DATA.credits array order as-is
-  return withCycle;
+/* ============================================================
+   v2.5 UI HELPERS — shared by Home, Credits, Nights, Miles, card page.
+   Display only: nothing here changes DATA.
+   ============================================================ */
+const ISSUER_STYLES = [
+  { m:/american express|\bamex\b/i, color:'#016FD0', label:'AMEX' },
+  { m:/chase/i,                     color:'#117ACA', label:'CHASE' },
+  { m:/\bciti/i,                    color:'#003D79', label:'CITI' },
+  { m:/capital one/i,               color:'#D22630', label:'CAPITAL ONE' },
+];
+function issuerStyle(issuer){
+  const s = ISSUER_STYLES.find(x=>x.m.test(issuer||''));
+  if(s) return s;
+  const b = issuerBadge(issuer);
+  return { color: (b && !/^var\(/.test(b.bg)) ? b.bg : '#5f5e5a', label: b ? b.label : 'CARD' };
+}
+function cardColor(cardId){ const c = cardById(cardId); return c ? issuerStyle(c.issuer).color : '#8a8d94'; }
+// Short card name: the card's own "Short name" if set, else the name without
+// the issuer prefix, "Card"/"Credit Card" and (…) notes; "…22002" → "··22002".
+function autoShortName(name, issuer){
+  let s = String(name||'').trim();
+  const tail = (s.match(/(?:…|\.\.\.)\s*(\d{3,6})\s*$/) || [])[1];
+  s = s.replace(/(?:…|\.\.\.)\s*\d{3,6}\s*$/, '').replace(/\([^)]*\)/g, ' ');
+  s = s.replace(/\b(credit card|card)\b/ig, ' ');
+  const prefixes = ['american express','amex','chase','citi','capital one', String(issuer||'').toLowerCase()].filter(Boolean);
+  for(const p of prefixes){ if(s.toLowerCase().startsWith(p + ' ')){ s = s.slice(p.length); break; } }
+  s = s.replace(/\s+/g, ' ').trim() || String(name||'').trim();
+  return tail ? `${s} ••${tail}` : s; // "…22002" → "••22002" (reads clearer than ·· in this font)
+}
+function cardShort(c){ return c ? (String(c.shortName||'').trim() || autoShortName(c.name, c.issuer)) : '(no card)'; }
+function fmtMoney(n){ const v = Number(n)||0; return (v < 0 ? '−' : '') + '$' + Math.abs(v).toLocaleString('en-US', {maximumFractionDigits:2}); }
+function fmtSigned(n){ const v = Number(n)||0; return (v >= 0 ? '+' : '−') + '$' + Math.abs(v).toLocaleString('en-US', {maximumFractionDigits:2}); }
+function fmtDay(d, withYear){ if(!d) return '—'; return d.toLocaleDateString('en-GB', withYear ? {day:'numeric', month:'short', year:'numeric'} : {day:'numeric', month:'short'}); }
+function fmtDayAuto(d, today){ return fmtDay(d, !today || d.getFullYear() !== today.getFullYear()); }
+function lastDayOf(cycle){ const e = cycle.end; return new Date(e.getFullYear(), e.getMonth(), e.getDate() - 1); }
+function daysWord(n){ return n === 0 ? 'today' : n === 1 ? '1 day' : `${n} days`; }
+// Credit names often start with their own value ("$300 Annual Travel Credit");
+// the amount is shown separately, so drop it there (display only).
+function creditDisplayName(cr){
+  const name = String(cr.name||'').trim();
+  const m = name.match(/^\$\s?([\d,]+(?:\.\d+)?)\s+(.+)$/);
+  return (m && Number(m[1].replace(/,/g,'')) === Number(cr.value)) ? m[2] : name;
+}
+function fnDisplayName(fn){
+  const s = String(fn.desc||'').replace(/\s*[—–]\s.*$/, '').replace(/\s*\([^)]*\)\s*/g, ' ').replace(/\s+-\s+/g, ' · ').replace(/\s+/g,' ').trim();
+  return s || String(fn.desc||'Free night');
+}
+const FREQ_WORD = {'Annual':'year', 'Semi-Annual':'half-year', 'Quarterly':'quarter'};
+function isDismissed(key){ return !!(DATA.dismissedAlerts && DATA.dismissedAlerts[key]); }
+function missedCreditKey(cr, cycle){ return `missed:${cr.id}:${toISODate(cycle.start)}`; }
+function missedFnKey(fn, cycle){ return `missedfn:${fn.id}:${toISODate(cycle.start)}`; }
+// Dismissals sync like everything else (DATA.dismissedAlerts, merged key by
+// key). Keys carry the period/deadline, so the next period alerts again.
+// Entries older than a year are tidied away whenever something is dismissed.
+function dismissAlert(key){
+  const today = bangkokToday();
+  const keep = {};
+  Object.entries(DATA.dismissedAlerts||{}).forEach(([k, d])=>{ const dd = parseDate(d); if(dd && daysBetween(dd, today) <= 400) keep[k] = d; });
+  keep[key] = toISODate(today);
+  DATA.dismissedAlerts = keep;
+  saveData();
 }
 
-// Builds one credit row's HTML. Split out from renderCredits() so the exact
-// same row markup can be used whether the list is flat or grouped by card —
-// grouping only changes how rows are arranged/labeled, never what a row
-// itself looks like or does.
-function renderCreditRowHtml(today, {cr, cycle, isLive}, showDragHandle){
-  // v2.1: one row, three behaviours depending on how the credit is used
-  // (decision D9): once per period, spend down to the value, or every stay.
-  const card = cardById(cr.cardId);
+/* One credit's state for the new Credits screen / Home / card page. */
+function creditState(cr, today){
+  const cycle = creditCycle(cr, today);
   const prog = creditProgress(cr, cycle);
-  const usage = prog.usage;
-  const isRedeemed = prog.done;
-  const isPartial = usage === 'spenddown' && prog.count > 0 && !prog.done;
-  const hasAnyHistory = !cycle && DATA.history.some(h=>h.sourceId===cr.id);
-  const notStarted = !!(cycle && today < cycle.start);
-  const daysLeft = (cycle && isLive && usage !== 'perstay') ? daysBetween(today, cycle.end) : null;
-  const isExpired = daysLeft !== null && daysLeft < 0 && !isRedeemed;
-  const yr = today.getFullYear();
-  let pill;
-  if(usage === 'perstay'){ pill = prog.count ? {label:`${prog.count} stay${prog.count===1?'':'s'} in ${yr}`, cls:'pill-green'} : {label:`No stays yet in ${yr}`, cls:'pill-gray'}; }
-  else if(!cycle && hasAnyHistory){ pill = {label:'Logged', cls:'pill-green'}; }
-  else if(!cycle){ pill = {label:'No start date', cls:'pill-gray'}; }
-  else if(notStarted){ pill = {label:`Starts ${fmtDate(cycle.start)}`, cls:'pill-gray'}; }
-  else if(isRedeemed){ pill = {label:'Redeemed', cls:'pill-green'}; }
-  else if(isExpired){ pill = {label: isPartial ? `Expired · $${prog.remaining.toLocaleString()} unused` : 'Expired', cls:'pill-gray'}; }
-  else if(isPartial){ pill = {label:`$${prog.remaining.toLocaleString()} left`, cls:'pill-amber'}; }
-  else if(isLive){ pill = statusForDays(daysBetween(today, cycle.end), 60); }
-  else { pill = {label:'Not redeemed', cls:'pill-gray'}; }
-  let progressPct = null;
-  if(usage === 'spenddown' && cycle && !notStarted && Number(cr.value) > 0){
-    progressPct = Math.max(0, Math.min(100, Math.round((prog.used / Number(cr.value))*100)));
-  } else if(usage === 'once' && cycle && isLive && !notStarted){
-    const total = cycle.nextStart - cycle.start;
-    const elapsed = today - cycle.start;
-    progressPct = Math.max(0, Math.min(100, Math.round((elapsed/total)*100)));
+  const st = {cr, cycle, prog, usage: prog.usage, days: null, endDay: null, kind: ''};
+  if(prog.usage === 'perstay'){ st.kind = 'stay'; return st; }
+  if(!cycle){ st.kind = 'nodate'; return st; }
+  if(today < cycle.start){ st.kind = 'next'; return st; }
+  st.days = daysBetween(today, cycle.end); st.endDay = lastDayOf(cycle);
+  if(prog.done){ st.kind = 'done'; return st; }
+  if(st.days < 0){ st.kind = 'missed'; st.dismissed = isDismissed(missedCreditKey(cr, cycle)); return st; }
+  st.kind = st.days <= 60 ? 'soon' : 'later';
+  return st;
+}
+function urgencyChip(days){ return days <= 14 ? 'chip-red' : days <= 60 ? 'chip-amber' : ''; }
+function creditRowParts(st, today, opts={}){
+  const {cr, prog} = st; const card = cardById(cr.cardId);
+  const short = cardShort(card); const val = fmtMoney(cr.value);
+  const amt = (st.usage === 'spenddown' && prog.count > 0) ? `${fmtMoney(prog.remaining)} left of ${val}` : val;
+  let sub, chip, chipCls = '', muted = false;
+  const lastUse = prog.entries.length ? parseDate(prog.entries.map(h=>h.date).sort().slice(-1)[0]) : null;
+  switch(st.kind){
+    case 'stay': sub = `${val} each eligible stay${prog.count ? ` · ${prog.count} this year` : ''}`; chip = 'Per stay'; break;
+    case 'nodate': sub = `${val} · no start date`; chip = 'No date'; break;
+    case 'next': sub = `${val} · starts ${fmtDay(st.cycle.start, true)}`; chip = fmtDayAuto(st.cycle.start, today); break;
+    case 'done': sub = `${fmtMoney(prog.used)} · used ${lastUse ? fmtDay(lastUse) : ''}${cr.autoRedeem ? ' · automatic' : ''}`; chip = 'Done'; chipCls = 'chip-green'; break;
+    case 'missed': sub = `${st.usage === 'spenddown' ? fmtMoney(prog.remaining) + ' unused' : val} · ended ${fmtDayAuto(st.endDay, today)}`; chip = 'Missed'; chipCls = 'chip-red'; muted = true; break;
+    case 'soon': sub = amt + (cr.autoRedeem ? ' · posts automatically' : ''); chip = `${st.days}d`; chipCls = urgencyChip(st.days); break;
+    default: sub = `${amt} · resets ${fmtDay(new Date(st.cycle.end), true)}`; chip = fmtDay(st.endDay);
   }
-  const usageLabel = usage === 'perstay' ? 'Every stay' : usage === 'spenddown' ? 'Spend down' : 'Once per period';
-  const renewalLabel = cr.renewalType === 'calendar' ? 'Calendar year' : 'Card anniversary';
-  const when = usage === 'perstay' ? 'no expiry'
-    : (cycle ? (notStarted ? `starts ${fmtDate(cycle.start)}` : `resets ${fmtDate(cycle.end)}`) : 'no start date set');
-  const notes = (prog.count && cycle) ? redemptionNotesInCycle(cr.id, cycle) : '';
-  const amountHtml = usage === 'perstay' ? `$${prog.used.toLocaleString()}`
-    : usage === 'spenddown' ? `$${prog.used.toLocaleString()}<span style="color:var(--text-soft);font-weight:500;"> / $${Number(cr.value).toLocaleString()}</span>`
-    : `$${Number(cr.value||0).toLocaleString()}`;
-  const canLog = cycle && !notStarted && !cr.autoRedeem && !isRedeemed;
-  const logLabel = usage === 'perstay' ? 'Log stay' : (usage === 'spenddown' && prog.count > 0) ? 'Log another use' : 'Mark redeemed';
-  const subtitleBits = usage === 'perstay'
-    ? [card?escHtml(card.name):'(unlinked)', usageLabel, when]
-    : [card?escHtml(card.name):'(unlinked)', escHtml(cr.frequency), renewalLabel, usageLabel, when];
-
-  return `
-  <div class="list-row" data-row-id="${escAttr(cr.id)}">
-    ${showDragHandle ? '<div class="drag-handle"><svg width="12" height="16" viewBox="0 0 12 16" fill="currentColor"><circle cx="3" cy="3" r="1.3"/><circle cx="9" cy="3" r="1.3"/><circle cx="3" cy="8" r="1.3"/><circle cx="9" cy="8" r="1.3"/><circle cx="3" cy="13" r="1.3"/><circle cx="9" cy="13" r="1.3"/></svg></div>' : '<div style="width:20px;"></div>'}
-    <div class="main-col">
-      <div class="title"${isExpired ? ' style="color:var(--text-muted);"' : ''}>${escHtml(cr.name)}</div>
-      <div class="subtitle">${subtitleBits.join(' · ')}${cr.autoRedeem?' · Auto-credited, no action needed':''}${notes ? ` · <span style="color:var(--text);">${usage==='once'?'Redeemed at':'Used at'}: ${escHtml(notes)}</span>` : ''}</div>
-      ${progressPct!==null ? `<div style="height:4px;background:var(--gray-bg);border-radius:2px;margin-top:6px;overflow:hidden;"><div style="height:100%;width:${progressPct}%;background:${(isRedeemed||usage==='spenddown')?'var(--green)':'var(--text-soft)'};"></div></div>` : ''}
-    </div>
-    <div class="row-break"></div>
-    <div class="amount">${amountHtml}</div>
-    <div><span class="pill ${pill.cls}">${pill.label}</span></div>
-    <div class="days">${daysLeft!==null && !notStarted ? (daysLeft>=0? daysLeft+' days left' : '') : ''}</div>
-    <div class="row-break"></div>
-    <div class="actions">
-      ${canLog ? `<button class="btn btn-sm btn-primary" data-mark-cr="${escAttr(cr.id)}">${logLabel}</button>` : ''}
-      ${!cycle ? `<button class="btn btn-sm btn-primary" data-mark-cr="${escAttr(cr.id)}">+ Log redemption</button>` : ''}
-      ${prog.count && usage !== 'perstay' ? `<button class="btn btn-sm" data-editredemption-cr="${escAttr(cr.id)}">Edit details</button>` : ''}
-      ${prog.count && usage !== 'perstay' ? `<button class="btn btn-sm btn-danger" data-unredeem-cr="${escAttr(cr.id)}">Unredeem</button>` : ''}
-      ${prog.count && usage === 'perstay' ? `<button class="btn btn-sm" data-stays-cr="${escAttr(cr.id)}">See stays</button>` : ''}
-      <button class="btn btn-sm btn-link" data-setup-cr="${escAttr(cr.id)}" title="Change this credit in Setup">Edit in Setup →</button>
-    </div>
+  return { title: creditDisplayName(cr), sub: (opts.noCard ? '' : short + ' · ') + sub, chip, chipCls, muted, dot: cardColor(cr.cardId) };
+}
+const DRAG_SVG = '<div class="drag-handle" aria-hidden="false"><svg width="12" height="16" viewBox="0 0 12 16" fill="currentColor"><circle cx="3" cy="3" r="1.3"/><circle cx="9" cy="3" r="1.3"/><circle cx="3" cy="8" r="1.3"/><circle cx="9" cy="8" r="1.3"/><circle cx="3" cy="13" r="1.3"/><circle cx="9" cy="13" r="1.3"/></svg></div>';
+// One tappable list row. `attrs` carries data-* hooks (data-row-id, data-mark-cr…).
+function uiRow(p){
+  return `<div class="row" role="button" tabindex="0" ${p.attrs||''}>
+    ${p.handle ? DRAG_SVG : ''}${p.lead || (p.dot ? `<span class="dot" style="background:${escAttr(p.dot)}"></span>` : '')}
+    <span class="r-main"><span class="r-title${p.muted?' muted':''}">${escHtml(p.title)}</span>${p.sub ? `<span class="r-sub num">${escHtml(p.sub)}</span>` : ''}</span>
+    ${p.chip !== undefined && p.chip !== null && p.chip !== '' ? `<span class="chip num ${p.chipCls||''}">${escHtml(p.chip)}</span>` : ''}${p.right ? `<span class="r-right num">${p.right}</span>` : ''}
   </div>`;
 }
+let lastDragEnd = 0;
+// Rows are <div role=button>: make Enter/Space work, and ignore the click that
+// ends a drag.
+function wireRows(root, selector, fn){
+  root.querySelectorAll(selector).forEach(el=>{
+    const go = (e)=>{ if(e && e.target && e.target.closest && e.target.closest('.drag-handle')) return; if(Date.now() - lastDragEnd < 350) return; fn(el, e); };
+    el.addEventListener('click', go);
+    el.addEventListener('keydown', e=>{ if((e.key === 'Enter' || e.key === ' ') && e.target === el){ e.preventDefault(); go(e); } });
+  });
+}
+function sectionHtml(title, side, body, extra=''){
+  return `<div class="sec"><span>${title}</span><span class="num">${side||''}</span></div>${body}${extra}`;
+}
+// Header pieces (set by switchView; a screen may override them while rendering).
+function setHeader({eyebrow, action, title} = {}){
+  if(eyebrow !== undefined) document.getElementById('pageEyebrow').innerHTML = eyebrow;
+  if(action !== undefined) document.getElementById('pageAction').innerHTML = action;
+  if(title !== undefined) document.getElementById('pageTitle').textContent = title;
+}
+const BACK_SVG = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>';
 
+/* ---------- v2.5 Credits ---------- */
+let creditsIssuer = 'all';      // issuer filter chip — not saved between visits
+const listOpen = {};            // collapsed sections the user opened ("Show N")
+const URGENCY_RANK = {soon:0, later:1, stay:2, next:3, nodate:4, missed:5, done:6};
+function creditRank(st){ return [URGENCY_RANK[st.kind], st.kind==='soon'||st.kind==='later' ? st.days : st.kind==='next' ? (st.cycle.start - 0) : 0]; }
+function creditsSortMenu(){
+  showSortSheet('Sort credits', creditsSortMode, creditsGroupByCard, (mode, grouped)=>{ creditsSortMode = mode; creditsGroupByCard = grouped; renderCredits(); });
+}
+function nightsSortMenu(){
+  showSortSheet('Sort free nights', fnSortMode, fnGroupByCard, (mode, grouped)=>{ fnSortMode = mode; fnGroupByCard = grouped; renderFreeNights(); });
+}
+function showSortSheet(title, mode, grouped, apply){
+  const opt = (v, l, d)=>`<label class="row opt-row" style="min-height:52px;"><input type="radio" name="sortmode" value="${v}" ${mode===v?'checked':''}><span class="r-main"><span class="r-title">${l}</span><span class="r-sub">${d}</span></span></label>`;
+  showModal(`${modalHead(title)}
+    <div class="modal-body">
+      <div class="group">${opt('daysLeft','By urgency','What runs out first, in sections')}${opt('value','By value','Biggest first')}${opt('manual','Your own order','Drag the handles to reorder')}</div>
+      <div class="group"><label class="row opt-row" style="min-height:52px;"><input type="checkbox" id="f_groupcard" ${grouped?'checked':''}><span class="r-main"><span class="r-title">Group by card</span></span></label></div>
+    </div>`);
+  document.querySelectorAll('#modalBox input').forEach(i=>i.onchange = ()=>{
+    apply(document.querySelector('#modalBox input[name=sortmode]:checked').value, document.getElementById('f_groupcard').checked);
+  });
+}
+function issuerFilterHtml(issuers, current, attr){
+  if(issuers.length < 2) return '';
+  return `<div class="filter-row" role="group" aria-label="Filter by card provider">${['all', ...issuers].map(k=>`<button ${attr}="${escAttr(k)}" class="${k===current?'active':''}" aria-pressed="${k===current}">${k==='all'?'All':escHtml(k)}</button>`).join('')}</div>`;
+}
 function renderCredits(){
   const today = bangkokToday();
-  const ordered = sortedCreditsList(today);
-  const hiddenCount = DATA.credits.length - ordered.length;
-  const content = document.getElementById('content');
-  content.innerHTML = `
-    <div class="panel">
-      <div class="panel-head">
-        <h2>${ordered.length} active credits</h2>
-        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
-          <label style="font-size:12.5px;display:flex;align-items:center;gap:5px;white-space:nowrap;">
-            <input type="checkbox" id="creditsGroupToggle" ${creditsGroupByCard?'checked':''}> Group by card
-          </label>
-          <select id="creditsSortSelect" class="btn-sm">
-            <option value="daysLeft">Sort: days left</option>
-            <option value="value">Sort: value</option>
-            <option value="manual">Sort: manual order</option>
-          </select>
-          <button class="btn" id="addCreditBtn">Set up credits →</button>
-        </div>
-      </div>
-      <div class="panel-body" id="creditList"></div>
-    </div>
-    ${hiddenCount ? `<div class="hint" style="margin:-6px 4px 12px;">${hiddenCount} credit${hiddenCount===1?' is':'s are'} hidden because the card is closed or the benefit has ended — see Setup › Credits.</div>` : ''}
-  `;
-  document.getElementById('creditsSortSelect').value = creditsSortMode;
-  const list = document.getElementById('creditList');
-
-  let rowsHtml;
-  if(creditsGroupByCard){
-    // ENHANCEMENT: group by card. This only changes how existing rows are
-    // arranged/labeled on screen — it doesn't reorder, mutate, or otherwise
-    // touch DATA.credits at all, so turning the toggle back off always
-    // restores exactly the same flat list (in whatever sort mode was
-    // already selected) with nothing lost or changed underneath.
-    const UNLINKED = '__unlinked__';
-    const groups = new Map();
-    ordered.forEach(item=>{
-      const key = (item.cr.cardId && cardById(item.cr.cardId)) ? item.cr.cardId : UNLINKED;
-      if(!groups.has(key)) groups.set(key, []);
-      groups.get(key).push(item);
+  setHeader({action: `<button class="link" id="creditsSortBtn">Sort</button>`});
+  document.getElementById('creditsSortBtn').onclick = creditsSortMenu;
+  const live = DATA.credits.filter(cr=>creditIsLive(cr, today));
+  const hiddenCount = DATA.credits.length - live.length;
+  const issuerOf = cr=>issuerLabel((cardById(cr.cardId)||{}).issuer);
+  const issuers = Array.from(new Set(live.map(issuerOf)));
+  if(creditsIssuer !== 'all' && !issuers.includes(creditsIssuer)) creditsIssuer = 'all';
+  let states = live.filter(cr=>creditsIssuer==='all' || issuerOf(cr)===creditsIssuer).map(cr=>creditState(cr, today));
+  const row = (st, handle)=>{ const p = creditRowParts(st, today); return uiRow({...p, handle, attrs:`data-row-id="${escAttr(st.cr.id)}" data-mark-cr="${escAttr(st.cr.id)}"`}); };
+  const byRank = (a,b)=>{ const ra = creditRank(a), rb = creditRank(b); return ra[0]-rb[0] || ra[1]-rb[1]; };
+  let body = '';
+  const collapsible = (key, title, side, items, defaultOpen)=>{
+    if(!items.length) return '';
+    const open = listOpen[key] !== undefined ? listOpen[key] : defaultOpen;
+    return `<div class="sec"><span>${title}</span><span class="num">${side}</span></div>`
+      + (open ? `<div class="group">${items.map(st=>row(st,false)).join('')}</div>` : '')
+      + `<button class="link" data-toggle-sec="${key}" aria-expanded="${open}">${open ? 'Hide' : 'Show ' + items.length}</button>`;
+  };
+  if(creditsSortMode === 'daysLeft' && !creditsGroupByCard){
+    const soon = states.filter(s=>s.kind==='soon').sort(byRank);
+    const dates = Array.from(new Set(soon.map(s=>toISODate(s.endDay))));
+    dates.forEach(d=>{
+      const items = soon.filter(s=>toISODate(s.endDay)===d);
+      const unused = items.reduce((t,s)=>t + (s.usage==='spenddown' ? s.prog.remaining : Number(s.cr.value)||0), 0);
+      body += sectionHtml(`Ends ${fmtDayAuto(parseDate(d), today)} · ${daysWord(items[0].days)}`, `${fmtMoney(unused)} unused`, `<div class="group">${items.map(s=>row(s,false)).join('')}</div>`);
     });
-    const groupKeyOrder = DATA.cards.map(c=>c.id).filter(id=>groups.has(id));
-    if(groups.has(UNLINKED)) groupKeyOrder.push(UNLINKED);
-    rowsHtml = groupKeyOrder.map(key=>{
-      const items = groups.get(key);
-      const label = key===UNLINKED ? '(unlinked)' : escHtml(cardById(key).name);
-      const groupTotal = items.reduce((s,i)=>s+(Number(i.cr.value)||0),0);
-      const header = `<div style="padding:10px 20px;font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:var(--text-muted);background:var(--surface-hover);border-bottom:1px solid var(--border);">${label} · ${items.length} credit${items.length===1?'':'s'} · $${groupTotal.toLocaleString()}</div>`;
-      return header + items.map(item=>renderCreditRowHtml(today, item, false)).join('');
-    }).join('');
+    const later = states.filter(s=>s.kind==='later' || s.kind==='nodate').sort(byRank);
+    if(later.length) body += sectionHtml('Later', later.length, `<div class="group">${later.map(s=>row(s,false)).join('')}</div>`);
+    const stay = states.filter(s=>s.kind==='stay');
+    if(stay.length) body += sectionHtml('Every stay · no deadline', stay.length, `<div class="group">${stay.map(s=>row(s,false)).join('')}</div>`);
+    const next = states.filter(s=>s.kind==='next').sort(byRank);
+    const years = Array.from(new Set(next.map(s=>s.cycle.start.getFullYear())));
+    body += collapsible('next', years.length === 1 ? `Starts ${years[0]}` : 'Starts later', next.length, next, false);
+    body += collapsible('done', 'Done this period', states.filter(s=>s.kind==='done').length, states.filter(s=>s.kind==='done'), false);
+    const missed = states.filter(s=>s.kind==='missed' && !s.dismissed);
+    if(missed.length) body += sectionHtml('Missed', missed.length, `<div class="group">${missed.map(s=>row(s,false)).join('')}</div>`);
+    body += collapsible('missedDismissed', 'Missed · dismissed on Home', '', states.filter(s=>s.kind==='missed' && s.dismissed), false);
   } else {
-    rowsHtml = ordered.map(item=>renderCreditRowHtml(today, item, true)).join('');
+    if(creditsSortMode === 'value') states.sort((a,b)=>(Number(b.cr.value)||0) - (Number(a.cr.value)||0));
+    else if(creditsSortMode === 'daysLeft') states.sort(byRank);
+    const manual = creditsSortMode === 'manual' && !creditsGroupByCard;
+    if(creditsGroupByCard){
+      const keys = DATA.cards.map(c=>c.id).filter(id=>states.some(s=>s.cr.cardId===id));
+      if(states.some(s=>!cardById(s.cr.cardId))) keys.push('__unlinked__');
+      keys.forEach(k=>{
+        const items = states.filter(s=> k==='__unlinked__' ? !cardById(s.cr.cardId) : s.cr.cardId===k);
+        const card = cardById(k);
+        body += sectionHtml(card ? escHtml(cardShort(card)) : '(not linked to a card)', `${items.length} · ${fmtMoney(items.reduce((t,s)=>t+(Number(s.cr.value)||0),0))}`, `<div class="group">${items.map(s=>row(s,false)).join('')}</div>`);
+      });
+    } else {
+      body += `<div class="sec"><span>${creditsSortMode==='manual' ? 'Your order · drag to reorder' : 'By value'}</span><span class="num">${states.length}</span></div><div class="group" id="creditList">${states.map(s=>row(s, manual)).join('')}</div>`;
+    }
   }
-  list.innerHTML = rowsHtml || '<div class="empty">No active credits. Add them in Setup › Credits.</div>';
-
-  document.getElementById('addCreditBtn').onclick = ()=>switchView('setupCredits');
-  document.getElementById('creditsSortSelect').onchange = (e)=>{ creditsSortMode = e.target.value; renderCredits(); };
-  document.getElementById('creditsGroupToggle').onchange = (e)=>{ creditsGroupByCard = e.target.checked; renderCredits(); };
-  // v2.1 (decision D3): daily tab = status + logging only; definitions are changed in Setup.
-  list.querySelectorAll('[data-setup-cr]').forEach(b=>b.onclick=()=>{ switchView('setupCredits'); openCreditModal(b.dataset.setupCr); });
-  list.querySelectorAll('[data-stays-cr]').forEach(b=>b.onclick=()=>{
-    historyFilterSearch = (DATA.credits.find(x=>x.id===b.dataset.staysCr)||{}).name || '';
-    historyFilterYear = String(today.getFullYear()); historyFilterPanelOpen = true;
-    switchView('history');
-  });
-  list.querySelectorAll('[data-mark-cr]').forEach(b=>{
-    const id = b.dataset.markCr;
-    const row = ordered.find(o=>o.cr.id===id);
-    b.onclick = ()=>openRedeemModal('cr', id, row.cycle);
-  });
-  list.querySelectorAll('[data-editredemption-cr]').forEach(b=>{
-    const id = b.dataset.editredemptionCr;
-    const row = ordered.find(o=>o.cr.id===id);
-    b.onclick = ()=>{
-      const entries = historyEntriesInCycle(id, row.cycle);
-      if(entries.length === 1) openEditLinkedAmountModal(entries[0].id);
-      else { toast('Multiple redemptions logged for this period — edit them from the Redemption Log tab.'); switchView('history'); }
-    };
-  });
-  list.querySelectorAll('[data-unredeem-cr]').forEach(b=>{
-    const id = b.dataset.unredeemCr;
-    const row = ordered.find(o=>o.cr.id===id);
-    b.onclick = ()=>unredeemItem('cr', id, row.cycle);
-  });
-
-  // ENHANCEMENT: dragging to manually reorder doesn't make sense across
-  // group boundaries, so it's simply not offered while grouped — the
-  // "Sort: manual order" option and drag handles come back exactly as
-  // before the moment "Group by card" is unchecked.
-  if(!creditsGroupByCard){
-    makeDragReorderable(list, '.list-row', row=>row.dataset.rowId, (newOrderIds)=>{
-      const wasManual = creditsSortMode === 'manual';
+  const content = document.getElementById('content');
+  content.innerHTML = `<div class="content-narrow">${issuerFilterHtml(issuers, creditsIssuer, 'data-cr-issuer')}
+    ${body || `<div class="group" style="margin-top:16px;"><div class="empty-row">No active credits. Add them in Setup › Credits.</div></div>`}
+    ${hiddenCount ? `<div class="hint-line">${hiddenCount} credit${hiddenCount===1?' is':'s are'} hidden because the card is closed or the benefit has ended — <a class="link" style="padding:0;min-height:0;font-size:12.5px;" data-goto="setupCredits">see Setup › Credits</a>.</div>` : ''}</div>`;
+  content.querySelectorAll('[data-cr-issuer]').forEach(b=>b.onclick = ()=>{ creditsIssuer = b.dataset.crIssuer; renderCredits(); });
+  content.querySelectorAll('[data-toggle-sec]').forEach(b=>b.onclick = ()=>{ const k = b.dataset.toggleSec; listOpen[k] = b.getAttribute('aria-expanded') !== 'true'; renderCredits(); });
+  content.querySelectorAll('[data-goto]').forEach(a=>a.onclick = ()=>switchView(a.dataset.goto));
+  wireRows(content, '[data-mark-cr]', el=>openRedeemModal('cr', el.dataset.markCr));
+  const list = document.getElementById('creditList');
+  if(list && creditsSortMode === 'manual' && !creditsGroupByCard){
+    makeDragReorderable(list, '.row', r=>r.dataset.rowId, (newOrderIds)=>{
       // v2.1: the list may hide closed/ended items — keep them (at the end) instead of dropping them
       DATA.credits = newOrderIds.map(id=>DATA.credits.find(c=>c.id===id)).filter(Boolean).concat(DATA.credits.filter(c=>!newOrderIds.includes(c.id)));
-      creditsSortMode = 'manual';
       saveData();
-      if(!wasManual){ toast('Switched to manual order'); renderCredits(); }
-      else { document.getElementById('creditsSortSelect').value = 'manual'; }
     });
   }
 }
 
-function openRedeemModal(kind, sourceId, cycle){
+/* ---------- v2.5 benefit sheet: log / view one credit or free night ----------
+   Replaces the old "Log redemption" dialog; the save rules are unchanged
+   (date required, amount checks, spend-down limits, one per period…). */
+function openRedeemModal(kind, sourceId, cycleArg){
+  const today = bangkokToday();
   const item = kind==='cr' ? DATA.credits.find(x=>x.id===sourceId) : DATA.freeNights.find(x=>x.id===sourceId);
-
-  // FIX: `cycle` is now passed in by the caller (the row already computed
-  // it via cycleForSelectedYear, so it matches whatever year is currently
-  // selected) instead of being recomputed here relative to today. Recomputing
-  // here unconditionally used to ignore the year selector entirely — you
-  // could be viewing 2024 and clicking "Mark redeemed" would still log
-  // against today's real live cycle.
-  //
-  // Hard guard against logging the same item twice in the same cycle. The
-  // "Mark redeemed"/"Mark used" button is already hidden once something's
-  // logged, but that's just UI — this check is the real gate, so a stale
-  // render, a double-click before re-render, or any other path into this
-  // function can't create a second entry for the same window.
-  // v2.0.1 FIX: free nights with "Certificates granted per year" > 1 offer
-  // "Log redemption (2 of N)", but this guard used to block any second entry.
-  // v2.1: spend-down credits take any number of logs until the value is
-  // used up; every-stay credits have no limit at all.
+  if(!item){ toast('That benefit no longer exists.'); return; }
+  const cycle = cycleArg !== undefined ? cycleArg : (kind==='cr' ? creditCycle(item, today) : fnCycle(item, today));
+  // Hard guard against logging the same item twice in the same cycle (spend-down
+  // and every-stay credits take several logs; certificates per year can be > 1).
   const usage = kind==='cr' ? creditUsage(item) : null;
   const prog = kind==='cr' ? creditProgress(item, cycle) : null;
   let maxEntries = kind==='fn' ? Math.max(1, item.certsPerCycle||1) : 1;
   if(usage === 'perstay' || usage === 'spenddown') maxEntries = Infinity;
-  if(cycle && (historyEntriesInCycle(sourceId, cycle).length >= maxEntries || (prog && prog.done))){
-    toast('Already used up for this period — edit the amount or unredeem it first.');
-    return;
+  const entries = cycle ? historyEntriesInCycle(sourceId, cycle) : [];
+  const full = !!cycle && (entries.length >= maxEntries || !!(prog && prog.done));
+  const notStarted = !!(cycle && today < cycle.start);
+  const isAuto = kind==='cr' && !!item.autoRedeem;
+  const canLog = !full && !notStarted && !isAuto;
+  const card = cardById(item.cardId);
+  const value = kind==='cr' ? Number(item.value)||0 : null;
+  const title = kind==='cr' ? creditDisplayName(item) : fnDisplayName(item);
+  // ---- meta line ----
+  let meta;
+  if(kind==='cr'){
+    const fw = FREQ_WORD[item.frequency] || 'year';
+    if(usage === 'perstay') meta = `${fmtMoney(value)} · no deadline · one entry per eligible stay`;
+    else if(!cycle) meta = `${fmtMoney(value)} · no start date set`;
+    else if(notStarted) meta = `${fmtMoney(value)} · starts ${fmtDay(cycle.start, true)}`;
+    else {
+      const d = daysBetween(today, cycle.end);
+      meta = `${fmtMoney(value)} · ${item.renewalType==='calendar' ? 'Calendar ' + fw : 'Card ' + fw} · ends ${fmtDay(lastDayOf(cycle), true)} · ${d >= 0 ? daysWord(d) + ' left' : 'ended ' + daysWord(-d) + ' ago'}`;
+    }
+  } else {
+    const exp = effectiveExpiration(item, cycle);
+    const certs = Math.max(1, item.certsPerCycle||1);
+    if(!cycle) meta = 'No issue date yet';
+    else if(notStarted) meta = `First certificate ${fmtDay(cycle.start, true)}`;
+    else { const d = daysBetween(today, exp); meta = `${certs > 1 ? certs + ' per year · ' : ''}${item.repeats===false ? 'One-off · ' : ''}expires ${fmtDay(exp, true)} · ${d >= 0 ? daysWord(d) + ' left' : 'expired ' + daysWord(-d) + ' ago'}`; }
+    if(item.cashValue) meta += ` · worth about ${fmtMoney(item.cashValue)}`;
   }
-
+  const showBar = kind==='cr' && usage==='spenddown' && cycle && !notStarted && value > 0;
+  const pct = showBar ? Math.max(0, Math.min(100, Math.round(prog.used / value * 100))) : 0;
+  const logged = entries.slice().sort((a,b)=>a.date < b.date ? -1 : 1).map(h=>`${fmtDay(parseDate(h.date))} ${fmtMoney(h.amount)}`).join(' · ');
+  // ---- state box ----
+  let stateBox = '';
+  const CHECK = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:none;margin-top:1px;"><path d="M20 6L9 17l-5-5"/></svg>';
+  if(full){
+    const next = kind==='fn' && item.repeats !== false && cycle ? ` · new one ${fmtDay(cycle.nextStart, true)}` : (kind==='cr' && cycle ? ` · next period ${fmtDay(cycle.nextStart, true)}` : '');
+    stateBox = `<div class="state-box done">${CHECK}<span>${kind==='fn' ? 'Used' : 'Redeemed'} · ${escHtml(logged)}${isAuto ? ' · automatic' : ''}${escHtml(next)}</span></div>`;
+  } else if(notStarted){
+    stateBox = `<div class="state-box">Starts ${escHtml(fmtDay(cycle.start, true))} — you can log it from then.</div>`;
+  } else if(isAuto){
+    stateBox = `<div class="state-box">Posts automatically on ${escHtml(fmtDay(cycle ? cycle.start : today, true))} — nothing to do.${entries.length ? '' : ' (It was removed for this period, so it stays off.)'}</div>`;
+  } else if(entries.length){
+    stateBox = `<div class="hint-line" style="margin:12px 0 0;">${usage==='perstay' ? `${prog.count} stay${prog.count===1?'':'s'} logged in ${today.getFullYear()}` : `Logged so far: ${escHtml(logged)}`}</div>`;
+  }
+  // ---- form ----
   const defaultAmount = kind==='cr' ? (usage==='spenddown' ? prog.remaining : item.value) : (item.cashValue||'');
-  // A credit always has a known face value (its "value" field), so it can
-  // always default the Amount field. A free night doesn't — its cash value
-  // depends on which hotel you actually book — so a brand-new certificate
-  // with nothing logged yet opens with the Amount field blank. Left
-  // unvalidated, an accidental blank save silently logged a $0 redemption,
-  // and because "used" status only counts redeemed > 0, that $0 entry then
-  // didn't even register as Redeemed — clicking "Mark used" looked like it
-  // had silently done nothing. Requiring a real value up front fixes both.
-  const needsValue = kind==='fn' && !defaultAmount;
+  const defDate = defaultRedeemDate(cycle);
+  const todayISO = toISODate(today);
+  const yISO = toISODate(new Date(today.getFullYear(), today.getMonth(), today.getDate()-1));
+  const chipOf = defDate === todayISO ? 'today' : defDate === yISO ? 'yesterday' : 'pick';
+  const cta = usage==='perstay' ? 'Log stay'
+    : kind==='fn' ? (entries.length ? `Log certificate ${entries.length+1} of ${Math.max(1,item.certsPerCycle||1)}` : 'Mark used')
+    : (usage==='spenddown' && entries.length) ? 'Log another use' : 'Mark redeemed';
+  const form = canLog ? `
+    <div class="field">
+      <span class="sheet-label">Date used</span>
+      <div class="date-chips" role="group" aria-label="Date used">
+        <button type="button" data-date="today" class="${chipOf==='today'?'active':''}">Today</button>
+        <button type="button" data-date="yesterday" class="${chipOf==='yesterday'?'active':''}">Yesterday</button>
+        <button type="button" data-date="pick" class="${chipOf==='pick'?'active':''}">Pick date</button>
+      </div>
+      <input id="f_date" type="date" value="${escAttr(defDate)}" aria-label="Date used" style="margin-top:8px;${chipOf==='pick'?'':'display:none;'}">
+    </div>
+    <div class="field">
+      <label class="sheet-label" for="f_amount">${kind==='fn' ? 'Cash value of the stay' : 'Amount'}</label>
+      <div class="money-field"><span>$</span><input id="f_amount" type="text" inputmode="decimal" autocomplete="off" value="${escAttr(defaultAmount)}" placeholder="${kind==='fn' ? 'What the night would have cost' : '0'}"></div>
+      ${usage==='spenddown' ? `<div class="hint">${fmtMoney(prog.remaining)} of ${fmtMoney(value)} left for this period. Log each purchase separately.</div>` : ''}
+    </div>
+    ${kind==='fn' ? `<div class="field"><label class="sheet-label" for="f_property">Hotel (optional)</label><input id="f_property" value="${escAttr(item.property||'')}"></div>` : ''}
+    <div class="field"><label class="sheet-label" for="f_notes">Where / how (optional)</label><input id="f_notes" placeholder="e.g. Hilton Bangkok spa, confirmation #…"></div>
+    <button class="sheet-cta" id="modalSave">${escHtml(cta)}</button>` : '';
+  const links = [];
+  if(entries.length && usage !== 'perstay'){ links.push(`<button class="link" data-sheet-edit>Edit details</button>`); links.push(`<button class="link muted" data-sheet-unredeem>Unredeem</button>`); }
+  if(usage === 'perstay' && prog && prog.count) links.push(`<button class="link" data-sheet-stays>See stays</button>`);
   showModal(`
-    <div class="modal-head"><h3>${usage==='perstay' ? 'Log stay' : 'Log redemption'}${kind==='cr' ? ` — ${escHtml(item.name)}` : ''}</h3><button class="close-x" id="modalClose"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
-    <div class="modal-body">
-      <div class="field"><label>Date used</label><input id="f_date" type="date" value="${defaultRedeemDate(cycle)}"></div>
-      <div class="field"><label>Amount ($)</label><input id="f_amount" type="number" min="0" inputmode="decimal" value="${escAttr(defaultAmount)}" placeholder="${needsValue?'Estimated cash value of the stay you booked':''}"></div>
-      ${needsValue ? `<div class="hint">Free nights don't have a fixed dollar value — enter what the stay would have cost in cash (check the hotel's rate for your dates) so it counts toward value realized.</div>` : ''}
-      ${usage==='spenddown' ? `<div class="hint">$${prog.remaining.toLocaleString()} of $${Number(item.value).toLocaleString()} left for this period${prog.count?` (${prog.count} use${prog.count===1?'':'s'} logged)`:''}. Log each purchase separately.</div>` : ''}
-      ${usage==='perstay' ? `<div class="hint">Every stay counts — log one entry per stay.</div>` : ''}
-      ${kind==='fn' ? `<div class="field"><label>Property (optional)</label><input id="f_property" value="${escAttr(item.property||'')}"></div>` : ''}
-      <div class="field"><label>Where / how redeemed (optional)</label><textarea id="f_notes" rows="2" placeholder="e.g. Hilton Bangkok spa, booked via app, confirmation #..."></textarea></div>
-    </div>
-    <div class="modal-foot">
-      <button class="btn" id="modalCancel">Cancel</button>
-      <button class="btn btn-primary" id="modalSave">Save</button>
-    </div>
-  `);
+    <div class="sheet-pad">
+      <button class="sheet-close" id="modalClose" aria-label="Close"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+      <div class="sheet-card"><span class="dot" style="background:${escAttr(cardColor(item.cardId))}"></span>${escHtml(card ? card.name : '(no card)')}</div>
+      <h3 class="sheet-title">${escHtml(title)}</h3>
+      <div class="sheet-meta">${escHtml(meta)}</div>
+      ${showBar ? `<div class="bar" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100" aria-label="Used"><div style="width:${pct}%"></div></div>` : ''}
+      ${stateBox}${form}
+      ${links.length ? `<div class="sheet-links" style="justify-content:flex-start;gap:0 18px;">${links.join('')}</div>` : ''}
+      <div class="sheet-links">
+        ${card ? `<button class="link" data-sheet-card>View card</button>` : '<span></span>'}
+        <button class="link muted" ${kind==='cr' ? `data-setup-cr="${escAttr(item.id)}"` : `data-setup-fn="${escAttr(item.id)}"`}>Edit benefit</button>
+      </div>
+    </div>`, {cls:'sheet'});
+  const box = document.getElementById('modalBox');
+  box.querySelectorAll('[data-date]').forEach(b=>b.onclick = ()=>{
+    box.querySelectorAll('[data-date]').forEach(x=>x.classList.toggle('active', x===b));
+    const inp = document.getElementById('f_date');
+    if(b.dataset.date === 'pick'){ inp.style.display = ''; try{ inp.showPicker && inp.showPicker(); }catch(e){} inp.focus(); }
+    else { inp.style.display = 'none'; inp.value = b.dataset.date === 'today' ? todayISO : yISO; inp.dispatchEvent(new Event('change')); }
+  });
+  const cardBtn = box.querySelector('[data-sheet-card]'); if(cardBtn) cardBtn.onclick = ()=>{ closeModal(); switchView('card:' + item.cardId); };
+  const setupBtn = box.querySelector('[data-setup-cr],[data-setup-fn]');
+  setupBtn.onclick = ()=>{ closeModal(); if(kind==='cr'){ switchView('setupCredits'); openCreditModal(item.id); } else { switchView('setupFreeNights'); openFnModal(item.id); } };
+  const editBtn = box.querySelector('[data-sheet-edit]');
+  if(editBtn) editBtn.onclick = ()=>{ if(entries.length === 1) openEditLinkedAmountModal(entries[0].id); else { closeModal(); toast('Several entries in this period — edit them in the Redemption log.'); switchView('history'); } };
+  const unBtn = box.querySelector('[data-sheet-unredeem]'); if(unBtn) unBtn.onclick = ()=>unredeemItem(kind, sourceId, cycle);
+  const staysBtn = box.querySelector('[data-sheet-stays]');
+  if(staysBtn) staysBtn.onclick = ()=>{ closeModal(); historyFilterSearch = item.name || ''; historyFilterYear = String(today.getFullYear()); historyFilterPanelOpen = true; switchView('history'); };
+  if(!canLog) return;
   document.getElementById('modalSave').onclick = ()=>{
-    // Re-check at save time too — the modal can sit open for a while (or a
-    // sync from another device could land) before Save is actually clicked.
-    // (v2.1: same limit as the check above — spend-down and every-stay credits allow more than one entry)
+    // Re-check at save time too — the sheet can sit open for a while (or a
+    // sync from another device could land) before Save is actually tapped.
     // v2.4: re-find — the credit/certificate may have been changed or deleted on another device while this was open.
     const liveItem = kind==='cr' ? DATA.credits.find(x=>x.id===sourceId) : DATA.freeNights.find(x=>x.id===sourceId);
     if(!liveItem){ toast(`This ${kind==='cr'?'credit':'certificate'} was deleted on another device — nothing was logged.`); closeModal(); return; }
     const progNow = kind==='cr' ? creditProgress(liveItem, cycle) : null;
     if(cycle && (historyEntriesInCycle(sourceId, cycle).length >= maxEntries || (progNow && progNow.done))){
       toast('Already used up for this period — edit the amount or unredeem it first.');
-      closeModal();
-      if(kind==='cr') renderCredits(); else renderFreeNights();
+      closeModal(); views[currentView].render();
       return;
     }
     // v2.3.1 (H1): a date is required — a blank one used to be saved and crash the app everywhere.
-    const date = readDateField('f_date', 'Pick the date it was used'); if(date === null) return;
+    const date = readDateField('f_date', 'Pick the date it was used'); if(date === null){ document.getElementById('f_date').style.display = ''; return; }
     const amount = kind==='fn' ? readAmount('f_amount', {allowZero:false, what:'cash value of this free night'}) : readAmount('f_amount');
     if(amount === null) return;
     if(usage === 'spenddown' && amount > progNow.remaining){
@@ -4126,197 +4389,385 @@ function openRedeemModal(kind, sourceId, cycle){
       notes: val('f_notes').trim()
     };
     DATA.history.push(entry);
-    const liveFn = kind==='fn' ? liveItem : null;
-    if(liveFn){
-      liveFn.cashValue = entry.amount;
+    if(kind==='fn'){
+      liveItem.cashValue = entry.amount;
       const propEl = document.getElementById('f_property');
-      if(propEl) liveFn.property = propEl.value;
+      if(propEl) liveItem.property = propEl.value;
     }
     saveData(); closeModal();
-    if(kind==='cr') renderCredits(); else renderFreeNights();
-    toast('Redemption logged');
+    views[currentView].render();
+    toast(`Logged ${fmtMoney(amount)} · ${title}`);
   };
 }
 
-/* ---------- Free Nights ---------- */
-function sortedFreeNightsList(today){
-  const withCycle = DATA.freeNights.map(fn=>{
-    // DESIGN FIX: see the matching comment on sortedCreditsList() above —
-    // this tab now always shows each certificate's real, current status,
-    // regardless of the top-level year selector.
-    const cycle = fnCycle(fn, today);
-    return {fn, cycle, isLive: !!cycle};
-  }).filter(item=>fnIsLive(item.fn, today)); // v2.1: closed cards / ended / expired one-offs live only in Setup
-  if(fnSortMode === 'value'){
-    withCycle.sort((a,b)=> (b.fn.cashValue||0) - (a.fn.cashValue||0));
-  } else if(fnSortMode === 'daysLeft'){
-    // v2.2.3: still to use (soonest expiry first) → expired unused → fully used → no date
-    const rank = x=>{
-      const exp = effectiveExpiration(x.fn, x.cycle);
-      if(!x.cycle || !exp) return [3, 0];
-      const d = daysBetween(today, exp);
-      if(historyEntriesInCycle(x.fn.id, x.cycle).length >= (x.fn.certsPerCycle||1)) return [2, d];
-      return d < 0 ? [1, -d] : [0, d];
-    };
-    withCycle.sort((a,b)=>{ const ra = rank(a), rb = rank(b); return ra[0] - rb[0] || ra[1] - rb[1]; });
+/* ---------- v2.5 Free nights ---------- */
+function fnState(fn, today){
+  const cycle = fnCycle(fn, today);
+  const certs = Math.max(1, fn.certsPerCycle||1);
+  const entries = cycle ? historyEntriesInCycle(fn.id, cycle) : [];
+  const st = {fn, cycle, certs, entries, exp: null, days: null, kind: ''};
+  if(!cycle){ st.kind = 'noissue'; return st; }
+  if(today < cycle.start){ st.kind = 'next'; return st; }
+  st.exp = effectiveExpiration(fn, cycle); st.days = daysBetween(today, st.exp);
+  if(entries.length >= certs){ st.kind = 'used'; return st; }
+  if(st.days < 0){ st.kind = 'missed'; return st; }
+  st.kind = 'ready'; return st;
+}
+function fnRowParts(st, today, opts={}){
+  const {fn} = st; const short = cardShort(cardById(fn.cardId));
+  let sub, chip, chipCls = '';
+  const worth = fn.cashValue ? ` · worth about ${fmtMoney(fn.cashValue)}` : '';
+  switch(st.kind){
+    case 'ready': sub = `${fn.repeats===false ? 'One-off · ' : ''}Expires ${fmtDay(st.exp, true)}${st.entries.length ? ` · ${st.entries.length} of ${st.certs} used` : ''}${worth}`; chip = `${st.days}d`; chipCls = st.days <= 60 ? urgencyChip(st.days) : 'chip-accent'; break;
+    case 'used': { const last = st.entries.map(h=>h).sort((a,b)=>a.date<b.date?-1:1).slice(-1)[0];
+      sub = `Used ${fmtDayAuto(parseDate(last.date), today)} (${fmtMoney(last.amount)})${fn.repeats===false ? '' : ` · new one ${fmtDayAuto(st.cycle.nextStart, today)}`}`; chip = 'Used'; break; }
+    case 'missed': sub = `Expired ${fmtDayAuto(st.exp, today)} unused${fn.repeats===false ? '' : ` · new one ${fmtDayAuto(st.cycle.nextStart, today)}`}`; chip = 'Missed'; chipCls = 'chip-red'; break;
+    case 'next': sub = `First certificate ${fmtDay(st.cycle.start, true)}`; chip = fmtDayAuto(st.cycle.start, today); break;
+    default: sub = 'Not issued yet — set its date in Setup'; chip = 'No date';
   }
-  // 'manual' mode: keep DATA.freeNights array order as-is
-  return withCycle;
+  return { title: fnDisplayName(fn), sub: (opts.noCard ? '' : short + ' · ') + sub, chip, chipCls, muted: st.kind==='missed', dot: cardColor(fn.cardId) };
 }
-
-// Same split-out pattern as renderCreditRowHtml — see its comment above.
-// Finds the most recent redemption logged for this certificate BEFORE its
-// current cycle — i.e. from a prior year, now rolled past. Used so the row
-// can show "356 days left · last used Apr 4" instead of the full picture
-// being split silently between this tab and the Redemption Log.
-function mostRecentPriorRedemption(sourceId, cycle){
-  if(!cycle) return null;
-  const prior = DATA.history
-    .filter(h=>h.sourceId===sourceId)
-    .map(h=>({date: parseDate(h.date)}))
-    .filter(h=>h.date && !(h.date >= cycle.start && h.date < cycle.nextStart))
-    .sort((a,b)=>b.date-a.date);
-  return prior.length ? prior[0].date : null;
-}
-
-function renderFreeNightRowHtml(today, {fn, cycle, isLive}, showDragHandle){
-  const card = cardById(fn.cardId);
-  const certsPerCycle = fn.certsPerCycle || 1;
-  const entriesThisCycle = cycle ? historyEntriesInCycle(fn.id, cycle) : [];
-  const redeemedCount = entriesThisCycle.length;
-  const redeemed = entriesThisCycle.reduce((sum,e)=>sum+Number(e.amount||0), 0);
-  const isFullyUsed = cycle ? redeemedCount >= certsPerCycle : false;
-  const isPartiallyUsed = cycle ? (redeemedCount > 0 && !isFullyUsed) : false;
-  const expiration = effectiveExpiration(fn, cycle);
-  const hasAnyHistory = !cycle && DATA.history.some(h=>h.sourceId===fn.id);
-  const daysLeft = (expiration && isLive) ? daysBetween(today, expiration) : null;
-  const isExpired = daysLeft !== null && daysLeft < 0 && !isFullyUsed;
-  let pill;
-  if(!cycle && hasAnyHistory){ pill = {label:'Logged', cls:'pill-green'}; }
-  else if(!cycle){ pill = {label:'Not yet issued', cls:'pill-gray'}; }
-  else if(isFullyUsed){ pill = {label:'Redeemed', cls:'pill-green'}; }
-  else if(isPartiallyUsed){ pill = {label:`${redeemedCount} of ${certsPerCycle} redeemed`, cls:'pill-amber'}; }
-  else if(isExpired){ pill = {label:'Expired', cls:'pill-gray'}; }
-  else if(isLive){ pill = statusForDays(daysBetween(today, expiration), 90); }
-  else { pill = {label:'Not redeemed', cls:'pill-gray'}; }
-  let progressPct = null;
-  if(cycle && isLive){
-    const total = (fn.repeats===false ? cycle.end : cycle.nextStart) - cycle.start; // one-off: no next period
-    const elapsed = today - cycle.start;
-    progressPct = Math.max(0, Math.min(100, Math.round((elapsed/total)*100)));
-  }
-  // Only surface this when it actually adds information: the certificate is
-  // currently available again (not already showing "Redeemed" for this
-  // cycle), and there's a genuine earlier redemption to reference.
-  const priorRedeemedDate = (isLive && !isFullyUsed) ? mostRecentPriorRedemption(fn.id, cycle) : null;
-
-  return `
-  <div class="list-row" data-row-id="${escAttr(fn.id)}">
-    ${showDragHandle ? '<div class="drag-handle"><svg width="12" height="16" viewBox="0 0 12 16" fill="currentColor"><circle cx="3" cy="3" r="1.3"/><circle cx="9" cy="3" r="1.3"/><circle cx="3" cy="8" r="1.3"/><circle cx="9" cy="8" r="1.3"/><circle cx="3" cy="13" r="1.3"/><circle cx="9" cy="13" r="1.3"/></svg></div>' : '<div style="width:20px;"></div>'}
-    <div class="main-col">
-      <div class="title"${isExpired ? ' style="color:var(--text-muted);"' : ''}>${escHtml(fn.desc)}${certsPerCycle>1?` <span style="font-size:11px;font-weight:400;color:var(--text-muted);">(${Number(certsPerCycle)}/yr)</span>`:''}${fn.repeats===false?' <span class="pill pill-gray" style="font-size:10.5px;">One-off</span>':''}</div>
-      <div class="subtitle">${card?escHtml(card.name):'(unlinked)'} · ${escHtml(fn.program)}${expiration?` · expires ${fmtDate(expiration)}${overrideAppliesToCycle(fn, cycle)?' (set manually)':''}`:(cycle?'':' · no anchor date set')}${(redeemedCount>0 && redemptionNotesInCycle(fn.id, cycle)) ? ` · <span style="color:var(--text);">Redeemed at: ${escHtml(redemptionNotesInCycle(fn.id, cycle))}</span>` : ''}</div>
-      ${progressPct!==null ? `<div style="height:4px;background:var(--gray-bg);border-radius:2px;margin-top:6px;overflow:hidden;"><div style="height:100%;width:${progressPct}%;background:${isFullyUsed?'var(--green)':'var(--text-soft)'};"></div></div>` : ''}
-    </div>
-    <div class="row-break"></div>
-    <div class="amount">${redeemed>0?'$'+redeemed:'—'}</div>
-    <div><span class="pill ${pill.cls}">${pill.label}</span></div>
-    <div class="days">${daysLeft!==null? (daysLeft>=0? daysLeft+' days left' : '') : ''}${priorRedeemedDate ? ` <span style="color:var(--text-soft);font-size:11px;">· last used ${fmtDate(priorRedeemedDate)}</span>` : ''}</div>
-    <div class="row-break"></div>
-    <div class="actions">
-      ${!isFullyUsed && cycle ? `<button class="btn btn-sm btn-primary" data-mark-fn="${escAttr(fn.id)}">${redeemedCount>0?`Log redemption (${redeemedCount+1} of ${certsPerCycle})`:'Mark used'}</button>` : ''}
-      ${!cycle ? `<button class="btn btn-sm btn-primary" data-mark-fn="${escAttr(fn.id)}">+ Log redemption</button>` : ''}
-      ${redeemedCount>0 ? `<button class="btn btn-sm" data-editredemption-fn="${escAttr(fn.id)}">Edit details</button><button class="btn btn-sm btn-danger" data-unredeem-fn="${escAttr(fn.id)}">Unredeem</button>` : ''}
-      <button class="btn btn-sm btn-link" data-setup-fn="${escAttr(fn.id)}" title="Change this certificate in Setup">Edit in Setup →</button>
-    </div>
-  </div>`;
-}
-
 function renderFreeNights(){
   const today = bangkokToday();
-  const ordered = sortedFreeNightsList(today);
-  const hiddenCount = DATA.freeNights.length - ordered.length;
-  const content = document.getElementById('content');
-  content.innerHTML = `
-    <div class="panel">
-      <div class="panel-head">
-        <h2>${ordered.length} active free night certificates</h2>
-        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
-          <label style="font-size:12.5px;display:flex;align-items:center;gap:5px;white-space:nowrap;">
-            <input type="checkbox" id="fnGroupToggle" ${fnGroupByCard?'checked':''}> Group by card
-          </label>
-          <select id="fnSortSelect" class="btn-sm">
-            <option value="daysLeft">Sort: days left</option>
-            <option value="value">Sort: value</option>
-            <option value="manual">Sort: manual order</option>
-          </select>
-          <button class="btn" id="addFnBtn">Set up free nights →</button>
-        </div>
-      </div>
-      <div class="panel-body" id="fnList"></div>
-    </div>
-    ${hiddenCount ? `<div class="hint" style="margin:-6px 4px 12px;">${hiddenCount} certificate${hiddenCount===1?' is':'s are'} hidden (card closed, benefit ended, or one-off certificate expired) — see Setup › Free nights.</div>` : ''}
-  `;
-  document.getElementById('fnSortSelect').value = fnSortMode;
-  const list = document.getElementById('fnList');
-
-  let rowsHtml;
-  if(fnGroupByCard){
-    const UNLINKED = '__unlinked__';
-    const groups = new Map();
-    ordered.forEach(item=>{
-      const key = (item.fn.cardId && cardById(item.fn.cardId)) ? item.fn.cardId : UNLINKED;
-      if(!groups.has(key)) groups.set(key, []);
-      groups.get(key).push(item);
-    });
-    const groupKeyOrder = DATA.cards.map(c=>c.id).filter(id=>groups.has(id));
-    if(groups.has(UNLINKED)) groupKeyOrder.push(UNLINKED);
-    rowsHtml = groupKeyOrder.map(key=>{
-      const items = groups.get(key);
-      const label = key===UNLINKED ? '(unlinked)' : escHtml(cardById(key).name);
-      const header = `<div style="padding:10px 20px;font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:var(--text-muted);background:var(--surface-hover);border-bottom:1px solid var(--border);">${label} · ${items.length} certificate${items.length===1?'':'s'}</div>`;
-      return header + items.map(item=>renderFreeNightRowHtml(today, item, false)).join('');
-    }).join('');
+  setHeader({action: `<button class="link" id="fnSortBtn">Sort</button>`});
+  document.getElementById('fnSortBtn').onclick = nightsSortMenu;
+  const live = DATA.freeNights.filter(fn=>fnIsLive(fn, today));
+  const hiddenCount = DATA.freeNights.length - live.length;
+  let states = live.map(fn=>fnState(fn, today));
+  const ready = states.filter(s=>s.kind==='ready');
+  const readyValue = ready.reduce((t,s)=>t + (Number(s.fn.cashValue)||0), 0);
+  setHeader({eyebrow: ''});
+  document.getElementById('pageDesc').textContent = '';
+  const row = (st, handle)=>uiRow({...fnRowParts(st, today), handle, attrs:`data-row-id="${escAttr(st.fn.id)}" data-mark-fn="${escAttr(st.fn.id)}"`});
+  const rank = {ready:0, next:1, noissue:2, missed:3, used:4};
+  const byUrgency = (a,b)=> rank[a.kind]-rank[b.kind] || (a.days??0)-(b.days??0);
+  let body = '';
+  if(fnSortMode === 'daysLeft' && !fnGroupByCard){
+    ready.sort(byUrgency);
+    body += sectionHtml('Ready to book', ready.length, `<div class="group">${ready.map(s=>row(s,false)).join('') || '<div class="empty-row">Nothing to book right now.</div>'}</div>`);
+    const used = states.filter(s=>s.kind==='used').sort((a,b)=>a.cycle.nextStart - b.cycle.nextStart);
+    if(used.length) body += sectionHtml('Used · next certificate coming', used.length, `<div class="group">${used.map(s=>row(s,false)).join('')}</div>`);
+    const missed = states.filter(s=>s.kind==='missed');
+    if(missed.length) body += sectionHtml('Expired unused', missed.length, `<div class="group">${missed.map(s=>row(s,false)).join('')}</div>`);
+    const other = states.filter(s=>s.kind==='next' || s.kind==='noissue');
+    if(other.length) body += sectionHtml('Not issued yet', other.length, `<div class="group">${other.map(s=>row(s,false)).join('')}</div>`);
   } else {
-    rowsHtml = ordered.map(item=>renderFreeNightRowHtml(today, item, true)).join('');
+    if(fnSortMode === 'value') states.sort((a,b)=>(Number(b.fn.cashValue)||0) - (Number(a.fn.cashValue)||0));
+    else if(fnSortMode === 'daysLeft') states.sort(byUrgency);
+    if(fnGroupByCard){
+      const keys = DATA.cards.map(c=>c.id).filter(id=>states.some(s=>s.fn.cardId===id));
+      if(states.some(s=>!cardById(s.fn.cardId))) keys.push('__unlinked__');
+      keys.forEach(k=>{ const items = states.filter(s=> k==='__unlinked__' ? !cardById(s.fn.cardId) : s.fn.cardId===k); const c = cardById(k);
+        body += sectionHtml(c ? escHtml(cardShort(c)) : '(not linked to a card)', items.length, `<div class="group">${items.map(s=>row(s,false)).join('')}</div>`); });
+    } else {
+      body += `<div class="sec"><span>${fnSortMode==='manual' ? 'Your order · drag to reorder' : 'By value'}</span><span>${states.length}</span></div><div class="group" id="fnList">${states.map(s=>row(s, fnSortMode==='manual')).join('')}</div>`;
+    }
   }
-  list.innerHTML = rowsHtml || '<div class="empty">No active certificates. Add them in Setup › Free nights.</div>';
-
-  document.getElementById('addFnBtn').onclick = ()=>switchView('setupFreeNights');
-  document.getElementById('fnSortSelect').onchange = (e)=>{ fnSortMode = e.target.value; renderFreeNights(); };
-  document.getElementById('fnGroupToggle').onchange = (e)=>{ fnGroupByCard = e.target.checked; renderFreeNights(); };
-  list.querySelectorAll('[data-setup-fn]').forEach(b=>b.onclick=()=>{ switchView('setupFreeNights'); openFnModal(b.dataset.setupFn); });
-  list.querySelectorAll('[data-mark-fn]').forEach(b=>{
-    const id = b.dataset.markFn;
-    const row = ordered.find(o=>o.fn.id===id);
-    b.onclick = ()=>openRedeemModal('fn', id, row.cycle);
-  });
-  list.querySelectorAll('[data-editredemption-fn]').forEach(b=>{
-    const id = b.dataset.editredemptionFn;
-    const row = ordered.find(o=>o.fn.id===id);
-    b.onclick = ()=>{
-      const entries = historyEntriesInCycle(id, row.cycle);
-      if(entries.length === 1) openEditLinkedAmountModal(entries[0].id);
-      else { toast('Multiple redemptions logged for this period — edit them from the Redemption Log tab.'); switchView('history'); }
-    };
-  });
-  list.querySelectorAll('[data-unredeem-fn]').forEach(b=>{
-    const id = b.dataset.unredeemFn;
-    const row = ordered.find(o=>o.fn.id===id);
-    b.onclick = ()=>unredeemItem('fn', id, row.cycle);
-  });
-
-  if(!fnGroupByCard){
-    makeDragReorderable(list, '.list-row', row=>row.dataset.rowId, (newOrderIds)=>{
-      const wasManual = fnSortMode === 'manual';
-      // v2.1: keep hidden (closed/ended/expired one-off) certificates instead of dropping them
+  const content = document.getElementById('content');
+  content.innerHTML = `<div class="content-narrow">
+    <div class="hint-line" style="font-size:14px;margin-top:2px;">${ready.length} certificate${ready.length===1?'':'s'} ready to book${readyValue ? ` · about ${fmtMoney(readyValue)} of stays` : ''}</div>
+    ${live.length ? body : `<div class="group" style="margin-top:16px;"><div class="empty-row">No active certificates. Add them in Setup › Free nights.</div></div>`}
+    ${hiddenCount ? `<div class="hint-line">${hiddenCount} certificate${hiddenCount===1?' is':'s are'} hidden (card closed, benefit ended, or one-off certificate expired) — <a class="link" style="padding:0;min-height:0;font-size:12.5px;" data-goto="setupFreeNights">see Setup › Free nights</a>.</div>` : ''}</div>`;
+  content.querySelectorAll('[data-goto]').forEach(a=>a.onclick = ()=>switchView(a.dataset.goto));
+  wireRows(content, '[data-mark-fn]', el=>openRedeemModal('fn', el.dataset.markFn));
+  const list = document.getElementById('fnList');
+  if(list && fnSortMode === 'manual'){
+    makeDragReorderable(list, '.row', r=>r.dataset.rowId, (newOrderIds)=>{
       DATA.freeNights = newOrderIds.map(id=>DATA.freeNights.find(f=>f.id===id)).filter(Boolean).concat(DATA.freeNights.filter(f=>!newOrderIds.includes(f.id)));
-      fnSortMode = 'manual';
       saveData();
-      if(!wasManual){ toast('Switched to manual order'); renderFreeNights(); }
-      else { document.getElementById('fnSortSelect').value = 'manual'; }
     });
   }
+}
+
+/* ---------- v2.5 Home (top part; the fee chart & table follow below it) ---------- */
+// "Needs attention": fees, miles/vouchers and free nights due within 60 days,
+// missed credits, and Setup items. Non-urgent ones can be dismissed — the
+// dismissal syncs and is tied to that deadline/period, so it comes back next time.
+function attentionItems(today){
+  const items = [];
+  const multiOwner = ownerNames().length > 1;
+  DATA.cards.forEach(c=>{
+    if(!c.feeAnchor || cardClosedOn(c.id, today)) return;
+    const next = nextOccurrenceOnOrAfter(c.feeAnchor, today);
+    if(!next || cardClosedOn(c.id, next)) return;
+    const d = daysBetween(today, next); if(d > 60) return;
+    const fee = feeInfoForYear(c, next.getFullYear()).amount;
+    const back = valueRealizedForCardYear(c.id, today.getFullYear());
+    items.push({key:`fee:${c.id}:${toISODate(next)}`, days:d, icon:'$', tone: d <= 14 ? 'amber' : '',
+      title:`${cardShort(c)} fee ${d===0 ? 'posts today' : 'posts in ' + daysWord(d)}`,
+      sub:`${fmtMoney(fee)} on ${fmtDay(next)} · card has returned ${fmtMoney(back)} this year`,
+      act:'Review card', go:()=>switchView('card:' + c.id), canDismiss: d > 14});
+  });
+  DATA.mileagePrograms.forEach(mp=>(mp.expirations||[]).forEach(e=>{
+    const dt = parseDate(e.date); if(!dt) return; const d = daysBetween(today, dt); if(d < 0 || d > 60) return;
+    const code = airlineGroupKey(mp.programName);
+    items.push({key:`miles:${mp.id}:${e.date}`, days:d, icon: code || 'mi', tone: d <= 14 ? 'amber' : '',
+      title:`${Number(e.amount||0).toLocaleString()} ${mp.programName} miles expire ${fmtDay(dt)}`,
+      sub:`${multiOwner ? mp.ownerName + ' · ' : ''}${Number(mp.milesTotal||0).toLocaleString()} miles in the account`,
+      act:'Open Miles', go:()=>switchView('mileage'), canDismiss:true});
+  }));
+  DATA.vouchers.forEach(v=>{
+    const dt = parseDate(v.expirationDate); if(!dt) return; const d = daysBetween(today, dt); if(d < 0 || d > 60) return;
+    items.push({key:`voucher:${v.id}:${v.expirationDate}`, days:d, icon:'V', title:`${v.title} expires ${fmtDay(dt)}`,
+      sub:`${multiOwner ? v.ownerName + ' · ' : ''}${daysWord(d)} left`, act:'Open Miles', go:()=>switchView('mileage'), canDismiss:true});
+  });
+  DATA.freeNights.forEach(fn=>{
+    if(!fnIsLive(fn, today)) return;
+    const st = fnState(fn, today);
+    if(st.kind === 'ready' && st.days <= 60){
+      items.push({key:`fn:${fn.id}:${toISODate(st.exp)}`, days:st.days, icon:'☾', tone: st.days <= 14 ? 'amber' : '',
+        title:`Free night expires ${st.days===0 ? 'today' : 'in ' + daysWord(st.days)}`, sub:`${cardShort(cardById(fn.cardId))} · ${fnDisplayName(fn)}`,
+        act:'Log it', go:()=>openRedeemModal('fn', fn.id), canDismiss: st.days > 14});
+    } else if(st.kind === 'missed' && !isDismissed(missedFnKey(fn, st.cycle))){
+      items.push({key:missedFnKey(fn, st.cycle), days:1000, icon:'!', tone:'red', title:`Missed: ${fnDisplayName(fn)}`,
+        sub:`${cardShort(cardById(fn.cardId))} · expired ${fmtDay(st.exp, true)} unused`, act:'Log it anyway', go:()=>openRedeemModal('fn', fn.id), canDismiss:true});
+    }
+  });
+  DATA.credits.forEach(cr=>{
+    if(!creditIsLive(cr, today)) return;
+    const st = creditState(cr, today);
+    if(st.kind !== 'missed' || st.dismissed) return;
+    items.push({key:missedCreditKey(cr, st.cycle), days:1001, icon:'!', tone:'red', title:`Missed: ${creditDisplayName(cr)}`,
+      sub:`${cardShort(cardById(cr.cardId))} · ${fmtMoney(st.usage==='spenddown' ? st.prog.remaining : cr.value)} ended ${fmtDayAuto(st.endDay, today)} unused`,
+      act:'Log it anyway', go:()=>openRedeemModal('cr', cr.id), canDismiss:true});
+  });
+  const setup = setupChecklistItems();
+  if(setup.length){
+    const plain = t=>{ const d = document.createElement('div'); d.innerHTML = t; return d.textContent; };
+    const key = 'setup:' + setup.map(i=>plain(i.text)).join('|').split('').reduce((h,ch)=>((h<<5)-h+ch.charCodeAt(0))|0, 0);
+    items.push({key, days:2000, icon:'✓', title:`${setup.length} setup item${setup.length===1?'':'s'} to check`, sub: plain(setup[0].text),
+      act:'Open setup', go:()=>switchView('setupCards'), canDismiss:true});
+  }
+  return items.filter(i=>!isDismissed(i.key)).sort((a,b)=>a.days-b.days);
+}
+function homeTopHtml(today){
+  // Hero: the credits whose period ends soonest within 60 days.
+  const open = DATA.credits.filter(cr=>!cr.autoRedeem && creditIsLive(cr, today)).map(cr=>creditState(cr, today)).filter(s=>s.kind==='soon' || s.kind==='later');
+  const left = s=>s.usage==='spenddown' ? s.prog.remaining : Number(s.cr.value)||0;
+  let hero;
+  const soon = open.filter(s=>s.kind==='soon').sort((a,b)=>a.days-b.days);
+  const pickGroup = list=>{ const d = toISODate(list[0].endDay); return list.filter(s=>toISODate(s.endDay)===d); };
+  if(soon.length){
+    const g = pickGroup(soon); const total = g.reduce((t,s)=>t+left(s),0);
+    hero = `<div class="hero"><div class="h-label">Use before ${fmtDayAuto(g[0].endDay, today)}</div><div class="h-big">${fmtMoney(total)}</div>
+      <div class="h-sub">${g.length} credit${g.length===1?'':'s'} not used yet · ${daysWord(g[0].days)} left</div><button class="h-btn" data-goto="credits">See credits</button></div>`;
+  } else if(open.length){
+    const g = pickGroup(open.sort((a,b)=>a.days-b.days)); const total = g.reduce((t,s)=>t+left(s),0);
+    hero = `<div class="hero calm"><div class="h-label">Nothing due in the next 60 days</div><div class="h-big">${fmtMoney(total)}</div>
+      <div class="h-sub">next deadline ${fmtDayAuto(g[0].endDay, today)} · ${g.length} credit${g.length===1?'':'s'}</div><button class="h-btn" data-goto="credits">See credits</button></div>`;
+  } else {
+    hero = `<div class="hero calm"><div class="h-label">All caught up</div><div class="h-big">✓</div><div class="h-sub">No unused credits with a deadline right now.</div><button class="h-btn" data-goto="credits">See credits</button></div>`;
+  }
+  const att = attentionItems(today);
+  const toneStyle = t=> t==='red' ? 'background:var(--red-bg);color:var(--red);' : t==='amber' ? 'background:var(--amber-bg);color:var(--amber);' : '';
+  homeAttention = att;
+  const attHtml = att.length ? att.map((a,i)=>`<div class="row static" style="align-items:flex-start;">
+      <span class="att-icon" style="${toneStyle(a.tone)}" aria-hidden="true">${escHtml(a.icon)}</span>
+      <span class="r-main"><span class="r-title">${escHtml(a.title)}</span><span class="r-sub num">${escHtml(a.sub)}</span>
+        <span class="att-actions"><button class="link" data-att-go="${i}">${escHtml(a.act)}</button>${a.canDismiss ? `<button class="link muted" data-att-dismiss="${i}">Dismiss</button>` : ''}</span></span></div>`).join('')
+    : `<div class="empty-row">Nothing needs attention right now.</div>`;
+  // Year numbers + cards
+  const thisYear = today.getFullYear();
+  const yearCards = DATA.cards.filter(c=>cardShownInYear(c, selectedYear));
+  const per = yearCards.map(c=>{ const fi = feeInfoForYear(c, selectedYear); const value = valueRealizedForCardYear(c.id, selectedYear); return {c, fee:fi.amount, est:!fi.confirmed, value, net:value-fi.amount}; });
+  const fees = per.reduce((t,r)=>t+r.fee,0), red = per.reduce((t,r)=>t+r.value,0), net = red - fees;
+  const paying = per.filter(r=>r.net>=0).length;
+  const yearSel = `<select id="dashboardYearSelect" aria-label="Year">${allYears().map(y=>`<option value="${y}" ${y===selectedYear?'selected':''}>${y}</option>`).join('')}</select>`;
+  const tiles = per.map(r=>{ const s = issuerStyle(r.c.issuer); return `<button class="card-tile2" style="background:${escAttr(s.color)}" data-open-card="${escAttr(r.c.id)}" aria-label="${escAttr(r.c.name)}">
+      <span class="ct-issuer">${escHtml(s.label)}</span><span><span class="ct-name">${escHtml(cardShort(r.c))}</span><span class="ct-net">${fmtSigned(r.net)} ${selectedYear===thisYear ? 'this year' : 'in ' + selectedYear}</span></span></button>`; }).join('');
+  return `<div class="home-grid"><div>${hero}
+      <div class="sec"><span>Needs attention</span><span class="num">${att.length || ''}</span></div><div class="group">${attHtml}</div></div>
+    <div><div class="sec"><span>${selectedYear===thisYear ? selectedYear + ' so far' : selectedYear}</span>${yearSel}</div>
+      <div class="group kpi3">
+        <div class="kpi"><div class="label">Fees</div><div class="value">${fmtMoney(fees)}${per.some(r=>r.est)?' <span class="est" title="Includes fees copied from last year, not confirmed yet">est.</span>':''}</div></div>
+        <div class="kpi"><div class="label">Redeemed</div><div class="value">${fmtMoney(red)}</div></div>
+        <div class="kpi"><div class="label">Net</div><div class="value ${net>=0?'pos-text':'neg-text'}">${fmtSigned(net)}</div></div>
+      </div>
+      <div class="sec"><span>Your cards</span><span>${per.length ? `${paying} of ${per.length} paying off` : ''}</span></div>
+      ${per.length ? `<div class="carousel">${tiles}</div>` : `<div class="group"><div class="empty-row">No cards for ${selectedYear}. Add them in Setup › Cards &amp; fees.</div></div>`}
+    </div></div>`;
+}
+let homeAttention = [];
+function wireHomeTop(){
+  const content = document.getElementById('content');
+  content.querySelectorAll('[data-goto]').forEach(b=>b.onclick = ()=>switchView(b.dataset.goto));
+  content.querySelectorAll('[data-open-card]').forEach(b=>b.onclick = ()=>switchView('card:' + b.dataset.openCard));
+  content.querySelectorAll('[data-att-go]').forEach(b=>b.onclick = ()=>{ const a = homeAttention[Number(b.dataset.attGo)]; if(a) a.go(); });
+  content.querySelectorAll('[data-att-dismiss]').forEach(b=>b.onclick = ()=>{ const a = homeAttention[Number(b.dataset.attDismiss)]; if(!a) return; dismissAlert(a.key); renderDashboard(); toast('Dismissed — it comes back if anything changes'); });
+}
+
+/* ---------- v2.5 Card page ---------- */
+function renderCardPage(){
+  const today = bangkokToday();
+  const c = cardById(currentCardId);
+  setHeader({eyebrow:`<button class="link back-link" id="cardBackBtn">${BACK_SVG}Back</button>`, action: c ? `<button class="link" id="cardEditBtn">Edit card</button>` : ''});
+  document.getElementById('cardBackBtn').onclick = ()=>switchView(prevView && prevView !== 'card' ? prevView : 'dashboard');
+  const content = document.getElementById('content');
+  if(!c){ content.innerHTML = `<div class="group" style="margin-top:12px;"><div class="empty-row">This card no longer exists (it may have been deleted on another device).</div></div>`; return; }
+  document.getElementById('pageTitle').textContent = cardShort(c);
+  document.getElementById('cardEditBtn').onclick = ()=>openCardModal(c.id);
+  const year = selectedYear, s = issuerStyle(c.issuer);
+  const fi = feeInfoForYear(c, year);
+  const red = valueRealizedForCardYear(c.id, year); const net = red - fi.amount;
+  const closed = c.closedDate && cardClosedOn(c.id, today);
+  const nextFee = (c.feeAnchor && !closed) ? nextOccurrenceOnOrAfter(c.feeAnchor, today) : null;
+  const curFee = feeInfoForYear(c, nextFee ? nextFee.getFullYear() : today.getFullYear()).amount;
+  const feeLine = closed ? `Closed ${fmtDay(parseDate(c.closedDate), true)}`
+    : `Annual fee ${fmtMoney(curFee)}${nextFee ? ` · next posts ${fmtDay(nextFee, true)}${daysBetween(today,nextFee) <= 60 ? ' · in ' + daysWord(daysBetween(today,nextFee)) : ''}` : ''}`;
+  const crStates = DATA.credits.filter(cr=>cr.cardId===c.id && creditIsLive(cr, today)).map(cr=>creditState(cr, today));
+  crStates.sort((a,b)=>{ const ra = creditRank(a), rb = creditRank(b); return ra[0]-rb[0] || ra[1]-rb[1]; });
+  const fnStates = DATA.freeNights.filter(fn=>fn.cardId===c.id && fnIsLive(fn, today)).map(fn=>fnState(fn, today));
+  const benefits = crStates.map(st=>uiRow({...creditRowParts(st, today, {noCard:true}), dot:null, attrs:`data-mark-cr="${escAttr(st.cr.id)}"`}))
+    .concat(fnStates.map(st=>uiRow({...fnRowParts(st, today, {noCard:true}), dot:null, attrs:`data-mark-fn="${escAttr(st.fn.id)}"`})));
+  const hist = DATA.history.filter(h=>h.cardId===c.id && entryYear(h)===year).sort((a,b)=>a.date < b.date ? 1 : -1);
+  const histHtml = hist.length ? hist.map(h=>`<div class="row static"><span class="num" style="width:52px;flex:none;color:var(--text-muted);font-size:13px;">${escHtml(fmtDay(parseDate(h.date)))}</span><span class="r-main" style="font-size:14.5px;">${escHtml(h.desc)}</span><span class="r-right num">${fmtMoney(h.amount)}</span></div>`).join('')
+    : `<div class="empty-row">Nothing logged on this card in ${year} yet.</div>`;
+  const good = net >= 0;
+  content.innerHTML = `<div class="content-narrow">
+    <div class="card-hero" style="background:${escAttr(s.color)}">
+      <div class="ch-top"><span class="ch-issuer">${escHtml(s.label)}</span>${c.program ? `<span class="ch-prog">${escHtml(c.program)}</span>` : ''}</div>
+      <div><div class="ch-name">${escHtml(c.name)}</div><div class="ch-fee">${escHtml(feeLine)}</div></div>
+    </div>
+    <div class="stat3">
+      <div><div class="s-label">Fee ${year}${fi.confirmed ? '' : ' (est.)'}</div><div class="s-val">${fmtMoney(fi.amount)}</div></div>
+      <div><div class="s-label">Redeemed</div><div class="s-val">${fmtMoney(red)}</div></div>
+      <div><div class="s-label">Net</div><div class="s-val ${good?'pos-text':'neg-text'}">${fmtSigned(net)}</div></div>
+    </div>
+    <div class="verdict ${good?'good':'bad'}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${good ? '<path d="M20 6L9 17l-5-5"/>' : '<circle cx="12" cy="12" r="9"/><path d="M12 7v6M12 16.5v.5"/>'}</svg>
+      <span>${good ? `Worth keeping — it has paid for itself in ${year}` : `Not paid off yet — ${fmtMoney(-net)} short of its fee`}</span></div>
+    ${sectionHtml('Benefits', benefits.length, `<div class="group">${benefits.join('') || '<div class="empty-row">No active credits or free nights on this card.</div>'}</div>`)}
+    ${sectionHtml(`Redeemed in ${year}`, fmtMoney(red), `<div class="group">${histHtml}</div>`)}
+    ${c.notes ? `<div class="hint-line">${escHtml(c.notes)}</div>` : ''}
+  </div>`;
+  wireRows(content, '[data-mark-cr]', el=>openRedeemModal('cr', el.dataset.markCr));
+  wireRows(content, '[data-mark-fn]', el=>openRedeemModal('fn', el.dataset.markFn));
+}
+
+/* ---------- v2.5 More ---------- */
+function renderMore(){
+  const today = bangkokToday();
+  const nSetup = setupChecklistItems().length;
+  const yr = today.getFullYear();
+  const nHist = DATA.history.filter(h=>entryYear(h)===yr).length;
+  const sources = Object.values(DATA.pointValues||{}).map(v=>v.source).filter(Boolean);
+  const topSource = sources.sort((a,b)=>sources.filter(x=>x===b).length - sources.filter(x=>x===a).length)[0] || '';
+  const r = (attr, label, side)=>`<div class="row" role="button" tabindex="0" ${attr}><span class="r-main" style="font-weight:500;">${label}</span>${side||''}<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color:var(--text-muted);flex:none;"><path d="M9 6l6 6-6 6"/></svg></div>`;
+  const side = t=>`<span class="num" style="color:var(--text-muted);">${t}</span>`;
+  document.getElementById('content').innerHTML = `<div class="content-narrow">
+    ${sectionHtml('Activity', '', `<div class="group">${r('data-more="history"', 'Redemption log', side(`${nHist} in ${yr}`))}</div>`)}
+    ${sectionHtml('Setup', nSetup ? `<span style="color:var(--red);">${nSetup} to check</span>` : '', `<div class="group">
+      ${r('data-more="setupCards"', 'Cards &amp; fees', nSetup ? '<span class="setup-dot on" style="margin:0;"></span>' : side(DATA.cards.length))}
+      ${r('data-more="setupCredits"', 'Credits', side(DATA.credits.length))}
+      ${r('data-more="setupFreeNights"', 'Free nights', side(DATA.freeNights.length))}
+      ${r('data-more="setupValues"', 'Point values', side(escHtml(topSource === 'The Points Guy' ? 'TPG' : topSource)))}
+      ${r('data-more="notifications"', 'Notifications', side('<span data-push-side>Email</span>'))}</div>`)}
+    ${sectionHtml('Data', '', `<div class="group">
+      ${r('data-more="backups"', 'Backups')}
+      ${r('data-more="export"', 'Export a copy')}
+      ${r('data-more="import"', 'Import from file')}
+      ${r('data-more="deleteyear"', 'Delete a year’s redemptions')}</div>`)}
+    ${sectionHtml('Appearance', '', `<div class="group">${r('data-more="theme"', 'Theme', side(escHtml(themeLabel(themePref()))))}</div>`)}
+    <div class="more-foot">Point Tracker ${escHtml(APP_VERSION)} · <span data-sync-text>${escHtml(syncText())}</span></div>
+  </div>`;
+  const content = document.getElementById('content');
+  wireRows(content, '[data-more]', el=>{
+    const k = el.dataset.more;
+    if(k === 'backups') openBackupsModal();
+    else if(k === 'export') exportData();
+    else if(k === 'import') document.getElementById('importFile').click();
+    else if(k === 'deleteyear') deleteTrackedYear();
+    else if(k === 'theme') openThemeSheet();
+    else if(k === 'notifications'){ switchView('setupValues'); setTimeout(()=>{ const p = document.getElementById('pushPanel'); if(p) p.scrollIntoView({block:'start'}); }, 50); }
+    else switchView(k);
+  });
+  pushState().then(s=>{ const el = document.querySelector('[data-push-side]'); if(el) el.textContent = s === 'on' ? 'Push + email' : 'Email'; }).catch(()=>{});
+}
+
+/* ---------- v2.5 theme: Match system / Light / Dark ---------- */
+function themePref(){ try{ const v = localStorage.getItem(THEME_KEY); return v === 'light' || v === 'dark' ? v : 'system'; }catch(e){ return 'system'; } }
+function themeLabel(p){ return p === 'light' ? 'Light' : p === 'dark' ? 'Dark' : (isIOS() ? 'Match iPhone' : 'Match system'); }
+const darkMQ = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+function applyTheme(){
+  const p = themePref();
+  const resolved = p === 'system' ? (darkMQ && darkMQ.matches ? 'dark' : 'light') : p;
+  if(document.documentElement.getAttribute('data-theme') !== resolved) document.documentElement.setAttribute('data-theme', resolved);
+  document.querySelectorAll('[data-theme-label]').forEach(el=>el.textContent = themeLabel(p));
+  syncThemeColor();
+  if(currentView === 'dashboard' && hasRenderedOnce) renderDashboard();
+}
+if(darkMQ){ const onChange = ()=>{ if(themePref() === 'system') applyTheme(); }; darkMQ.addEventListener ? darkMQ.addEventListener('change', onChange) : darkMQ.addListener(onChange); }
+function openThemeSheet(){
+  const p = themePref();
+  const opt = (v)=>`<label class="row opt-row" style="min-height:52px;"><input type="radio" name="themepref" value="${v}" ${p===v?'checked':''}><span class="r-main"><span class="r-title">${themeLabel(v)}</span></span></label>`;
+  showModal(`${modalHead('Theme')}<div class="modal-body"><div class="group">${opt('system')}${opt('light')}${opt('dark')}</div></div>`);
+  document.querySelectorAll('#modalBox input[name=themepref]').forEach(i=>i.onchange = ()=>{
+    try{ if(i.value === 'system') localStorage.removeItem(THEME_KEY); else localStorage.setItem(THEME_KEY, i.value); }catch(e){}
+    applyTheme();
+    if(currentView === 'more') renderMore();
+  });
+}
+
+/* ---------- v2.5 Miles ---------- */
+function maskAcct(a){ const s = String(a||'').replace(/\s+/g,''); return s ? '••' + s.slice(-4) : ''; }
+function renderMileage(){
+  const today = bangkokToday();
+  setHeader({action:`<button class="link" id="milesAddBtn">+ Add</button>`});
+  document.getElementById('milesAddBtn').onclick = ()=>{
+    showModal(`${modalHead('Add')}<div class="modal-body"><div class="group">
+      <div class="row" role="button" tabindex="0" data-add="mp"><span class="r-main"><span class="r-title">Mileage account</span><span class="r-sub">A program balance and its expiring batches</span></span></div>
+      <div class="row" role="button" tabindex="0" data-add="v"><span class="r-main"><span class="r-title">Voucher</span><span class="r-sub">An upgrade, lounge or companion voucher</span></span></div></div></div>`);
+    wireRows(document.getElementById('modalBox'), '[data-add]', el=>{ if(el.dataset.add === 'mp') openMileageModal(); else openVoucherModal(); });
+  };
+  const pf = milesPortfolio(today);
+  const owners = ownerNames();
+  const multi = owners.length > 1;
+  const sources = DATA.mileagePrograms.map(mp=>{ const v = pointValueFor(mp.programName); return v && v.source; }).filter(Boolean);
+  const topSource = sources.sort((a,b)=>sources.filter(x=>x===b).length - sources.filter(x=>x===a).length)[0];
+  const milesShort = n=> n >= 1e6 ? (n/1e6).toFixed(1).replace(/\.0$/,'') + 'M' : n >= 1e4 ? Math.round(n/1e3) + 'k' : n.toLocaleString();
+  const alerts = [];
+  DATA.mileagePrograms.forEach(mp=>(mp.expirations||[]).forEach(e=>{ const d = parseDate(e.date); if(!d) return; const left = daysBetween(today, d);
+    if(left >= 0 && left <= 60) alerts.push({left, html:`${Number(e.amount||0).toLocaleString()} ${escHtml(mp.programName)} miles${multi ? ' (' + escHtml(mp.ownerName) + ')' : ''} expire ${fmtDay(d)}`}); }));
+  DATA.vouchers.forEach(v=>{ const d = parseDate(v.expirationDate); if(!d) return; const left = daysBetween(today, d);
+    if(left >= 0 && left <= 60) alerts.push({left, html:`${escHtml(v.title)}${multi ? ' (' + escHtml(v.ownerName) + ')' : ''} expires ${fmtDay(d)}`}); });
+  alerts.sort((a,b)=>a.left-b.left);
+  const CLOCK = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:none;"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>';
+  const mpRow = mp=>{
+    const b = airlineBadge(mp.programName) || {label:'?', bg:'#5f5e5a'};
+    const v = milesValue(mp.milesTotal, mp.programName);
+    const next = (mp.expirations||[]).map(e=>({e, d:parseDate(e.date)})).filter(x=>x.d && x.d >= today).sort((a,b)=>a.d-b.d)[0];
+    const sub = `${Number(mp.milesTotal||0).toLocaleString()} mi${mp.accountNumber ? ' · acct ' + maskAcct(mp.accountNumber) : ''}${next ? ` · ${Number(next.e.amount||0).toLocaleString()} expire ${fmtDayAuto(next.d, today)}` : ''}`;
+    return uiRow({lead:`<span class="air-badge" style="background:${escAttr(b.bg)}">${escHtml(b.label)}</span>`, title: mp.programName, sub,
+      right: v !== null ? fmtMoney(Math.round(v)) : '<span style="color:var(--text-muted);font-weight:500;">no value</span>', attrs:`data-row-id="${escAttr(mp.id)}" data-edit-mp="${escAttr(mp.id)}"`});
+  };
+  const vRow = v=>{
+    const d = parseDate(v.expirationDate); const left = d ? daysBetween(today, d) : null;
+    const chip = left === null ? '' : left < 0 ? 'Expired' : `${left}d`;
+    return uiRow({lead:'<span class="air-badge" style="background:#5f5e5a">V</span>', title: v.title,
+      sub: [v.programName, v.description, d ? 'expires ' + fmtDay(d, true) : 'no expiry'].filter(Boolean).join(' · '),
+      chip, chipCls: left === null ? '' : left < 0 ? 'chip-red' : urgencyChip(left), attrs:`data-row-id="${escAttr(v.id)}" data-edit-v="${escAttr(v.id)}"`});
+  };
+  const byValue = (a,b)=>{ const va = milesValue(a.milesTotal, a.programName), vb = milesValue(b.milesTotal, b.programName);
+    if(va === null && vb === null) return Number(b.milesTotal||0) - Number(a.milesTotal||0); if(va === null) return 1; if(vb === null) return -1; return vb - va; };
+  let body = '';
+  const groups = multi ? owners : [null];
+  groups.forEach(o=>{
+    const mps = DATA.mileagePrograms.filter(mp=>!multi || mp.ownerName===o).sort(byValue);
+    const vs = DATA.vouchers.filter(v=>!multi || v.ownerName===o);
+    const ownerVal = mps.reduce((t,mp)=>t+(milesValue(mp.milesTotal, mp.programName)||0),0);
+    if(mps.length) body += sectionHtml(multi ? `${escHtml(o)} · programs` : 'Programs', multi ? fmtMoney(Math.round(ownerVal)) : 'by value', `<div class="group">${mps.map(mpRow).join('')}</div>`);
+    if(vs.length) body += sectionHtml(multi ? `${escHtml(o)} · vouchers` : 'Vouchers', vs.length, `<div class="group">${vs.map(vRow).join('')}</div>`);
+  });
+  document.getElementById('content').innerHTML = `<div class="content-narrow">
+    ${DATA.mileagePrograms.length ? `<div class="value-hero"><div class="vh-label">Estimated value · ${DATA.mileagePrograms.length} program${DATA.mileagePrograms.length===1?'':'s'}</div>
+      <div class="vh-big">${fmtMoney(Math.round(pf.total))}</div>
+      <div class="vh-sub num">${milesShort(pf.miles)} miles${topSource ? ' · values from ' + escHtml(topSource) : ''}${pf.missing ? ` · ${pf.missing} without a value` : ''} · <a class="link" style="padding:0;min-height:0;font-size:13.5px;" data-goto="setupValues">edit values</a></div></div>` : ''}
+    ${alerts.map(a=>`<div class="alert-banner" role="status">${CLOCK}<span>${a.html}</span></div>`).join('')}
+    ${body || `<div class="group" style="margin-top:16px;"><div class="empty-row">No mileage accounts or vouchers yet. Tap + Add.</div></div>`}
+  </div>`;
+  const content = document.getElementById('content');
+  content.querySelectorAll('[data-goto]').forEach(a=>a.onclick = ()=>switchView(a.dataset.goto));
+  wireRows(content, '[data-edit-mp]', el=>openMileageModal(el.dataset.editMp));
+  wireRows(content, '[data-edit-v]', el=>openVoucherModal(el.dataset.editV));
 }
 
 /* ============================================================
@@ -4519,157 +4970,6 @@ function programNames(){
   return Array.from(names).sort();
 }
 
-function mileageRowHtml(mp, today){
-  const batches = (mp.expirations||[]).slice().sort((a,b)=>{
-    const da = a.date ? parseDate(a.date) : null, db = b.date ? parseDate(b.date) : null;
-    if(!da && !db) return 0; if(!da) return 1; if(!db) return -1;
-    return da - db;
-  });
-  const batchLinesHtml = batches.length === 0
-    ? `<div class="subtitle" style="padding:4px 0;">No expirations tracked</div>`
-    : batches.map(exp=>{
-        const expiration = exp.date ? parseDate(exp.date) : null;
-        const daysLeft = expiration ? daysBetween(today, expiration) : null;
-        // FIX: was calling statusForDays() unconditionally, which returns
-        // "Urgent" (red) for any daysLeft <= 30 — including negative
-        // values. An already-expired batch showed a red "Urgent" pill next
-        // to text that correctly said "X days overdue," the same
-        // mismatch the Credits/Free Nights rows already guard against
-        // with their own isExpired check. Mirrors that same pattern here.
-        const isExpired = daysLeft !== null && daysLeft < 0;
-        const pill = !expiration ? {label:'No date set', cls:'pill-gray'} : isExpired ? {label:'Expired', cls:'pill-gray'} : statusForDays(daysLeft, 60);
-        return `
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:12.5px;gap:10px;">
-          <span style="color:var(--text);">${Number(exp.amount||0).toLocaleString()} miles${(()=>{ const v = milesValue(exp.amount, mp.programName); return v!==null ? ` (≈ ${fmtMoney0(v)})` : ''; })()}${expiration?` expiring ${fmtDate(expiration)}`:''}</span>
-          <span style="display:flex;align-items:center;gap:8px;white-space:nowrap;">
-            <span class="pill ${pill.cls}">${pill.label}</span>
-            <span style="color:var(--text-muted);min-width:80px;text-align:right;">${daysLeft!==null?(daysLeft>=0?daysLeft+' days left':'expired '+Math.abs(daysLeft)+'d ago'):''}</span>
-          </span>
-        </div>`;
-      }).join('');
-  return `
-  <div class="list-row" data-row-id="${escAttr(mp.id)}" style="flex-direction:column;align-items:stretch;">
-    <div style="display:flex;align-items:flex-start;gap:10px;width:100%;">
-      <div class="main-col" style="flex:1;min-width:0;">
-        <div class="title">${escHtml(mp.programName)}</div>
-        <div class="subtitle">${mp.accountNumber?`Acct #${escHtml(mp.accountNumber)} · `:''}${Number(mp.milesTotal||0).toLocaleString()} miles total${(()=>{ const v = pointValueFor(mp.programName); return v ? ` · <span style="color:var(--text);font-weight:600;">≈ ${fmtMoney0(Number(mp.milesTotal||0)*v.cents/100)}</span> <span title="${escAttr(v.source||'')}">at ${escHtml(Number(v.cents))}¢</span>` : ` · <a data-goto-values style="color:var(--brand-text);cursor:pointer;">add a value</a>`; })()}</div>
-      </div>
-      <div style="display:flex;gap:6px;flex-shrink:0;">
-        <button class="btn btn-sm" data-edit-mp="${escAttr(mp.id)}">Edit</button>
-        <button class="btn btn-sm btn-danger" data-del-mp="${escAttr(mp.id)}">Delete</button>
-      </div>
-    </div>
-    <div style="padding-left:2px;margin-top:2px;">${batchLinesHtml}</div>
-  </div>`;
-}
-
-function voucherRowHtml(v, today){
-  const hasDate = !!v.expirationDate;
-  const expiration = hasDate ? parseDate(v.expirationDate) : null;
-  const daysLeft = expiration ? daysBetween(today, expiration) : null;
-  // FIX: same statusForDays() mismatch as the mileage batches above — an
-  // expired voucher showed a red "Urgent" pill instead of "Expired."
-  const isExpired = daysLeft !== null && daysLeft < 0;
-  const pill = !hasDate ? {label:'No date set', cls:'pill-gray'} : isExpired ? {label:'Expired', cls:'pill-gray'} : statusForDays(daysLeft, 60);
-  return `
-  <div class="list-row" data-row-id="${escAttr(v.id)}">
-    <div style="width:20px;"></div>
-    <div class="main-col">
-      <div class="title">${escHtml(v.title)}</div>
-      <div class="subtitle">${escHtml(v.description||'')}${hasDate?` · expires ${fmtDate(expiration)}`:''}</div>
-    </div>
-    <div class="row-break"></div>
-    <div><span class="pill ${pill.cls}">${pill.label}</span></div>
-    <div class="days">${daysLeft!==null?(daysLeft>=0?daysLeft+' days left':'expired '+Math.abs(daysLeft)+'d ago'):''}</div>
-    <div class="row-break"></div>
-    <div class="actions">
-      <button class="btn btn-sm" data-edit-v="${escAttr(v.id)}">Edit</button>
-      <button class="btn btn-sm btn-danger" data-del-v="${escAttr(v.id)}">Delete</button>
-    </div>
-  </div>`;
-}
-
-function renderMileage(){
-  const today = bangkokToday();
-  const content = document.getElementById('content');
-  content.innerHTML = `
-    <div class="panel">
-      <div class="panel-head">
-        <h2>${DATA.mileagePrograms.length} mileage account${DATA.mileagePrograms.length===1?'':'s'} · ${DATA.vouchers.length} voucher${DATA.vouchers.length===1?'':'s'}</h2>
-        <div style="display:flex;gap:8px;">
-          <button class="btn btn-primary" id="addMpBtn">+ Add mileage</button>
-          <button class="btn" id="addVBtn">+ Add voucher</button>
-        </div>
-      </div>
-      <div class="panel-body" id="mileageList"></div>
-    </div>
-  `;
-  // v2.3: portfolio value at the top of the tab
-  const pf = milesPortfolio(today);
-  if(DATA.mileagePrograms.length){
-    content.insertAdjacentHTML('afterbegin', `
-    <div class="kpi-row kpi-3">
-      <div class="kpi"><div class="label">Miles portfolio value</div><div class="value">≈ ${fmtMoney0(pf.total)}</div></div>
-      <div class="kpi"><div class="label">Miles held</div><div class="value">${pf.miles.toLocaleString()}</div></div>
-      <div class="kpi"><div class="label">Value expiring in 90 days</div><div class="value ${pf.expiring>0?'neg':''}">${fmtMoney0(pf.expiring)}</div></div>
-    </div>
-    <div class="hint" style="margin:-4px 2px 16px;">Estimated with your cents-per-mile values${pf.missing?` (${pf.missing} account${pf.missing===1?' has':'s have'} no value yet)`:''} — <a data-goto-values style="color:var(--brand-text);cursor:pointer;font-weight:600;">see or edit values</a>.</div>`);
-  }
-  const list = document.getElementById('mileageList');
-  const owners = ownerNames();
-
-  if(owners.length === 0){
-    list.innerHTML = '<div class="empty">No mileage accounts or vouchers yet. Add your first one.</div>';
-  } else {
-    list.innerHTML = owners.map(owner=>{
-      const mps = DATA.mileagePrograms.filter(mp=>mp.ownerName===owner);
-      const vs = DATA.vouchers.filter(v=>v.ownerName===owner);
-      const groupKeys = new Set([
-        ...mps.map(mp=>airlineGroupKey(mp.programName)),
-        ...vs.map(v=>airlineGroupKey(v.programName)),
-      ]);
-      // Recognized airlines first (alphabetical by code), "Other" bucket last.
-      const orderedKeys = Array.from(groupKeys).filter(k=>k!==null).sort()
-        .concat(groupKeys.has(null) ? [null] : []);
-
-      const ownerValue = mps.reduce((s,mp)=>s+(milesValue(mp.milesTotal, mp.programName)||0),0);
-      const ownerHeader = `<div style="padding:10px 20px;font-size:13.5px;font-weight:700;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;gap:10px;"><span>${escHtml(owner)}</span>${ownerValue?`<span style="font-weight:600;color:var(--text-muted);">≈ ${fmtMoney0(ownerValue)}</span>`:''}</div>`;
-
-      const groupsHtml = orderedKeys.map(key=>{
-        const groupMps = mps.filter(mp=>airlineGroupKey(mp.programName)===key);
-        const groupVs = vs.filter(v=>airlineGroupKey(v.programName)===key);
-        const sampleProgram = groupMps[0]?.programName || groupVs[0]?.programName || '';
-        const badge = key ? airlineBadge(sampleProgram) : null;
-        const groupHeader = `<div style="padding:8px 20px 4px;font-size:11px;text-transform:uppercase;letter-spacing:.03em;color:var(--text-muted);display:flex;align-items:center;gap:8px;">
-          ${badge?`<span class="issuer-badge" style="background:${badge.bg};color:${badge.fg};">${escHtml(badge.label)}</span>`:''}
-          ${escHtml(key ? (AIRLINE_DISPLAY_NAMES[key]||key) : 'Other')}
-        </div>`;
-        return groupHeader + groupMps.map(mp=>mileageRowHtml(mp, today)).join('') + groupVs.map(v=>voucherRowHtml(v, today)).join('');
-      }).join('');
-
-      return ownerHeader + groupsHtml;
-    }).join('');
-  }
-
-  document.querySelectorAll('[data-goto-values]').forEach(a=>a.onclick=()=>switchView('setupValues'));
-  document.getElementById('addMpBtn').onclick = ()=>openMileageModal();
-  document.getElementById('addVBtn').onclick = ()=>openVoucherModal();
-  list.querySelectorAll('[data-edit-mp]').forEach(b=>b.onclick=()=>openMileageModal(b.dataset.editMp));
-  list.querySelectorAll('[data-del-mp]').forEach(b=>b.onclick=()=>{
-    showConfirm('Delete this mileage account?', ()=>{
-      DATA.mileagePrograms = DATA.mileagePrograms.filter(x=>x.id!==b.dataset.delMp);
-      saveData(); renderMileage();
-    });
-  });
-  list.querySelectorAll('[data-edit-v]').forEach(b=>b.onclick=()=>openVoucherModal(b.dataset.editV));
-  list.querySelectorAll('[data-del-v]').forEach(b=>b.onclick=()=>{
-    showConfirm('Delete this voucher?', ()=>{
-      DATA.vouchers = DATA.vouchers.filter(x=>x.id!==b.dataset.delV);
-      saveData(); renderMileage();
-    });
-  });
-}
-
 // One repeatable row inside the mileage modal's "Expiring batches" list.
 // Deliberately uses classes, not ids, on the inner inputs — the modal can
 // contain any number of these rows, and ids must be unique per document.
@@ -4693,7 +4993,7 @@ function openMileageModal(id){
       <div class="field"><label>Program name</label><input id="f_program" list="programNamesList" value="${escAttr(mp.programName)}" placeholder="e.g. United MileagePlus"></div>
       <datalist id="programNamesList">${programNames().map(n=>`<option value="${escAttr(n)}">`).join('')}</datalist>
       <div class="field-row">
-        <div class="field"><label>Account / mileage number</label><input id="f_account" value="${escAttr(mp.accountNumber)}"></div>
+        <div class="field"><label for="f_account">Account / mileage number</label><div style="display:flex;gap:8px;"><input id="f_account" value="${escAttr(mp.accountNumber)}" style="flex:1;min-width:0;"><button type="button" class="btn btn-sm" id="copyAcctBtn">Copy</button></div></div>
         <div class="field"><label>Total miles</label><input id="f_total" type="number" min="0" inputmode="numeric" value="${escAttr(mp.milesTotal)}"></div>
       </div>
       <div class="field">
@@ -4705,6 +5005,7 @@ function openMileageModal(id){
       <div class="field"><label>Notes (optional)</label><input id="f_notes" value="${escAttr(mp.notes||'')}"></div>
     </div>
     <div class="modal-foot">
+      ${editing ? '<button class="btn btn-danger" id="modalDelete" style="margin-right:auto;">Delete</button>' : ''}
       <button class="btn" id="modalCancel">Cancel</button>
       <button class="btn btn-primary" id="modalSave">Save</button>
     </div>
@@ -4725,6 +5026,14 @@ function openMileageModal(id){
     });
   }
   wireExpirationRemoveButtons();
+  // v2.5: the account number is masked in the list; here it's in full, with Copy.
+  document.getElementById('copyAcctBtn').onclick = ()=>{
+    const v = val('f_account').trim(); if(!v){ toast('No account number yet'); return; }
+    (navigator.clipboard && navigator.clipboard.writeText ? navigator.clipboard.writeText(v) : Promise.reject()).then(()=>toast('Account number copied'), ()=>{ const el = document.getElementById('f_account'); el.focus(); el.select(); toast('Selected — copy it from the menu'); });
+  };
+  // v2.5: Delete lives in the edit form (no per-row Delete buttons any more).
+  const delMp = document.getElementById('modalDelete');
+  if(delMp) delMp.onclick = ()=>showConfirm('Delete this mileage account?', ()=>{ DATA.mileagePrograms = DATA.mileagePrograms.filter(x=>x.id!==id); saveData(); views[currentView].render(); toast('Mileage account deleted'); });
   document.getElementById('addExpBtn').onclick = ()=>{
     document.getElementById('expirationsContainer').insertAdjacentHTML('beforeend', expirationRowHtml({amount:'',date:''}));
     wireExpirationRemoveButtons();
@@ -4757,7 +5066,7 @@ function openMileageModal(id){
       Object.assign(live, fields);
     }
     else { DATA.mileagePrograms.push({ id: uid('mp'), ...fields }); }
-    saveData(); closeModal(); renderMileage();
+    saveData(); closeModal(); views[currentView].render();
     toast(editing?'Mileage account updated':'Mileage account added');
   };
 }
@@ -4778,10 +5087,13 @@ function openVoucherModal(id){
       <div class="hint">Leave the expiration blank if it doesn't expire — it just won't show up in reminders until you set one. Used or gone? Just delete the row.</div>
     </div>
     <div class="modal-foot">
+      ${editing ? '<button class="btn btn-danger" id="modalDelete" style="margin-right:auto;">Delete</button>' : ''}
       <button class="btn" id="modalCancel">Cancel</button>
       <button class="btn btn-primary" id="modalSave">Save</button>
     </div>
   `);
+  const delV = document.getElementById('modalDelete');
+  if(delV) delV.onclick = ()=>showConfirm('Delete this voucher?', ()=>{ DATA.vouchers = DATA.vouchers.filter(x=>x.id!==id); saveData(); views[currentView].render(); toast('Voucher deleted'); });
   document.getElementById('modalSave').onclick = ()=>{
     const ownerName = val('f_owner').trim();
     const title = val('f_title').trim();
@@ -4800,7 +5112,7 @@ function openVoucherModal(id){
       Object.assign(live, fields);
     }
     else { DATA.vouchers.push({ id: uid('v'), ...fields }); }
-    saveData(); closeModal(); renderMileage();
+    saveData(); closeModal(); views[currentView].render();
     toast(editing?'Voucher updated':'Voucher added');
   };
 }
@@ -4998,11 +5310,14 @@ function openHistModal(id){
 /* ============================================================
    MODAL / TOAST HELPERS
    ============================================================ */
-function showModal(html){
-  document.getElementById('modalBox').innerHTML = html;
+function showModal(html, opts={}){
+  const box = document.getElementById('modalBox');
+  box.className = 'modal' + (opts.cls ? ' ' + opts.cls : ''); // v2.5: 'sheet' = the benefit sheet layout
+  box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true');
+  box.innerHTML = html;
+  box.scrollTop = 0;
   document.getElementById('overlay').classList.add('open');
-  document.getElementById('modalClose').onclick = closeModal;
-  document.getElementById('modalCancel').onclick = closeModal;
+  ['modalClose','modalCancel'].forEach(id=>{ const b = document.getElementById(id); if(b) b.onclick = closeModal; });
 }
 function closeModal(){ document.getElementById('overlay').classList.remove('open'); flushPendingRender(); } // v2.4: redraw what changed on another device while the form was open
 document.getElementById('overlay').addEventListener('click', (e)=>{ if(e.target.id==='overlay') closeModal(); });
@@ -5086,10 +5401,11 @@ function toast(msg){
 /* ============================================================
    EXPORT / IMPORT
    ============================================================ */
-document.getElementById('exportBtn').onclick = ()=>{
+function exportData(){
   // v2.3.1 (M6): shared helper (attached link, delayed revoke); Bangkok date in the file name.
   if(!downloadJsonFile({...DATA, _exportedFromAppVersion: APP_VERSION}, `hotel-card-tracker-backup-${toISODate(bangkokToday())}.json`)) toast('The download did not start.');
-};
+}
+document.getElementById('exportBtn').onclick = exportData;
 document.getElementById('importBtn').onclick = ()=> document.getElementById('importFile').click();
 document.getElementById('importFile').onchange = (e)=>{
   const file = e.target.files[0]; if(!file) return;
@@ -5126,7 +5442,7 @@ document.getElementById('importFile').onchange = (e)=>{
    INIT
    ============================================================ */
 document.querySelectorAll('[data-app-version]').forEach(el=>{ el.textContent = APP_VERSION; });
-document.querySelectorAll('#nav button').forEach(b=> b.onclick = ()=> switchView(b.dataset.view));
+document.querySelectorAll('#nav button[data-view], #tabbar button[data-view]').forEach(b=> b.onclick = ()=> switchView(b.dataset.view));
 document.getElementById('backupsBtn').onclick = openBackupsModal;
 document.getElementById('backupReminderBtn').onclick = async ()=>{
   const btn = document.getElementById('backupReminderBtn');
@@ -5156,26 +5472,9 @@ function syncThemeColor(){
   const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
   if(bg) m.setAttribute('content', bg);
 }
-function updateThemeButtonIcon(){
-  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-  const sunIcon = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>';
-  const moonIcon = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg>';
-  document.getElementById('themeToggleBtn').innerHTML = isDark ? sunIcon : moonIcon;
-}
+function updateThemeButtonIcon(){ document.querySelectorAll('[data-theme-label]').forEach(el=>el.textContent = themeLabel(themePref())); }
 updateThemeButtonIcon();
-document.getElementById('themeToggleBtn').onclick = ()=>{
-  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-  const next = isDark ? 'light' : 'dark';
-  document.documentElement.setAttribute('data-theme', next);
-  try{ localStorage.setItem(THEME_KEY, next); }catch(e){}
-  updateThemeButtonIcon();
-  syncThemeColor();
-  // Only repaint if Dashboard is actually the view on screen right now —
-  // calling renderDashboard() unconditionally would silently swap #content
-  // to the Dashboard's markup while the sidebar nav still shows whichever
-  // tab was actually active, leaving the two out of sync.
-  if(currentView === 'dashboard') renderDashboard();
-};
+document.getElementById('themeToggleBtn').onclick = openThemeSheet;
 
 let hasRenderedOnce = false;
 
