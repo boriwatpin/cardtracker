@@ -473,6 +473,37 @@
     .topbar h1{font-size:23px;}
     .kpi .value{font-size:23px;}
   }
+  /* ============================================================
+     v2.1 SETUP SECTION
+     Desktop: a "Setup" group of three entries at the bottom of the sidebar.
+     Phone/tablet (bottom tab bar): the three collapse into one "Setup" tab;
+     the Setup pages carry their own sub-tabs, so nothing is unreachable.
+     ============================================================ */
+  .nav-section{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text-soft);padding:16px 12px 4px;}
+  .nav-setup-mobile{display:none !important;}
+  .setup-dot{width:7px;height:7px;border-radius:50%;background:var(--red);display:none;margin-left:auto;flex-shrink:0;}
+  .setup-dot.on{display:inline-block;}
+  @media (max-width:900px){
+    .nav-section, .nav-setup-item{display:none !important;}
+    .nav-setup-mobile{display:flex !important;position:relative;}
+    .nav-setup-mobile .setup-dot{position:absolute;top:6px;right:22%;margin:0;}
+  }
+  .btn-link{background:transparent !important;border-color:transparent !important;color:var(--brand-text) !important;font-weight:600;}
+  .btn-link:hover{text-decoration:underline;}
+  .setup-tabs{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 14px;}
+  .setup-tabs button{border:1px solid var(--border);background:var(--card-bg);color:var(--text-muted);border-radius:20px;padding:6px 14px;font-size:12.5px;font-weight:600;cursor:pointer;}
+  .setup-tabs button.active{background:var(--brand-tint);color:var(--brand-text);border-color:transparent;}
+  .checklist{border:1px solid var(--border);border-left:4px solid var(--amber, #d97706);border-radius:12px;background:var(--card-bg);padding:12px 16px;margin-bottom:14px;}
+  .checklist h3{font-size:13.5px;margin:0 0 6px;}
+  .checklist ul{margin:0;padding-left:18px;font-size:12.5px;line-height:1.7;color:var(--text-muted);}
+  .checklist a{color:var(--brand-text);cursor:pointer;font-weight:600;}
+  .fee-table{width:100%;border-collapse:collapse;font-size:13px;margin-top:4px;}
+  .fee-table td{padding:4px 6px;border-bottom:1px solid var(--border);vertical-align:middle;}
+  .fee-table input[type=number]{width:100px;}
+  .fee-table input[type=number].yr{width:76px;}
+  .setup-row-meta{font-size:12px;color:var(--text-muted);margin-top:3px;line-height:1.5;}
+  .preview-box{background:var(--gray-bg);border-radius:10px;padding:10px 12px;font-size:12.5px;line-height:1.6;margin-top:6px;}
+  .pill-amber-text{color:var(--amber, #b45309);}
 </style>
 </head>
 <body>
@@ -529,11 +560,15 @@
     </div>
     <div class="nav" id="nav">
       <button data-view="dashboard" class="active"><span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M12 20V4M20 20v-6"/></svg></span> Dashboard</button>
-      <button data-view="cards"><span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg></span> Cards</button>
       <button data-view="credits"><span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg></span> Annual Credits</button>
       <button data-view="freenights"><span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg></span> Free Nights</button>
       <button data-view="mileage"><span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l18-8-8 18-2-8-8-2z"/></svg></span> Miles &amp; Vouchers</button>
       <button data-view="history"><span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/></svg></span> Redemption Log</button>
+      <div class="nav-section">Setup</div>
+      <button data-view="setupCards" class="nav-setup-item"><span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg></span> Cards &amp; fees <span class="setup-dot" data-setup-dot></span></button>
+      <button data-view="setupCredits" class="nav-setup-item"><span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg></span> Credits</button>
+      <button data-view="setupFreeNights" class="nav-setup-item"><span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg></span> Free nights</button>
+      <button data-view="setupCards" data-view-group="setup" class="nav-setup-mobile"><span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span> Setup <span class="setup-dot" data-setup-dot></span></button>
     </div>
     <div class="sidebar-foot">
       Synced automatically across your devices.<br>Export is still a good idea as a backup.
@@ -646,7 +681,7 @@ const SEED = {
    ============================================================ */
 // Shown next to the app name (sidebar + mobile header) and stamped into
 // exported backups. Bump this one line on each deployment.
-const APP_VERSION = 'v2.0';
+const APP_VERSION = 'v2.1';
 const STORE_KEY = 'hotelCardTrackerData_v1';
 const SYNCED_AT_KEY = STORE_KEY + '_syncedAt';
 const DIRTY_KEY = STORE_KEY + '_dirty'; // FIX: persists across reloads/tab-closes
@@ -657,7 +692,7 @@ const DIRTY_KEY = STORE_KEY + '_dirty'; // FIX: persists across reloads/tab-clos
 const BACKUP_COUNT_KEY = STORE_KEY + '_changesSinceBackup';
 const BACKUP_REMINDER_THRESHOLD = 3; // "more than 2 changes"
 let changesSinceBackup = parseInt(localStorage.getItem(BACKUP_COUNT_KEY) || '0', 10) || 0;
-const CURRENT_DATA_VERSION = 10;
+const CURRENT_DATA_VERSION = 11;
 // SAFETY NET: remembers whether this load started from a completely empty
 // local cache (meaning DATA below is the hardcoded demo SEED, not anything
 // real) — used after bootstrapSync() resolves to decide whether a failed
@@ -838,6 +873,28 @@ function migrateData(data){
       }
     }
     data._version = 10;
+  }
+  if(data._version < 11){
+    // v11 (app v2.1): per-year fees, closable cards, and how each credit is
+    // used. Nothing here changes what the app showed before — it records
+    // today's fee as the 2026 fee (hardcoded on purpose: this is the year the
+    // existing fees belong to, even if this upgrade first runs in 2027 on a
+    // device that wasn't opened in December; the new-year rollover then
+    // copies it forward as "unconfirmed").
+    (data.cards||[]).forEach(c=>{
+      if(!c.feeByYear) c.feeByYear = { '2026': { amount: Number(c.fee)||0, confirmed: true } };
+    });
+    // How each existing credit is used (agreed mapping, decision D12):
+    // Every stay = the per-stay property credits; Once = auto-posted value and
+    // single-use benefits; everything else is spent down to its face value.
+    const ONCE_IDS = ['cr3','cr12'];
+    (data.credits||[]).forEach(cr=>{
+      if(cr.usage) return;
+      if(cr.frequency === 'Per Stay') cr.usage = 'perstay';
+      else if(cr.autoRedeem || ONCE_IDS.includes(cr.id)) cr.usage = 'once';
+      else cr.usage = 'spenddown';
+    });
+    data._version = 11;
   }
   return data;
 }
@@ -1515,21 +1572,28 @@ function computeUpcomingReminders(){
   const items = [];
   DATA.credits.forEach(cr=>{
     if(cr.autoRedeem) return;
-    const cycle = currentCycle(cr.anchor, CYCLE_MONTHS[cr.frequency]||12, 12, today);
-    if(!cycle) return;
-    if(historyEntriesInCycle(cr.id, cycle).length > 0) return;
+    // v2.1: no reminders for closed cards / ended benefits, none for
+    // "every stay" credits (nothing expires), and spend-down credits keep
+    // reminding while money is left (decisions D7, D10, D11, D13).
+    if(creditUsage(cr) === 'perstay' || !creditIsLive(cr, today)) return;
+    const cycle = creditCycle(cr, today);
+    if(!cycle || today < cycle.start) return;
+    const prog = creditProgress(cr, cycle);
+    if(prog.done) return;
     const daysLeft = daysBetween(today, cycle.end);
+    const name = (prog.usage === 'spenddown' && prog.count > 0) ? `${cr.name} ($${prog.remaining.toLocaleString()} left)` : cr.name;
     // FIX: daysLeft <= 30 has no lower bound, so an unredeemed credit that
     // expired months ago kept surfacing here forever, with no way for the
     // banner to tell it apart from something genuinely expiring soon.
     // Tagging isExpired lets the banner render these as their own
     // honestly-labeled section instead of lumping them under "expiring
     // within 30 days."
-    if(daysLeft <= 30) items.push({name: cr.name, daysLeft, isExpired: daysLeft < 0});
+    if(daysLeft <= 30) items.push({name, daysLeft, isExpired: daysLeft < 0});
   });
   DATA.freeNights.forEach(fn=>{
-    const cycle = currentCycle(fn.anchor, 12, 12, today);
-    if(!cycle) return;
+    if(!fnIsLive(fn, today)) return; // v2.1: closed card / ended / expired one-off
+    const cycle = fnCycle(fn, today);
+    if(!cycle || today < cycle.start) return;
     if(historyEntriesInCycle(fn.id, cycle).length >= (fn.certsPerCycle || 1)) return;
     const expiration = effectiveExpiration(fn, cycle);
     const daysLeft = daysBetween(today, expiration);
@@ -1570,8 +1634,9 @@ function computeUpcomingReminders(){
     if(!c.feeAnchor) return;
     const nextFee = nextOccurrenceOnOrAfter(c.feeAnchor, today);
     if(!nextFee) return;
+    if(cardClosedOn(c.id, nextFee)) return; // v2.1: closed before the fee posts
     const daysLeft = daysBetween(today, nextFee);
-    if(daysLeft <= 30) items.push({name: `${c.name} annual fee`, daysLeft, isFee:true, amount:c.fee});
+    if(daysLeft <= 30) items.push({name: `${c.name} annual fee`, daysLeft, isFee:true, amount: feeInfoForYear(c, nextFee.getFullYear()).amount});
   });
   return items.sort((a,b)=>a.daysLeft-b.daysLeft);
 }
@@ -1587,11 +1652,25 @@ function statusForDays(daysRemaining, planSoonThreshold){
 // behind, or grant a one-time extension). `expirationOverride`, if set on
 // the certificate, takes precedence over the calculated cycle end for every
 // display/sort/status purpose. Falls back to the calculated date otherwise.
+// v2.0.1 FIX: the override is a one-off date for ONE certificate. It used to
+// apply to every later cycle too, so the moment the card renewed, the new
+// certificate showed (and was emailed as) "Expired" using last year's date.
+// It now only applies to the certificate it was meant for: a real expiry
+// date lands near the END of a certificate's 12-month cycle, so the
+// override counts only if it's more than 6 months after the current
+// cycle's start. Once the card renews, last year's date falls before that
+// point and is ignored — the calculated date takes over automatically.
+function overrideAppliesToCycle(fn, cycle){
+  if(!fn.expirationOverride) return false;
+  const d = parseDate(fn.expirationOverride);
+  if(!d) return false;
+  if(!cycle) return true;
+  // One-off certificate: there is only one certificate, so any date from its issue date on applies.
+  if(fn.repeats === false) return d >= cycle.start;
+  return d > addMonths(cycle.start, 6);
+}
 function effectiveExpiration(fn, cycle){
-  if(fn.expirationOverride){
-    const d = parseDate(fn.expirationOverride);
-    if(d) return d;
-  }
+  if(overrideAppliesToCycle(fn, cycle)) return parseDate(fn.expirationOverride);
   return cycle ? cycle.end : null;
 }
 
@@ -1617,6 +1696,140 @@ function redemptionNotesInCycle(sourceId, cycle){
 }
 function redeemedInCycle(sourceId, cycle){
   return historyEntriesInCycle(sourceId, cycle).reduce((sum,h) => sum + Number(h.amount||0), 0);
+}
+
+/* ============================================================
+   v2.1 BENEFIT RULES — the single place that decides, for any credit or
+   free night: which period it's in, whether it's still live (card not
+   closed, benefit not ended, one-off certificate not expired), and how
+   much of it is used. Both edge functions (send-reminders.ts and
+   send-monthly-summary.ts) carry an exact copy of these rules — change
+   one, change all three.
+   ============================================================ */
+const FAR_FUTURE = new Date(9999, 0, 1);
+
+// 'once' — one log per period (the original behaviour)
+// 'spenddown' — any number of logs per period until their total reaches the value
+// 'perstay' — no period limit at all; counted per calendar year, never expires
+function creditUsage(cr){
+  if(cr.usage === 'once' || cr.usage === 'spenddown' || cr.usage === 'perstay') return cr.usage;
+  return cr.frequency === 'Per Stay' ? 'perstay' : 'once';
+}
+// A card closed on date X stops everything (credits, free nights, fee
+// reminders) from X onward. A card that no longer exists (legacy deletes)
+// is treated as open, exactly like before v2.1.
+function cardClosedOn(cardId, date){
+  const c = cardById(cardId);
+  if(!c || !c.closedDate) return false;
+  const cd = parseDate(c.closedDate);
+  return !!cd && date >= cd;
+}
+function creditCycle(cr, today){
+  if(creditUsage(cr) === 'perstay'){
+    const y = today.getFullYear();
+    const next = new Date(y+1, 0, 1);
+    return {start: new Date(y, 0, 1), end: next, nextStart: next};
+  }
+  return currentCycle(cr.anchor, CYCLE_MONTHS[cr.frequency]||12, 12, today);
+}
+// One-off certificates ("Repeats yearly: no") never roll: one window from
+// the issue date, valid 12 months (or the manual expiry), and every
+// redemption ever logged against it counts toward that single window.
+function fnCycle(fn, today){
+  if(fn.repeats === false){
+    const a = parseDate(fn.anchor);
+    if(!a) return null;
+    return {start: a, end: addMonths(a, 12), nextStart: FAR_FUTURE};
+  }
+  return currentCycle(fn.anchor, 12, 12, today);
+}
+// "Ends after" = the period running on that date is the last one; once a
+// later period would start, the benefit is over.
+function benefitEnded(item, cycle){
+  if(!item.endsAfter || !cycle) return false;
+  const e = parseDate(item.endsAfter);
+  return !!e && cycle.start > e;
+}
+function creditIsLive(cr, today){
+  if(cardClosedOn(cr.cardId, today)) return false;
+  return !benefitEnded(cr, creditCycle(cr, today));
+}
+function fnIsLive(fn, today){
+  if(cardClosedOn(fn.cardId, today)) return false;
+  const cycle = fnCycle(fn, today);
+  if(benefitEnded(fn, cycle)) return false;
+  if(fn.repeats === false && cycle){
+    const exp = effectiveExpiration(fn, cycle);
+    if(exp && today >= exp) return false; // a one-off certificate is gone once it expires
+  }
+  return true;
+}
+function creditProgress(cr, cycle){
+  const entries = cycle ? historyEntriesInCycle(cr.id, cycle) : [];
+  const used = entries.reduce((s,h)=>s+Number(h.amount||0), 0);
+  const usage = creditUsage(cr);
+  const value = Number(cr.value)||0;
+  let done;
+  if(usage === 'perstay') done = false;
+  else if(usage === 'spenddown') done = entries.length > 0 && used >= value;
+  else done = entries.length > 0;
+  const remaining = usage === 'spenddown' ? Math.max(0, value - used) : (done ? 0 : value);
+  return {entries, count: entries.length, used, remaining, done, usage};
+}
+
+/* ---------- v2.1 fees per year ---------- */
+// card.feeByYear = { '2026': {amount: 99, confirmed: true}, '2027': {...} }
+// keyed by the calendar year the fee posts (decision D6).
+function feeYears(c){ return Object.keys(c.feeByYear||{}).map(Number).filter(n=>!isNaN(n)).sort((a,b)=>a-b); }
+function feeInfoForYear(c, year){
+  const fy = c.feeByYear || {};
+  if(fy[year]) return {amount: Number(fy[year].amount)||0, confirmed: fy[year].confirmed !== false, recorded: true};
+  const years = feeYears(c);
+  if(!years.length) return {amount: Number(c.fee)||0, confirmed: false, recorded: false};
+  const prior = years.filter(y=>y<year);
+  if(prior.length) return {amount: Number(fy[prior[prior.length-1]].amount)||0, confirmed: false, recorded: false, projected: true};
+  return {amount: 0, confirmed: true, recorded: false};
+}
+function cardHasHistoryInYear(c, year){
+  return DATA.history.some(h=>h.cardId===c.id && parseDate(h.date).getFullYear()===year);
+}
+// Which cards belong on a year's Dashboard: from the first year with a fee
+// recorded, up to and including the year it was closed. A card with
+// redemptions logged in a year always shows for that year regardless.
+function cardShownInYear(c, year){
+  if(cardHasHistoryInYear(c, year)) return true;
+  const years = feeYears(c);
+  if(years.length && year < years[0]) return false;
+  if(c.closedDate){
+    const cd = parseDate(c.closedDate);
+    if(cd && year > cd.getFullYear()) return false;
+    if(cd && year === cd.getFullYear() && cd.getMonth()===0 && cd.getDate()===1 && !(c.feeByYear||{})[year]) return false;
+  }
+  return true;
+}
+// Decision D5: on the first load of a new year, every open card gets that
+// year's fee copied from the latest earlier year, flagged unconfirmed until
+// you confirm or change it in Setup. Returns true if anything changed.
+function runFeeRollover(){
+  const y = bangkokToday().getFullYear();
+  let changed = false;
+  DATA.cards.forEach(c=>{
+    if(!c.feeByYear || c.feeByYear[y]) return;
+    if(c.closedDate){ const cd = parseDate(c.closedDate); if(cd && cd <= new Date(y, 0, 1)) return; }
+    const prior = feeYears(c).filter(k=>k<y);
+    if(!prior.length) return;
+    c.feeByYear[y] = {amount: Number(c.feeByYear[prior[prior.length-1]].amount)||0, confirmed: false};
+    c.fee = c.feeByYear[y].amount;
+    changed = true;
+  });
+  return changed;
+}
+// Everything that runs on load / tab focus once sync has confirmed it's safe.
+function runDailyChecks(){
+  const autoChanged = runAutoRedemptions(); // saves itself if it changed anything
+  const feeChanged = runFeeRollover();
+  if(feeChanged && !autoChanged) saveData();
+  return autoChanged || feeChanged;
 }
 
 // Format a local-time Date back to a 'YYYY-MM-DD' string for storing in a
@@ -1664,7 +1877,8 @@ function runAutoRedemptions(){
   let changed = false;
   DATA.credits.forEach(cr=>{
     if(!cr.autoRedeem) return;
-    const cycle = currentCycle(cr.anchor, CYCLE_MONTHS[cr.frequency]||12, 12, today);
+    if(!creditIsLive(cr, today)) return; // v2.1: closed card / ended benefit
+    const cycle = creditCycle(cr, today);
     if(!cycle || today < cycle.start) return;
     if(historyEntriesInCycle(cr.id, cycle).length > 0) return;
     if(isAutoRedemptionSuppressed(cr.id, toISODate(cycle.start))) return;
@@ -1827,6 +2041,7 @@ function allYears(){
   ys.add(now.getFullYear());
   ys.add(now.getFullYear()+1); // always show next year for forward visibility — no way to hide it, and nothing to configure
   DATA.history.forEach(h=>ys.add(parseDate(h.date).getFullYear()));
+  DATA.cards.forEach(c=>feeYears(c).forEach(y=>ys.add(y))); // v2.1: years with fees recorded (decision D1)
   return Array.from(ys).sort((a,b)=>b-a);
 }
 
@@ -1936,7 +2151,9 @@ function valueRealizedForCardYear(cardId, year){
    ============================================================ */
 const views = {
   dashboard: { title:'Dashboard', desc:'Fee vs. redemptions logged, by card, for the selected year.', render: renderDashboard },
-  cards: { title:'Cards', desc:'Every card you\'re tracking. Add a new one and it becomes available everywhere else.', render: renderCards },
+  setupCards: { title:'Setup · Cards & fees', desc:'Your cards, the fee you paid each year, fee dates, and closing a card.', render: renderSetupCards },
+  setupCredits: { title:'Setup · Credits', desc:'What each statement credit is worth, when it resets, and how it is used.', render: renderSetupCredits },
+  setupFreeNights: { title:'Setup · Free nights', desc:'Free night certificates: renewal date, how many per year, and one-off certificates.', render: renderSetupFreeNights },
   credits: { title:'Annual Credits', desc:'Recurring statement credits. Status and days-remaining update automatically as time passes.', render: renderCredits },
   freenights: { title:'Free Nights', desc:'Free night certificates and awards — track issue dates, expirations, and bookings.', render: renderFreeNights },
   mileage: { title:'Miles & Vouchers', desc:'Manually-tracked mileage balances and vouchers, shared across family members.', render: renderMileage },
@@ -2049,7 +2266,8 @@ function makeDragReorderable(container, rowSelector, getId, onReordered){
 
 function switchView(v){
   currentView = v;
-  document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active', b.dataset.view===v));
+  document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active', b.dataset.viewGroup==='setup' ? v.startsWith('setup') : b.dataset.view===v));
+  updateSetupDot();
   document.getElementById('pageTitle').textContent = views[v].title;
   document.getElementById('pageDesc').textContent = views[v].desc;
   views[v].render();
@@ -2058,12 +2276,21 @@ function switchView(v){
 /* ---------- Dashboard ---------- */
 let chartInstance = null;
 function renderDashboard(){
-  const rows = DATA.cards.map(c=>{
+  // v2.1: each year uses that year's own fee and only the cards you held
+  // that year (decisions D5–D7), so editing a fee or closing a card never
+  // rewrites a past year.
+  const rows = DATA.cards.filter(c=>cardShownInYear(c, selectedYear)).map(c=>{
     const value = valueRealizedForCardYear(c.id, selectedYear);
-    const net = value - c.fee;
-    return {card:c, value, net};
+    const feeInfo = feeInfoForYear(c, selectedYear);
+    const fee = feeInfo.amount;
+    const net = value - fee;
+    const closed = !!(c.closedDate && parseDate(c.closedDate).getFullYear() <= selectedYear);
+    return {card:c, value, net, fee, feeEst: !feeInfo.confirmed, closed};
   });
-  const totalFee = rows.reduce((s,r)=>s+r.card.fee,0);
+  const feeLabel = r => `$${r.fee.toLocaleString()}${r.feeEst?'<span title="Not confirmed yet — confirm in Setup › Cards & fees" style="color:var(--text-soft);font-size:11px;"> est.</span>':''}`;
+  const cardLabel = r => `${escHtml(r.card.name)}${r.closed?' <span class="pill pill-gray" style="font-size:10.5px;">Closed</span>':''}`;
+  const anyFeeEst = rows.some(r=>r.feeEst);
+  const totalFee = rows.reduce((s,r)=>s+r.fee,0);
   const totalValue = rows.reduce((s,r)=>s+r.value,0);
   const totalNet = totalValue - totalFee;
   const worthKeeping = rows.filter(r=>r.net>=0).length;
@@ -2111,12 +2338,12 @@ function renderDashboard(){
       </div>
     </div>` : ''}
     <div class="kpi-row">
-      <div class="kpi"><div class="label">Total annual fees</div><div class="value">$${totalFee.toLocaleString()}</div></div>
+      <div class="kpi"><div class="label">Annual fees ${selectedYear}${anyFeeEst?' (incl. est.)':''}</div><div class="value">$${totalFee.toLocaleString()}</div></div>
       <div class="kpi"><div class="label">Redeemed in ${selectedYear}</div><div class="value">$${totalValue.toLocaleString()}</div></div>
       <div class="kpi"><div class="label">Net</div><div class="value ${totalNet>=0?'pos':'neg'}">${totalNet>=0?'+':'-'}$${Math.abs(totalNet).toLocaleString()}</div></div>
       <div class="kpi"><div class="label">Cards worth keeping</div><div class="value">${worthKeeping} / ${rows.length}</div></div>
     </div>
-    <div class="hint" style="margin:-4px 2px 16px;">This reflects redemptions logged with a date in ${selectedYear} — switching years here doesn't add, remove, or expire any credits, free nights, or vouchers. Those always show up based on their own dates, everywhere else in the app, regardless of what year is selected here.</div>
+    <div class="hint" style="margin:-4px 2px 16px;">This reflects redemptions logged with a date in ${selectedYear} — switching years here doesn't add, remove, or expire any credits, free nights, or vouchers. Those always show up based on their own dates, everywhere else in the app, regardless of what year is selected here. Fees are that year's own fees, and only cards you held that year are shown.${anyFeeEst?' Fees marked <em>est.</em> were copied from the previous year and are not confirmed yet — confirm them in Setup › Cards &amp; fees.':''}</div>
 
     <div class="panel">
       <div class="panel-head" style="display:flex;justify-content:space-between;align-items:center;">
@@ -2137,16 +2364,16 @@ function renderDashboard(){
       <div class="dashboard-fee-mobile">
         <div class="fee-chart-legend"><span class="fee-chart-swatch fee"></span> Annual fee &nbsp; <span class="fee-chart-swatch value"></span> Redeemed</div>
         ${(()=>{
-          const maxAmount = Math.max(1, ...rows.map(r=>Math.max(r.card.fee, r.value)));
+          const maxAmount = Math.max(1, ...rows.map(r=>Math.max(r.fee, r.value)));
           return rows.map(r=>{
-            const feePct = Math.round((r.card.fee / maxAmount) * 100);
+            const feePct = Math.round((r.fee / maxAmount) * 100);
             const valuePct = Math.round((r.value / maxAmount) * 100);
             return `
             <div class="fee-chart-row">
               <div class="fee-chart-name">${escHtml(r.card.name)}</div>
               <div class="fee-chart-bar-line">
                 <div class="fee-chart-track"><div class="fee-chart-fill fee" style="width:${feePct}%"></div></div>
-                <span class="fee-chart-amount">$${r.card.fee.toLocaleString()}</span>
+                <span class="fee-chart-amount">${feeLabel(r)}</span>
               </div>
               <div class="fee-chart-bar-line">
                 <div class="fee-chart-track"><div class="fee-chart-fill value" style="width:${valuePct}%"></div></div>
@@ -2167,8 +2394,8 @@ function renderDashboard(){
           <tbody>
           ${rows.map(r=>`
             <tr>
-              <td>${escHtml(r.card.name)}</td>
-              <td>$${r.card.fee.toLocaleString()}</td>
+              <td>${cardLabel(r)}</td>
+              <td>${feeLabel(r)}</td>
               <td>$${r.value.toLocaleString()}</td>
               <td class="${r.net>=0?'pill-green':'pill-red'}" style="font-weight:700;">${r.net>=0?'+':'-'}$${Math.abs(r.net).toLocaleString()}</td>
               <td>${r.net>=0 ? '<span class="pill pill-green">Fee covered</span>' : '<span class="pill pill-red">Not covered</span>'}</td>
@@ -2186,8 +2413,8 @@ function renderDashboard(){
         <div class="card-grid dashboard-mobile-cards">
           ${rows.map(r=>`
             <div class="card-tile">
-              <div class="name">${escHtml(r.card.name)}</div>
-              <div class="row"><span class="l">Annual fee</span><span class="r">$${r.card.fee.toLocaleString()}</span></div>
+              <div class="name">${cardLabel(r)}</div>
+              <div class="row"><span class="l">Annual fee</span><span class="r">${feeLabel(r)}</span></div>
               <div class="row"><span class="l">Redeemed</span><span class="r">$${r.value.toLocaleString()}</span></div>
               <div class="row"><span class="l">Net</span><span class="r" style="color:${r.net>=0?'var(--green)':'var(--red)'}">${r.net>=0?'+':'-'}$${Math.abs(r.net).toLocaleString()}</span></div>
               <div style="margin-top:8px;">${r.net>=0 ? '<span class="pill pill-green">Fee covered</span>' : '<span class="pill pill-red">Not covered</span>'}</div>
@@ -2224,7 +2451,7 @@ function renderDashboard(){
     data:{
       labels: rows.map(r=>r.card.name.replace(/\s*\(.*?\)\s*/g,' ').trim()),
       datasets:[
-        {label:'Annual fee', data:rows.map(r=>r.card.fee), backgroundColor:chartFeeColor, categoryPercentage:0.65, barPercentage:0.9, borderRadius:6, borderSkipped:false},
+        {label:'Annual fee', data:rows.map(r=>r.fee), backgroundColor:chartFeeColor, categoryPercentage:0.65, barPercentage:0.9, borderRadius:6, borderSkipped:false},
         {label:'Redeemed', data:rows.map(r=>r.value), backgroundColor:chartValueColor, categoryPercentage:0.65, barPercentage:0.9, borderRadius:6, borderSkipped:false},
       ]
     },
@@ -2246,113 +2473,578 @@ function renderDashboard(){
   });
 }
 
-/* ---------- Cards ---------- */
-function renderCards(){
-  const content = document.getElementById('content');
-  content.innerHTML = `
-    <div class="panel">
-      <div class="panel-head">
-        <h2>${DATA.cards.length} cards</h2>
-        <button class="btn btn-primary" id="addCardBtn">+ Add card</button>
-      </div>
-      <div class="card-grid" id="cardGrid"></div>
-    </div>
-  `;
-  const grid = document.getElementById('cardGrid');
-  if(DATA.cards.length===0){ grid.innerHTML = '<div class="empty">No cards yet. Add your first one.</div>'; }
-  grid.innerHTML = DATA.cards.map(c=>{
-    const value = valueRealizedForCardYear(c.id, selectedYear);
-    const net = value - c.fee;
-    // NEW FEATURE: purely informational — only rendered when the card has
-    // feeAnchor set, so cards without it look exactly as they did before.
-    const nextFee = c.feeAnchor ? nextOccurrenceOnOrAfter(c.feeAnchor, bangkokToday()) : null;
+/* ============================================================
+   v2.1 SETUP — Cards & fees / Credits / Free nights.
+   Everything that drives dates and money is defined here; the daily tabs
+   (Dashboard, Annual Credits, Free Nights, Miles & Vouchers, Redemption
+   Log) only show status and log what you used (decisions D2–D3).
+   ============================================================ */
+const CLOSE_X_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M18 6L6 18M6 6l12 12"/></svg>';
+function modalHead(title){ return `<div class="modal-head"><h3>${title}</h3><button class="close-x" id="modalClose">${CLOSE_X_SVG}</button></div>`; }
+function modalFoot(saveLabel){ return `<div class="modal-foot"><button class="btn" id="modalCancel">Cancel</button><button class="btn btn-primary" id="modalSave">${saveLabel||'Save'}</button></div>`; }
+function showEl(id, on){ const el = document.getElementById(id); if(el) el.style.display = on ? '' : 'none'; }
+
+function setupTabsHtml(active){
+  const tabs = [['setupCards','Cards & fees'],['setupCredits','Credits'],['setupFreeNights','Free nights']];
+  return `<div class="setup-tabs">${tabs.map(([v,l])=>`<button data-setup-tab="${v}" class="${v===active?'active':''}">${l}</button>`).join('')}</div>`;
+}
+
+/* ---------- New-year checklist (decision D16) ---------- */
+function setupChecklistItems(){
+  const today = bangkokToday();
+  const y = today.getFullYear();
+  const items = [];
+  DATA.cards.forEach(c=>{
+    if(cardClosedOn(c.id, today)) return;
+    const fi = (c.feeByYear||{})[y];
+    if(!fi) items.push({view:'setupCards', kind:'card', id:c.id, text:`${escHtml(c.name)}: no ${y} fee recorded`});
+    else if(fi.confirmed === false) items.push({view:'setupCards', kind:'confirmfee', id:c.id, year:y, text:`${escHtml(c.name)}: ${y} fee $${Number(fi.amount).toLocaleString()} was copied from last year`, fixLabel:'Confirm', extraLabel:'Change'});
+    if(!c.feeAnchor) items.push({view:'setupCards', kind:'card', id:c.id, text:`${escHtml(c.name)}: no fee posting date, so no fee reminders`});
+  });
+  DATA.credits.forEach(cr=>{
+    if(!cardById(cr.cardId)) items.push({view:'setupCredits', kind:'cr', id:cr.id, text:`${escHtml(cr.name)}: not linked to a card`});
+    else if(creditUsage(cr) !== 'perstay' && !cr.anchor && creditIsLive(cr, today)) items.push({view:'setupCredits', kind:'cr', id:cr.id, text:`${escHtml(cr.name)}: no start date`});
+  });
+  DATA.freeNights.forEach(fn=>{
+    if(!cardById(fn.cardId)) items.push({view:'setupFreeNights', kind:'fn', id:fn.id, text:`${escHtml(fn.desc)}: not linked to a card`});
+    else if(!fn.anchor && fnIsLive(fn, today)) items.push({view:'setupFreeNights', kind:'fn', id:fn.id, text:`${escHtml(fn.desc)}: no renewal / issue date`});
+  });
+  return items;
+}
+function updateSetupDot(){
+  const on = setupChecklistItems().length > 0;
+  document.querySelectorAll('[data-setup-dot]').forEach(d=>d.classList.toggle('on', on));
+}
+function checklistHtml(){
+  const items = setupChecklistItems();
+  if(!items.length) return '';
+  return `<div class="checklist">
+    <h3>Needs attention (${items.length})${items.filter(i=>i.kind==='confirmfee').length>1?` <a data-confirm-all-fees style="font-size:12px;font-weight:600;margin-left:8px;">Confirm all ${items.find(i=>i.kind==='confirmfee').year} fees as shown</a>`:''}</h3>
+    <ul>${items.map((it,i)=>`<li>${it.text} — <a data-check="${i}">${it.fixLabel||'Fix'}</a>${it.extraLabel?` · <a data-check-extra="${i}">${it.extraLabel}</a>`:''}</li>`).join('')}</ul>
+  </div>`;
+}
+function wireChecklist(){
+  const items = setupChecklistItems();
+  const open = it=>{
+    if(currentView !== it.view) switchView(it.view);
+    if(it.kind==='card' || it.kind==='confirmfee') openCardModal(it.id);
+    else if(it.kind==='cr') openCreditModal(it.id);
+    else if(it.kind==='fn') openFnModal(it.id);
+  };
+  document.querySelectorAll('[data-check]').forEach(a=>a.onclick=()=>{
+    const it = items[Number(a.dataset.check)];
+    if(it.kind === 'confirmfee'){
+      const c = cardById(it.id);
+      c.feeByYear[it.year].confirmed = true;
+      saveData(); views[currentView].render(); toast(`${it.year} fee confirmed`);
+    } else open(it);
+  });
+  document.querySelectorAll('[data-check-extra]').forEach(a=>a.onclick=()=>open(items[Number(a.dataset.checkExtra)]));
+  document.querySelectorAll('[data-confirm-all-fees]').forEach(a=>a.onclick=()=>{
+    const list = items.filter(i=>i.kind==='confirmfee');
+    showConfirm(`Confirm ${list.length} fees exactly as shown? Change any that differ (e.g. a fee increase) first.`, ()=>{
+      list.forEach(it=>{ cardById(it.id).feeByYear[it.year].confirmed = true; });
+      saveData(); views[currentView].render(); toast(`${list.length} fees confirmed`);
+    }, {danger:false, confirmLabel:'Confirm all', title:'Confirm fees'});
+  });
+}
+function setupPageShell(active, bodyHtml){
+  document.getElementById('content').innerHTML = setupTabsHtml(active) + checklistHtml() + bodyHtml;
+  document.querySelectorAll('[data-setup-tab]').forEach(b=>b.onclick=()=>switchView(b.dataset.setupTab));
+  wireChecklist();
+  updateSetupDot();
+}
+
+/* ---------- Setup › Cards & fees ---------- */
+function cardStatusPill(c, today){
+  if(c.closedDate){
+    return cardClosedOn(c.id, today)
+      ? `<span class="pill pill-gray">Closed ${fmtDate(parseDate(c.closedDate))}</span>`
+      : `<span class="pill pill-amber">Closes ${fmtDate(parseDate(c.closedDate))}</span>`;
+  }
+  return '<span class="pill pill-green">Open</span>';
+}
+function feeSummaryHtml(c){
+  const fy = c.feeByYear || {};
+  const years = feeYears(c).slice(-3).reverse();
+  if(!years.length) return `Fee $${Number(c.fee||0).toLocaleString()} (no yearly record)`;
+  return years.map(y=>`${y}: $${Number(fy[y].amount).toLocaleString()}${fy[y].confirmed===false?' <span class="pill-amber-text">(not confirmed)</span>':''}`).join(' · ');
+}
+function renderSetupCards(){
+  const today = bangkokToday();
+  const ordered = DATA.cards.slice().sort((a,b)=>(cardClosedOn(a.id,today)?1:0)-(cardClosedOn(b.id,today)?1:0));
+  const rows = ordered.map(c=>{
+    const nextFee = (c.feeAnchor && !cardClosedOn(c.id, today)) ? nextOccurrenceOnOrAfter(c.feeAnchor, today) : null;
+    const hasHistory = DATA.history.some(h=>h.cardId===c.id);
     const badge = issuerBadge(c.issuer);
-    return `
-    <div class="card-tile">
-      <div class="name" style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;">
-        ${badge ? `<span class="issuer-badge" style="background:${badge.bg};color:${badge.fg};">${escHtml(badge.label)}</span>` : ''}
-        <span>${escHtml(c.name)}</span>
+    const nCr = DATA.credits.filter(x=>x.cardId===c.id).length, nFn = DATA.freeNights.filter(x=>x.cardId===c.id).length;
+    const unconfirmed = (c.feeByYear||{})[today.getFullYear()] && c.feeByYear[today.getFullYear()].confirmed === false;
+    return `<div class="list-row">
+      <div class="main-col">
+        <div class="title" style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;">${badge?`<span class="issuer-badge" style="background:${badge.bg};color:${badge.fg};">${escHtml(badge.label)}</span>`:''}${escHtml(c.name)} ${cardStatusPill(c, today)}</div>
+        <div class="setup-row-meta">${escHtml(c.issuer||'')}${c.program?' · '+escHtml(c.program):''}${c.eliteStatus?' · Elite status':''} · ${nCr} credit${nCr===1?'':'s'}, ${nFn} free night${nFn===1?'':'s'}</div>
+        <div class="setup-row-meta">Fees — ${feeSummaryHtml(c)}</div>
+        <div class="setup-row-meta">${c.feeAnchor ? (nextFee ? `Fee posts ${fmtDate(nextFee)} (${daysBetween(today,nextFee)}d)` : 'Fee date set') : '<span class="pill-amber-text">No fee posting date — no fee reminders</span>'}</div>
       </div>
-      <div class="meta">${escHtml(c.issuer)} · ${escHtml(c.program)}${c.eliteStatus?' · Elite status':''}</div>
-      <div class="row"><span class="l">Annual fee</span><span class="r">$${c.fee.toLocaleString()}</span></div>
-      ${nextFee ? (()=>{ const feeDaysLeft = daysBetween(bangkokToday(), nextFee); const feePill = statusForDays(feeDaysLeft, 60);
-        return `<div class="row"><span class="l">Fee renews</span><span class="r" style="display:flex;align-items:center;gap:6px;">${fmtDate(nextFee)} (${feeDaysLeft}d) <span class="pill ${feePill.cls}">${feePill.label}</span></span></div>`;
-      })() : ''}
-      <div class="row"><span class="l">Redeemed in ${selectedYear}</span><span class="r">$${value.toLocaleString()}</span></div>
-      <div class="row"><span class="l">Net</span><span class="r" style="color:${net>=0?'var(--green)':'var(--red)'}">${net>=0?'+':'-'}$${Math.abs(net).toLocaleString()}</span></div>
-      ${c.notes?`<div class="hint" style="margin-top:8px;">${escHtml(c.notes)}</div>`:''}
       <div class="actions">
+        ${unconfirmed ? `<button class="btn btn-sm btn-primary" data-confirm-fee="${c.id}">Confirm ${today.getFullYear()} fee</button>` : ''}
         <button class="btn btn-sm" data-edit-card="${c.id}">Edit</button>
-        <button class="btn btn-sm btn-danger" data-del-card="${c.id}">Delete</button>
+        ${c.closedDate ? `<button class="btn btn-sm" data-reopen-card="${c.id}">Reopen</button>` : `<button class="btn btn-sm" data-close-card="${c.id}">Close card</button>`}
+        ${hasHistory ? '' : `<button class="btn btn-sm btn-danger" data-del-card="${c.id}" title="Only cards with no redemptions can be deleted">Delete</button>`}
       </div>
     </div>`;
   }).join('');
-
+  setupPageShell('setupCards', `
+    <div class="panel">
+      <div class="panel-head"><h2>${DATA.cards.length} cards</h2><button class="btn btn-primary" id="addCardBtn">+ Add card</button></div>
+      <div class="panel-body">${rows || '<div class="empty">No cards yet. Add your first one.</div>'}</div>
+    </div>
+    <div class="hint" style="margin:-6px 4px 12px;">Each year keeps its own fee, so changing a fee never rewrites a past year. Cards with redemptions can't be deleted — close them instead, so past years stay correct.</div>`);
   document.getElementById('addCardBtn').onclick = ()=>openCardModal();
-  grid.querySelectorAll('[data-edit-card]').forEach(b=>b.onclick=()=>openCardModal(b.dataset.editCard));
-  grid.querySelectorAll('[data-del-card]').forEach(b=>b.onclick=()=>deleteCard(b.dataset.delCard));
+  document.querySelectorAll('[data-edit-card]').forEach(b=>b.onclick=()=>openCardModal(b.dataset.editCard));
+  document.querySelectorAll('[data-close-card]').forEach(b=>b.onclick=()=>openCloseCardModal(b.dataset.closeCard));
+  document.querySelectorAll('[data-reopen-card]').forEach(b=>b.onclick=()=>{
+    const c = cardById(b.dataset.reopenCard);
+    showConfirm(`Reopen "${escHtml(c.name)}"? Its credits, free nights and fee reminders come back from today.`, ()=>{
+      delete c.closedDate; runFeeRollover(); saveData(); renderSetupCards(); toast('Card reopened');
+    }, {danger:false, confirmLabel:'Reopen', title:'Reopen card'});
+  });
+  document.querySelectorAll('[data-del-card]').forEach(b=>b.onclick=()=>deleteCard(b.dataset.delCard));
+  document.querySelectorAll('[data-confirm-fee]').forEach(b=>b.onclick=()=>{
+    const c = cardById(b.dataset.confirmFee); const y = today.getFullYear();
+    c.feeByYear[y].confirmed = true; saveData(); renderSetupCards(); toast(`${y} fee confirmed`);
+  });
 }
 
 function openCardModal(id){
   const editing = !!id;
-  const c = editing ? cardById(id) : {name:'',issuer:'',fee:'',program:'',eliteStatus:false,notes:'',feeAnchor:''};
+  const thisYear = bangkokToday().getFullYear();
+  const c = editing ? cardById(id) : {name:'',issuer:'',program:'',eliteStatus:false,notes:'',feeAnchor:'',feeByYear:{[thisYear]:{amount:0,confirmed:true}}};
+  // Working copy of the fee table, newest year first.
+  let feeRows = feeYears(c).sort((a,b)=>b-a).map(y=>({year:y, amount:Number(c.feeByYear[y].amount)||0, confirmed:c.feeByYear[y].confirmed!==false}));
+  if(!feeRows.length) feeRows = [{year:thisYear, amount:Number(c.fee)||0, confirmed:true}];
   showModal(`
-    <div class="modal-head"><h3>${editing?'Edit card':'Add card'}</h3><button class="close-x" id="modalClose"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
+    ${modalHead(editing?'Edit card':'Add card')}
     <div class="modal-body">
       <div class="field"><label>Card name</label><input id="f_name" value="${escAttr(c.name)}"></div>
       <div class="field-row">
-        <div class="field"><label>Issuer</label><input id="f_issuer" value="${escAttr(c.issuer)}"></div>
-        <div class="field"><label>Annual fee ($)</label><input id="f_fee" type="number" min="0" value="${c.fee}"></div>
+        <div class="field"><label>Issuer</label><input id="f_issuer" value="${escAttr(c.issuer||'')}"></div>
+        <div class="field"><label>Rewards program</label><input id="f_program" value="${escAttr(c.program||'')}"></div>
       </div>
-      <div class="field"><label>Rewards program</label><input id="f_program" value="${escAttr(c.program)}"></div>
       <div class="field"><label><input type="checkbox" id="f_elite" ${c.eliteStatus?'checked':''}> Includes hotel elite status</label></div>
-      <div class="field"><label>Annual fee posts on (optional)</label><input id="f_feeanchor" type="date" value="${c.feeAnchor||''}"></div>
-      <div class="hint">When the annual fee actually charges to your statement. Leave blank if you don't want to track this — it's purely a reminder and has no effect on your credits, free nights, or value-realized numbers.</div>
-      <div class="field"><label>Notes</label><textarea id="f_notes" rows="2">${escAttr(c.notes)}</textarea></div>
+      <div class="field"><label>Annual fee posts on</label><input id="f_feeanchor" type="date" value="${c.feeAnchor||''}"></div>
+      <div class="hint">Any past date the fee posted (it repeats yearly). Drives the fee reminder; leave blank for no reminder.</div>
+      <div class="field"><label>Annual fee by year</label>
+        <table class="fee-table"><tbody id="feeRowsBody"></tbody></table>
+        <button class="btn btn-sm" id="addFeeYearBtn" style="margin-top:6px;">+ Add year</button>
+      </div>
+      <div class="hint">Enter the fee under the calendar year it posted (e.g. a fee charged in Nov 2026 is the 2026 fee). Each new year copies last year's fee as "not confirmed" until you tick it. The first year listed is when the card starts showing on the Dashboard.</div>
+      <div class="field"><label>Notes</label><textarea id="f_notes" rows="2">${escHtml(c.notes||'')}</textarea></div>
+      ${c.closedDate ? `<div class="hint">Closed ${fmtDate(parseDate(c.closedDate))} — use Reopen on the card list to undo.</div>` : ''}
     </div>
-    <div class="modal-foot">
-      <button class="btn" id="modalCancel">Cancel</button>
-      <button class="btn btn-primary" id="modalSave">Save</button>
-    </div>
+    ${modalFoot()}
   `);
+  const body = document.getElementById('feeRowsBody');
+  const readRows = ()=>{
+    feeRows = Array.from(body.querySelectorAll('tr')).map(tr=>({
+      year: parseInt(tr.querySelector('.yr').value,10),
+      amount: Number(tr.querySelector('.amt').value),
+      confirmed: tr.querySelector('.conf').checked,
+    }));
+  };
+  const drawRows = ()=>{
+    body.innerHTML = feeRows.map((r,i)=>`<tr>
+      <td><input class="yr" type="number" min="2000" max="2100" step="1" value="${r.year}" aria-label="Year"></td>
+      <td>$ <input class="amt" type="number" min="0" value="${r.amount}" aria-label="Fee"></td>
+      <td><label style="font-size:12px;white-space:nowrap;"><input class="conf" type="checkbox" ${r.confirmed?'checked':''}> confirmed</label></td>
+      <td><button class="btn btn-sm btn-danger" data-rm-fee="${i}" title="Remove this year">✕</button></td>
+    </tr>`).join('');
+    body.querySelectorAll('[data-rm-fee]').forEach(b=>b.onclick=()=>{ readRows(); feeRows.splice(Number(b.dataset.rmFee),1); drawRows(); });
+  };
+  drawRows();
+  document.getElementById('addFeeYearBtn').onclick = ()=>{
+    readRows();
+    const years = feeRows.map(r=>r.year).filter(n=>!isNaN(n));
+    const next = years.length ? Math.max(...years)+1 : thisYear;
+    const last = feeRows.find(r=>r.year===next-1);
+    feeRows.unshift({year:next, amount: last ? last.amount : 0, confirmed:true});
+    drawRows();
+  };
   document.getElementById('modalSave').onclick = ()=>{
-    const obj = {
-      id: editing? id : uid('c'),
-      name: val('f_name'), issuer: val('f_issuer'), fee: Number(val('f_fee'))||0,
-      program: val('f_program'), eliteStatus: document.getElementById('f_elite').checked,
-      notes: val('f_notes'), feeAnchor: val('f_feeanchor')||null
-    };
-    if(!obj.name){ toast('Card name is required'); return; }
-    // ENHANCEMENT: basic input validation — the min="0" attribute on the
-    // field is a browser-level hint (spinner arrows, some mobile keyboards)
-    // but doesn't stop someone from typing "-450" directly, so the real
-    // enforcement has to happen here too.
-    if(obj.fee < 0){ toast('Annual fee cannot be negative'); return; }
-    if(editing){ const i=DATA.cards.findIndex(x=>x.id===id); DATA.cards[i]=obj; }
+    readRows();
+    const name = val('f_name').trim();
+    if(!name){ toast('Card name is required'); return; }
+    const seen = new Set();
+    for(const r of feeRows){
+      if(isNaN(r.year) || r.year < 2000 || r.year > 2100){ toast('Each fee row needs a year between 2000 and 2100'); return; }
+      if(seen.has(r.year)){ toast(`${r.year} is listed twice`); return; }
+      if(isNaN(r.amount) || r.amount < 0){ toast('Fees cannot be negative or blank'); return; }
+      seen.add(r.year);
+    }
+    if(!feeRows.length){ toast('Add at least one year with a fee (use $0 for a waived fee)'); return; }
+    const feeByYear = {};
+    feeRows.forEach(r=>{ feeByYear[r.year] = {amount:r.amount, confirmed:r.confirmed}; });
+    const obj = { id: editing?id:uid('c'), name, issuer: val('f_issuer').trim(), program: val('f_program').trim(),
+      eliteStatus: document.getElementById('f_elite').checked, notes: val('f_notes'), feeAnchor: val('f_feeanchor')||null, feeByYear };
+    // Keep the legacy single `fee` in step with this year's fee — older
+    // copies of the app and anything else reading `fee` stay sensible.
+    obj.fee = feeInfoForYear(obj, thisYear).amount;
+    if(editing){ const i = DATA.cards.findIndex(x=>x.id===id); DATA.cards[i] = {...DATA.cards[i], ...obj}; }
     else DATA.cards.push(obj);
-    saveData(); closeModal(); renderCards(); toast('Card saved');
+    saveData(); closeModal(); views[currentView].render(); toast('Card saved');
   };
 }
+
+function openCloseCardModal(id){
+  const c = cardById(id);
+  const today = bangkokToday();
+  const nCr = DATA.credits.filter(x=>x.cardId===id).length, nFn = DATA.freeNights.filter(x=>x.cardId===id).length;
+  showModal(`
+    ${modalHead('Close card')}
+    <div class="modal-body">
+      <div style="font-size:13.5px;line-height:1.5;margin-bottom:10px;"><strong>${escHtml(c.name)}</strong></div>
+      <div class="field"><label>Closed on</label><input id="f_closed" type="date" value="${toISODate(today)}"></div>
+      <div class="hint">From this date its ${nCr} credit${nCr===1?'':'s'}, ${nFn} free night${nFn===1?'':'s'} and fee reminders stop — in the app and in the emails. Past years keep its fees and redemptions. If the fee for the closing year was refunded, set it to $0 under Edit.</div>
+    </div>
+    ${modalFoot('Close card')}
+  `);
+  document.getElementById('modalSave').onclick = ()=>{
+    const d = val('f_closed');
+    if(!d){ toast('Pick the date the card was closed'); return; }
+    c.closedDate = d;
+    saveData(); closeModal(); renderSetupCards(); toast('Card closed');
+  };
+}
+
+// Decision D8: delete is for mistakes only — a card with redemptions must be
+// closed instead. Since a card with no redemptions has none on its credits
+// or free nights either, those are removed with it (otherwise they would
+// keep reminding as "unlinked").
 function deleteCard(id){
   const card = cardById(id);
-  // FIX: the old confirm text was generic ("credits and free nights will
-  // remain but be unlinked") with no indication of how much that actually
-  // affects — easy to not realize a dozen benefits are about to become
-  // orphaned. Count and name them explicitly.
-  const linkedCredits = DATA.credits.filter(c=>c.cardId===id).length;
-  const linkedFn = DATA.freeNights.filter(f=>f.cardId===id).length;
-  const linkedHist = DATA.history.filter(h=>h.cardId===id).length;
+  if(DATA.history.some(h=>h.cardId===id)){ toast('This card has redemptions — close it instead'); return; }
+  const crs = DATA.credits.filter(c=>c.cardId===id), fns = DATA.freeNights.filter(f=>f.cardId===id);
   const parts = [];
-  if(linkedCredits) parts.push(`${linkedCredits} credit${linkedCredits===1?'':'s'}`);
-  if(linkedFn) parts.push(`${linkedFn} free night certificate${linkedFn===1?'':'s'}`);
-  if(linkedHist) parts.push(`${linkedHist} redemption log entr${linkedHist===1?'y':'ies'}`);
-  const detail = parts.length
-    ? ` This will unlink ${parts.join(', ')} — they'll remain but show as "(unlinked)".`
-    : '';
-  showConfirm(`Delete "${escHtml(card?card.name:'this card')}"?${detail}`, ()=>{
+  if(crs.length) parts.push(`${crs.length} credit${crs.length===1?'':'s'}`);
+  if(fns.length) parts.push(`${fns.length} free night certificate${fns.length===1?'':'s'}`);
+  showConfirm(`Delete "${escHtml(card.name)}"${parts.length?` and its ${parts.join(' and ')}`:''}? This is for cards added by mistake and can't be undone.`, ()=>{
     DATA.cards = DATA.cards.filter(c=>c.id!==id);
-    saveData(); renderCards();
+    DATA.credits = DATA.credits.filter(c=>c.cardId!==id);
+    DATA.freeNights = DATA.freeNights.filter(f=>f.cardId!==id);
+    saveData(); renderSetupCards(); toast('Card deleted');
   });
+}
+
+/* ---------- Setup › Credits ---------- */
+const USAGE_LABELS = {once:'Once per period', spenddown:'Spend down to the value', perstay:'Every stay'};
+function groupByCardHtml(items, getCardId, rowHtml){
+  const groups = new Map();
+  items.forEach(it=>{ const k = cardById(getCardId(it)) ? getCardId(it) : '__unlinked__'; if(!groups.has(k)) groups.set(k, []); groups.get(k).push(it); });
+  const keys = DATA.cards.map(c=>c.id).filter(k=>groups.has(k));
+  if(groups.has('__unlinked__')) keys.push('__unlinked__');
+  return keys.map(k=>{
+    const card = cardById(k);
+    const label = card ? escHtml(card.name) + (card.closedDate ? ' · closed' : '') : '(not linked to a card)';
+    return `<div style="padding:10px 20px;font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:var(--text-muted);background:var(--surface-hover);border-bottom:1px solid var(--border);">${label}</div>` + groups.get(k).map(rowHtml).join('');
+  }).join('');
+}
+function creditSetupStatus(cr, today){
+  if(cardClosedOn(cr.cardId, today)) return '<span class="pill pill-gray">Card closed</span>';
+  const cycle = creditCycle(cr, today);
+  if(benefitEnded(cr, cycle)) return '<span class="pill pill-gray">Ended</span>';
+  if(creditUsage(cr) !== 'perstay' && !cycle) return '<span class="pill pill-amber">No start date</span>';
+  if(cycle && today < cycle.start) return `<span class="pill pill-gray">Starts ${fmtDate(cycle.start)}</span>`;
+  return '<span class="pill pill-green">Active</span>';
+}
+function renderSetupCredits(){
+  const today = bangkokToday();
+  const row = cr=>{
+    const usage = creditUsage(cr);
+    const bits = [`$${Number(cr.value).toLocaleString()}`, USAGE_LABELS[usage]];
+    if(usage !== 'perstay'){
+      bits.push(escHtml(cr.frequency));
+      bits.push(cr.renewalType==='calendar' ? 'calendar dates' : 'card anniversary');
+      if(cr.anchor) bits.push(`from ${fmtDate(parseDate(cr.anchor))}`);
+    }
+    if(cr.autoRedeem) bits.push('auto-posts');
+    if(cr.endsAfter) bits.push(`ends after ${fmtDate(parseDate(cr.endsAfter))}`);
+    return `<div class="list-row">
+      <div class="main-col"><div class="title">${escHtml(cr.name)} ${creditSetupStatus(cr, today)}</div><div class="setup-row-meta">${bits.join(' · ')}</div></div>
+      <div class="actions"><button class="btn btn-sm" data-edit-cr="${cr.id}">Edit</button><button class="btn btn-sm btn-danger" data-del-cr="${cr.id}">Delete</button></div>
+    </div>`;
+  };
+  setupPageShell('setupCredits', `
+    <div class="panel">
+      <div class="panel-head"><h2>${DATA.credits.length} credits</h2>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;"><button class="btn" id="addCreditSetBtn">+ Quarterly / half-year set</button><button class="btn btn-primary" id="addCreditBtn">+ Add credit</button></div></div>
+      <div class="panel-body">${groupByCardHtml(DATA.credits, cr=>cr.cardId, row) || '<div class="empty">No credits yet.</div>'}</div>
+    </div>
+    <div class="hint" style="margin:-6px 4px 12px;">For a benefit the issuer removed, set "Ends after" instead of deleting — its past redemptions stay linked.</div>`);
+  document.getElementById('addCreditBtn').onclick = ()=>openCreditModal();
+  document.getElementById('addCreditSetBtn').onclick = ()=>openCreditSetModal();
+  document.querySelectorAll('[data-edit-cr]').forEach(b=>b.onclick=()=>openCreditModal(b.dataset.editCr));
+  document.querySelectorAll('[data-del-cr]').forEach(b=>b.onclick=()=>{
+    const cr = DATA.credits.find(x=>x.id===b.dataset.delCr);
+    const n = DATA.history.filter(h=>h.sourceId===cr.id).length;
+    showConfirm(`Delete "${escHtml(cr.name)}"?${n?` Its ${n} logged redemption${n===1?'':'s'} stay in the Redemption Log and still count on the Dashboard. If the issuer just stopped this benefit, use "Ends after" instead.`:''}`, ()=>{
+      DATA.credits = DATA.credits.filter(x=>x.id!==cr.id); saveData(); renderSetupCredits(); toast('Credit deleted');
+    });
+  });
+}
+
+function cardOptionsHtml(selectedId){
+  return DATA.cards.map(c=>`<option value="${c.id}" ${c.id===selectedId?'selected':''}>${escHtml(c.name)}${c.closedDate?' (closed)':''}</option>`).join('');
+}
+// Validation shared by the single-credit form: calendar-based periods must
+// start on the real calendar boundaries.
+function creditAnchorError(freq, renewalType, anchor){
+  if(renewalType !== 'calendar' || !anchor) return '';
+  const d = parseDate(anchor);
+  const m = d.getMonth()+1, day = d.getDate();
+  if(day !== 1) return 'Calendar-based credits start on the 1st of the month.';
+  if(freq === 'Quarterly' && ![1,4,7,10].includes(m)) return 'Calendar quarters start on 1 Jan, 1 Apr, 1 Jul or 1 Oct.';
+  if(freq === 'Semi-Annual' && ![1,7].includes(m)) return 'Calendar half-years start on 1 Jan or 1 Jul.';
+  if(freq === 'Annual' && m !== 1) return 'A calendar-year credit starts on 1 Jan.';
+  return '';
+}
+// Shows which logged redemptions count for the period the form describes —
+// so changing a start date or frequency never silently moves a redemption.
+function creditPreviewHtml(tmp, id){
+  const today = bangkokToday();
+  const usage = creditUsage(tmp);
+  if(usage !== 'perstay' && !tmp.anchor) return 'Set a start date to see the current period.';
+  const cycle = creditCycle(tmp, today);
+  if(!cycle) return '';
+  const counted = id ? DATA.history.filter(h=>h.sourceId===id).filter(h=>{ const d=parseDate(h.date); return d>=cycle.start && d<cycle.nextStart; }) : [];
+  const other = id ? DATA.history.filter(h=>h.sourceId===id).length - counted.length : 0;
+  const head = usage === 'perstay'
+    ? `Counts stays in ${today.getFullYear()} (calendar year). No expiry, no reminders.`
+    : (today < cycle.start ? `First period starts ${fmtDate(cycle.start)} (use by ${fmtDate(cycle.end)}).`
+      : `Current period: ${fmtDate(cycle.start)} – use by ${fmtDate(cycle.end)} · next period starts ${fmtDate(cycle.nextStart)}.`);
+  const list = counted.length ? `<br>Counted in this period: ${counted.map(h=>`${fmtDate(parseDate(h.date))} $${Number(h.amount).toLocaleString()}`).join(', ')}` : (id ? '<br>Nothing logged in this period yet.' : '');
+  return head + list + (other ? `<br><span style="color:var(--text-soft);">${other} earlier redemption${other===1?'':'s'} belong${other===1?'s':''} to other periods (kept in the log).</span>` : '');
+}
+function openCreditModal(id){
+  const editing = !!id;
+  const cr = editing ? DATA.credits.find(x=>x.id===id) : {cardId:(DATA.cards.find(c=>!c.closedDate)||DATA.cards[0]||{}).id||'', name:'', value:'', frequency:'Annual', anchor:'', renewalType:'calendar', usage:'spenddown'};
+  const usage = creditUsage(cr);
+  const freq = cr.frequency === 'Per Stay' ? 'Annual' : (cr.frequency || 'Annual');
+  showModal(`
+    ${modalHead(editing?'Edit credit':'Add credit')}
+    <div class="modal-body">
+      <div class="field"><label>Card</label><select id="f_card">${cardOptionsHtml(cr.cardId)}</select></div>
+      <div class="field"><label>Credit name</label><input id="f_name" value="${escAttr(cr.name)}"></div>
+      <div class="field-row">
+        <div class="field"><label>Value ($)</label><input id="f_value" type="number" min="0" value="${cr.value}"></div>
+        <div class="field"><label>How it's used</label><select id="f_usage">${Object.entries(USAGE_LABELS).map(([k,l])=>`<option value="${k}" ${k===usage?'selected':''}>${l}</option>`).join('')}</select></div>
+      </div>
+      <div class="hint" id="usageHint"></div>
+      <div id="periodFields">
+        <div class="field-row">
+          <div class="field"><label>Frequency</label><select id="f_freq">${['Annual','Semi-Annual','Quarterly'].map(f=>`<option ${f===freq?'selected':''}>${f}</option>`).join('')}</select></div>
+          <div class="field"><label>Resets on</label><select id="f_renewaltype">
+            <option value="calendar" ${cr.renewalType==='calendar'?'selected':''}>Calendar dates</option>
+            <option value="anniversary" ${cr.renewalType!=='calendar'?'selected':''}>Card anniversary</option></select></div>
+        </div>
+        <div class="field"><label>Period start date</label><input id="f_anchor" type="date" value="${cr.anchor||''}"></div>
+        <div class="hint" id="anchorHint"></div>
+        <div class="field" id="autoField"><label><input type="checkbox" id="f_autoredeem" ${cr.autoRedeem?'checked':''}> Auto-posts (free value, logged automatically on the period start date)</label></div>
+      </div>
+      <div class="field"><label>Ends after (optional)</label><input id="f_ends" type="date" value="${cr.endsAfter||''}"></div>
+      <div class="hint">If the issuer removes this benefit: the period running on this date is the last one. Past redemptions stay.</div>
+      <div class="preview-box" id="crPreview"></div>
+    </div>
+    ${modalFoot()}
+  `);
+  const read = ()=>{
+    const u = val('f_usage');
+    return { cardId: val('f_card'), name: val('f_name').trim(), value: Number(val('f_value'))||0, usage: u,
+      frequency: u==='perstay' ? 'Per Stay' : val('f_freq'), renewalType: val('f_renewaltype'),
+      anchor: u==='perstay' ? (cr.anchor||null) : (val('f_anchor')||null),
+      autoRedeem: u==='once' && document.getElementById('f_autoredeem').checked,
+      endsAfter: val('f_ends')||null };
+  };
+  const refresh = ()=>{
+    const t = read();
+    showEl('periodFields', t.usage !== 'perstay');
+    showEl('autoField', t.usage === 'once');
+    document.getElementById('usageHint').textContent = {
+      once: 'One log per period (e.g. a single hotel stay benefit).',
+      spenddown: 'Use it in parts until the value is used up; reminders show what is left.',
+      perstay: 'Earned on every qualifying stay — no limit, no expiry, no reminders. Counted per calendar year.'}[t.usage];
+    document.getElementById('anchorHint').textContent = (t.renewalType==='calendar'
+      ? 'Calendar: 1 Jan for yearly, 1 Jan / 1 Jul for half-years, 1 Jan / 1 Apr / 1 Jul / 1 Oct for quarters.'
+      : 'Card anniversary: any past date this benefit renewed — it repeats every 12 months.')
+      + ' ' + creditAnchorError(t.frequency, t.renewalType, t.anchor);
+    document.getElementById('crPreview').innerHTML = creditPreviewHtml(t, editing?id:null);
+  };
+  ['f_usage','f_freq','f_renewaltype','f_anchor','f_ends','f_value'].forEach(k=>{ const el=document.getElementById(k); el.onchange = refresh; el.oninput = refresh; });
+  refresh();
+  document.getElementById('modalSave').onclick = ()=>{
+    const t = read();
+    if(!t.name){ toast('Credit name is required'); return; }
+    if(t.value < 0){ toast('Credit value cannot be negative'); return; }
+    const err = t.usage==='perstay' ? '' : creditAnchorError(t.frequency, t.renewalType, t.anchor);
+    if(err){ toast(err); return; }
+    const obj = {id: editing?id:uid('cr'), ...t};
+    if(editing){ const i = DATA.credits.findIndex(x=>x.id===id); DATA.credits[i] = {...DATA.credits[i], ...obj}; }
+    else DATA.credits.push(obj);
+    saveData(); closeModal(); runDailyChecks(); views[currentView].render(); toast('Credit saved');
+  };
+}
+
+// Decision D17: one form creates all Q1–Q4 or H1–H2 rows. A slot whose
+// window has already ended this year starts next year instead, so nothing
+// shows up as "expired, unredeemed" the moment it's created.
+function creditSetSlots(type, base, today){
+  const y = today.getFullYear();
+  const n = type === 'Quarterly' ? 4 : 2, step = 12 / n;
+  return Array.from({length:n}, (_, k)=>{
+    const month = k*step;
+    let start = new Date(y, month, 1);
+    if(addMonths(start, step) <= today) start = new Date(y+1, month, 1);
+    const label = type === 'Quarterly' ? `Q${k+1}` : (k===0 ? 'H1 (Jan-Jun)' : 'H2 (Jul-Dec)');
+    return {name: `${base} - ${label}`, anchor: toISODate(start)};
+  });
+}
+function openCreditSetModal(){
+  const today = bangkokToday();
+  showModal(`
+    ${modalHead('Add quarterly / half-year credits')}
+    <div class="modal-body">
+      <div class="field"><label>Card</label><select id="f_card">${cardOptionsHtml((DATA.cards.find(c=>!c.closedDate)||{}).id)}</select></div>
+      <div class="field"><label>Credit name</label><input id="f_name" placeholder="e.g. $50 Flight Credit"></div>
+      <div class="field-row">
+        <div class="field"><label>Value per period ($)</label><input id="f_value" type="number" min="0"></div>
+        <div class="field"><label>Periods</label><select id="f_type"><option>Quarterly</option><option value="Semi-Annual">Half-year</option></select></div>
+      </div>
+      <div class="field"><label>How it's used</label><select id="f_usage"><option value="spenddown">${USAGE_LABELS.spenddown}</option><option value="once">${USAGE_LABELS.once}</option></select></div>
+      <div class="preview-box" id="setPreview"></div>
+    </div>
+    ${modalFoot('Create')}
+  `);
+  const refresh = ()=>{
+    const slots = creditSetSlots(val('f_type'), val('f_name').trim() || 'Credit', today);
+    document.getElementById('setPreview').innerHTML = 'Will create:<br>' + slots.map(s=>`${escHtml(s.name)} — from ${fmtDate(parseDate(s.anchor))}`).join('<br>') + '<br><span style="color:var(--text-soft);">Periods already over this year start next year. Dates can be edited afterwards.</span>';
+  };
+  ['f_type','f_name'].forEach(k=>{ const el=document.getElementById(k); el.oninput=refresh; el.onchange=refresh; });
+  refresh();
+  document.getElementById('modalSave').onclick = ()=>{
+    const base = val('f_name').trim(), value = Number(val('f_value'));
+    if(!base){ toast('Credit name is required'); return; }
+    if(!(value >= 0) || val('f_value')===''){ toast('Enter the value per period'); return; }
+    const type = val('f_type'), cardId = val('f_card'), usage = val('f_usage');
+    creditSetSlots(type, base, today).forEach(s=>DATA.credits.push({id:uid('cr'), cardId, name:s.name, value, frequency:type, anchor:s.anchor, renewalType:'calendar', usage}));
+    saveData(); closeModal(); renderSetupCredits(); toast('Credits created');
+  };
+}
+
+/* ---------- Setup › Free nights ---------- */
+function fnSetupStatus(fn, today){
+  if(cardClosedOn(fn.cardId, today)) return '<span class="pill pill-gray">Card closed</span>';
+  const cycle = fnCycle(fn, today);
+  if(benefitEnded(fn, cycle)) return '<span class="pill pill-gray">Ended</span>';
+  if(!cycle) return '<span class="pill pill-amber">No date</span>';
+  if(fn.repeats===false && !fnIsLive(fn, today)) return '<span class="pill pill-gray">Expired / done</span>';
+  return '<span class="pill pill-green">Active</span>';
+}
+function renderSetupFreeNights(){
+  const today = bangkokToday();
+  const row = fn=>{
+    const cycle = fnCycle(fn, today);
+    const exp = cycle ? effectiveExpiration(fn, cycle) : null;
+    const bits = [escHtml(fn.program||'')];
+    if(fn.repeats===false) bits.push(cycle ? `one-off, issued ${fmtDate(cycle.start)}` : 'one-off');
+    else if(cycle) bits.push(`renews ${fmtDate(cycle.nextStart)}`);
+    if(exp) bits.push(`current certificate expires ${fmtDate(exp)}${overrideAppliesToCycle(fn, cycle)?' (set manually)':''}`);
+    if((fn.certsPerCycle||1) > 1) bits.push(`${fn.certsPerCycle} per year`);
+    if(fn.endsAfter) bits.push(`ends after ${fmtDate(parseDate(fn.endsAfter))}`);
+    return `<div class="list-row">
+      <div class="main-col"><div class="title">${escHtml(fn.desc)} ${fnSetupStatus(fn, today)}</div><div class="setup-row-meta">${bits.filter(Boolean).join(' · ')}</div></div>
+      <div class="actions"><button class="btn btn-sm" data-edit-fn="${fn.id}">Edit</button><button class="btn btn-sm btn-danger" data-del-fn="${fn.id}">Delete</button></div>
+    </div>`;
+  };
+  setupPageShell('setupFreeNights', `
+    <div class="panel">
+      <div class="panel-head"><h2>${DATA.freeNights.length} free night certificates</h2><button class="btn btn-primary" id="addFnBtn">+ Add certificate</button></div>
+      <div class="panel-body">${groupByCardHtml(DATA.freeNights, fn=>fn.cardId, row) || '<div class="empty">No certificates yet.</div>'}</div>
+    </div>`);
+  document.getElementById('addFnBtn').onclick = ()=>openFnModal();
+  document.querySelectorAll('[data-edit-fn]').forEach(b=>b.onclick=()=>openFnModal(b.dataset.editFn));
+  document.querySelectorAll('[data-del-fn]').forEach(b=>b.onclick=()=>{
+    const fn = DATA.freeNights.find(x=>x.id===b.dataset.delFn);
+    const n = DATA.history.filter(h=>h.sourceId===fn.id).length;
+    showConfirm(`Delete "${escHtml(fn.desc)}"?${n?` Its ${n} logged redemption${n===1?'':'s'} stay in the Redemption Log and still count on the Dashboard.`:''}`, ()=>{
+      DATA.freeNights = DATA.freeNights.filter(x=>x.id!==fn.id); saveData(); renderSetupFreeNights(); toast('Certificate deleted');
+    });
+  });
+}
+function openFnModal(id){
+  const editing = !!id;
+  const fn = editing ? DATA.freeNights.find(x=>x.id===id) : {cardId:(DATA.cards.find(c=>!c.closedDate)||DATA.cards[0]||{}).id||'', program:'', desc:'', anchor:'', cashValue:null, expirationOverride:null, certsPerCycle:1};
+  showModal(`
+    ${modalHead(editing?'Edit certificate':'Add certificate')}
+    <div class="modal-body">
+      <div class="field"><label>Card</label><select id="f_card">${cardOptionsHtml(fn.cardId)}</select></div>
+      <div class="field-row">
+        <div class="field"><label>Loyalty program</label><input id="f_program" value="${escAttr(fn.program||'')}"></div>
+        <div class="field"><label>Repeats yearly?</label><select id="f_repeats"><option value="yes" ${fn.repeats!==false?'selected':''}>Yes — renews every year</option><option value="no" ${fn.repeats===false?'selected':''}>No — one-off certificate</option></select></div>
+      </div>
+      <div class="field"><label>Description</label><input id="f_desc" value="${escAttr(fn.desc||'')}"></div>
+      <div class="field"><label id="anchorLabel">Renewal / issue date</label><input id="f_anchor" type="date" value="${fn.anchor||''}"></div>
+      <div class="hint" id="fnAnchorHint"></div>
+      <div class="field" id="certsField"><label>Certificates granted per year</label><input id="f_certsPerCycle" type="number" min="1" step="1" value="${fn.certsPerCycle||1}"></div>
+      <div class="field"><label>Manual expiry for the current certificate (optional)</label><input id="f_expiration" type="date" value="${fn.expirationOverride||''}"></div>
+      <div class="hint" id="fnExpHint"></div>
+      <div class="field" id="fnEndsField"><label>Ends after (optional)</label><input id="f_ends" type="date" value="${fn.endsAfter||''}"></div>
+      <div class="preview-box" id="fnPreview"></div>
+    </div>
+    ${modalFoot()}
+  `);
+  const read = ()=>{
+    const repeats = val('f_repeats') !== 'no';
+    return { cardId: val('f_card'), program: val('f_program').trim(), desc: val('f_desc').trim(), repeats,
+      anchor: val('f_anchor')||null, certsPerCycle: repeats ? Math.max(1, parseInt(val('f_certsPerCycle'),10)||1) : 1,
+      expirationOverride: val('f_expiration')||null, endsAfter: repeats ? (val('f_ends')||null) : null };
+  };
+  const overrideError = t=>{
+    if(!t.expirationOverride || !t.anchor) return '';
+    const cycle = fnCycle(t, bangkokToday());
+    if(!cycle) return '';
+    if(!overrideAppliesToCycle(t, cycle)) return t.repeats
+      ? `That date is not more than 6 months after the current certificate's issue date (${fmtDate(cycle.start)}), so it would be ignored. Use the real expiry of the certificate issued ${fmtDate(cycle.start)}.`
+      : 'The expiry must be on or after the issue date.';
+    return '';
+  };
+  const refresh = ()=>{
+    const t = read();
+    showEl('certsField', t.repeats); showEl('fnEndsField', t.repeats);
+    document.getElementById('anchorLabel').textContent = t.repeats ? 'Renewal / issue date' : 'Issue date';
+    document.getElementById('fnAnchorHint').textContent = t.repeats
+      ? 'Any past date a certificate was issued — it repeats every 12 months. Leave blank if the first one hasn\'t been issued yet.'
+      : 'The date this single certificate was issued. It shows until it expires, then stays in your history.';
+    document.getElementById('fnExpHint').textContent = (overrideError(t) || 'Leave blank to use 12 months from the issue date. Only applies to the current certificate — the next one goes back to 12 months automatically.');
+    const today = bangkokToday();
+    const cycle = t.anchor ? fnCycle(t, today) : null;
+    if(!cycle){ document.getElementById('fnPreview').textContent = 'Set a date to see the current certificate.'; return; }
+    const exp = effectiveExpiration(t, cycle);
+    const used = editing ? DATA.history.filter(h=>h.sourceId===id).filter(h=>{ const d=parseDate(h.date); return d>=cycle.start && d<cycle.nextStart; }) : [];
+    document.getElementById('fnPreview').innerHTML = `Current certificate: issued ${fmtDate(cycle.start)}, expires ${fmtDate(exp)}${t.repeats?` · next one ${fmtDate(cycle.nextStart)}`:''}.`
+      + (used.length ? `<br>Used: ${used.map(h=>`${fmtDate(parseDate(h.date))} $${Number(h.amount).toLocaleString()}`).join(', ')}` : (editing ? '<br>Not used yet.' : ''));
+  };
+  ['f_repeats','f_anchor','f_expiration','f_certsPerCycle'].forEach(k=>{ const el=document.getElementById(k); el.onchange=refresh; el.oninput=refresh; });
+  refresh();
+  document.getElementById('modalSave').onclick = ()=>{
+    const t = read();
+    if(!t.desc){ toast('Description is required'); return; }
+    if(!t.repeats && !t.anchor){ toast('A one-off certificate needs its issue date'); return; }
+    const err = overrideError(t);
+    if(err){ toast('Check the manual expiry date'); return; }
+    const obj = {id: editing?id:uid('fn'), cashValue: fn.cashValue||null, ...t};
+    if(editing){ const i = DATA.freeNights.findIndex(x=>x.id===id); DATA.freeNights[i] = {...DATA.freeNights[i], ...obj}; }
+    else DATA.freeNights.push(obj);
+    saveData(); closeModal(); views[currentView].render(); toast('Certificate saved');
+  };
 }
 
 /* ---------- Annual Credits ---------- */
@@ -2376,16 +3068,15 @@ function sortedCreditsList(today){
     // totals on the Dashboard and Cards tab, which is a genuinely
     // different, backward-looking question ("how much did I get in
     // 2025?") from "what's this credit's status right now?".
-    const cycle = currentCycle(cr.anchor, CYCLE_MONTHS[cr.frequency]||12, 12, today);
+    const cycle = creditCycle(cr, today);
     return {cr, cycle, isLive: !!cycle};
-  });
+  }).filter(item=>creditIsLive(item.cr, today)); // v2.1: closed cards / ended benefits live only in Setup
   if(creditsSortMode === 'value'){
     withCycle.sort((a,b)=> b.cr.value - a.cr.value);
   } else if(creditsSortMode === 'daysLeft'){
     withCycle.sort((a,b)=>{
-      const da = a.cycle ? daysBetween(today, a.cycle.end) : 9999;
-      const db = b.cycle ? daysBetween(today, b.cycle.end) : 9999;
-      return da - db;
+      const rank = x => (creditUsage(x.cr)==='perstay') ? 9998 : (x.cycle ? daysBetween(today, x.cycle.end) : 9999);
+      return rank(a) - rank(b);
     });
   }
   // 'manual' mode: keep DATA.credits array order as-is
@@ -2397,72 +3088,83 @@ function sortedCreditsList(today){
 // grouping only changes how rows are arranged/labeled, never what a row
 // itself looks like or does.
 function renderCreditRowHtml(today, {cr, cycle, isLive}, showDragHandle){
+  // v2.1: one row, three behaviours depending on how the credit is used
+  // (decision D9): once per period, spend down to the value, or every stay.
   const card = cardById(cr.cardId);
-  // Any logged entry counts as redeemed for the period — logging a
-  // second one for the same window is blocked (see openRedeemModal),
-  // so the row shouldn't offer "Mark redeemed" again just because the
-  // logged amount happens to be under the credit's face value.
-  const isRedeemed = cycle ? historyEntriesInCycle(cr.id, cycle).length > 0 : false;
-  // "Unredeem" is offered for auto-redeemed credits too, same as any other
-  // — an earlier version of this code hid the button entirely for them,
-  // reasoning there was "nothing to undo." That avoided one bug (clicking
-  // Unredeem looked like it worked, then silently came back) but created
-  // a worse one: it made these entries permanently undeletable, which
-  // meant a whole year could never fully clear from the year selector if
-  // it contained one. See runAutoRedemptions()'s comment for the actual
-  // fix — deletion is allowed everywhere now; a suppression record is
-  // what actually stops it from silently reappearing.
+  const prog = creditProgress(cr, cycle);
+  const usage = prog.usage;
+  const isRedeemed = prog.done;
+  const isPartial = usage === 'spenddown' && prog.count > 0 && !prog.done;
   const hasAnyHistory = !cycle && DATA.history.some(h=>h.sourceId===cr.id);
-  const daysLeft = (cycle && isLive) ? daysBetween(today, cycle.end) : null;
+  const notStarted = !!(cycle && today < cycle.start);
+  const daysLeft = (cycle && isLive && usage !== 'perstay') ? daysBetween(today, cycle.end) : null;
   const isExpired = daysLeft !== null && daysLeft < 0 && !isRedeemed;
+  const yr = today.getFullYear();
   let pill;
-  if(!cycle && hasAnyHistory){ pill = {label:'Logged', cls:'pill-green'}; }
-  else if(!cycle){ pill = {label:'No anchor date', cls:'pill-gray'}; }
+  if(usage === 'perstay'){ pill = prog.count ? {label:`${prog.count} stay${prog.count===1?'':'s'} in ${yr}`, cls:'pill-green'} : {label:`No stays yet in ${yr}`, cls:'pill-gray'}; }
+  else if(!cycle && hasAnyHistory){ pill = {label:'Logged', cls:'pill-green'}; }
+  else if(!cycle){ pill = {label:'No start date', cls:'pill-gray'}; }
+  else if(notStarted){ pill = {label:`Starts ${fmtDate(cycle.start)}`, cls:'pill-gray'}; }
   else if(isRedeemed){ pill = {label:'Redeemed', cls:'pill-green'}; }
-  else if(isExpired){ pill = {label:'Expired', cls:'pill-gray'}; }
+  else if(isExpired){ pill = {label: isPartial ? `Expired · $${prog.remaining.toLocaleString()} unused` : 'Expired', cls:'pill-gray'}; }
+  else if(isPartial){ pill = {label:`$${prog.remaining.toLocaleString()} left`, cls:'pill-amber'}; }
   else if(isLive){ pill = statusForDays(daysBetween(today, cycle.end), 60); }
   else { pill = {label:'Not redeemed', cls:'pill-gray'}; }
   let progressPct = null;
-  if(cycle && isLive){
+  if(usage === 'spenddown' && cycle && !notStarted && Number(cr.value) > 0){
+    progressPct = Math.max(0, Math.min(100, Math.round((prog.used / Number(cr.value))*100)));
+  } else if(usage === 'once' && cycle && isLive && !notStarted){
     const total = cycle.nextStart - cycle.start;
     const elapsed = today - cycle.start;
     progressPct = Math.max(0, Math.min(100, Math.round((elapsed/total)*100)));
   }
-  // NEW FEATURE: renewal type label — see the comment on this field in
-  // openCreditModal. Purely informational, doesn't touch cycle math.
+  const usageLabel = usage === 'perstay' ? 'Every stay' : usage === 'spenddown' ? 'Spend down' : 'Once per period';
   const renewalLabel = cr.renewalType === 'calendar' ? 'Calendar year' : 'Card anniversary';
+  const when = usage === 'perstay' ? 'no expiry'
+    : (cycle ? (notStarted ? `starts ${fmtDate(cycle.start)}` : `resets ${fmtDate(cycle.end)}`) : 'no start date set');
+  const notes = (prog.count && cycle) ? redemptionNotesInCycle(cr.id, cycle) : '';
+  const amountHtml = usage === 'perstay' ? `$${prog.used.toLocaleString()}`
+    : usage === 'spenddown' ? `$${prog.used.toLocaleString()}<span style="color:var(--text-soft);font-weight:500;"> / $${Number(cr.value).toLocaleString()}</span>`
+    : `$${cr.value}`;
+  const canLog = cycle && !notStarted && !cr.autoRedeem && !isRedeemed;
+  const logLabel = usage === 'perstay' ? 'Log stay' : (usage === 'spenddown' && prog.count > 0) ? 'Log another use' : 'Mark redeemed';
+  const subtitleBits = usage === 'perstay'
+    ? [card?escHtml(card.name):'(unlinked)', usageLabel, when]
+    : [card?escHtml(card.name):'(unlinked)', escHtml(cr.frequency), renewalLabel, usageLabel, when];
 
   return `
   <div class="list-row" data-row-id="${cr.id}">
     ${showDragHandle ? '<div class="drag-handle"><svg width="12" height="16" viewBox="0 0 12 16" fill="currentColor"><circle cx="3" cy="3" r="1.3"/><circle cx="9" cy="3" r="1.3"/><circle cx="3" cy="8" r="1.3"/><circle cx="9" cy="8" r="1.3"/><circle cx="3" cy="13" r="1.3"/><circle cx="9" cy="13" r="1.3"/></svg></div>' : '<div style="width:20px;"></div>'}
     <div class="main-col">
       <div class="title"${isExpired ? ' style="color:var(--text-muted);"' : ''}>${escHtml(cr.name)}</div>
-      <div class="subtitle">${card?escHtml(card.name):'(unlinked)'} · ${escHtml(cr.frequency)} · ${renewalLabel} · ${cycle ? (isLive ? `resets ${fmtDate(cycle.end)}` : `${fmtDate(cycle.start)} – ${fmtDate(cycle.end)}`) : 'no anchor date set'}${cr.autoRedeem?' · Auto-credited, no action needed':''}${(isRedeemed && redemptionNotesInCycle(cr.id, cycle)) ? ` · <span style="color:var(--text);">Redeemed at: ${escHtml(redemptionNotesInCycle(cr.id, cycle))}</span>` : ''}</div>
-      ${progressPct!==null ? `<div style="height:4px;background:var(--gray-bg);border-radius:2px;margin-top:6px;overflow:hidden;"><div style="height:100%;width:${progressPct}%;background:${isRedeemed?'var(--green)':'var(--text-soft)'};"></div></div>` : ''}
+      <div class="subtitle">${subtitleBits.join(' · ')}${cr.autoRedeem?' · Auto-credited, no action needed':''}${notes ? ` · <span style="color:var(--text);">${usage==='once'?'Redeemed at':'Used at'}: ${escHtml(notes)}</span>` : ''}</div>
+      ${progressPct!==null ? `<div style="height:4px;background:var(--gray-bg);border-radius:2px;margin-top:6px;overflow:hidden;"><div style="height:100%;width:${progressPct}%;background:${(isRedeemed||usage==='spenddown')?'var(--green)':'var(--text-soft)'};"></div></div>` : ''}
     </div>
     <div class="row-break"></div>
-    <div class="amount">$${cr.value}</div>
+    <div class="amount">${amountHtml}</div>
     <div><span class="pill ${pill.cls}">${pill.label}</span></div>
-    <div class="days">${daysLeft!==null? (daysLeft>=0? daysLeft+' days left' : '') : ''}</div>
+    <div class="days">${daysLeft!==null && !notStarted ? (daysLeft>=0? daysLeft+' days left' : '') : ''}</div>
     <div class="row-break"></div>
     <div class="actions">
-      ${!isRedeemed && cycle && !cr.autoRedeem ? `<button class="btn btn-sm btn-primary" data-mark-cr="${cr.id}">Mark redeemed</button>` : ''}
+      ${canLog ? `<button class="btn btn-sm btn-primary" data-mark-cr="${cr.id}">${logLabel}</button>` : ''}
       ${!cycle ? `<button class="btn btn-sm btn-primary" data-mark-cr="${cr.id}">+ Log redemption</button>` : ''}
-      ${isRedeemed ? `<button class="btn btn-sm" data-editredemption-cr="${cr.id}">Edit details</button>` : ''}
-      ${isRedeemed ? `<button class="btn btn-sm btn-danger" data-unredeem-cr="${cr.id}">Unredeem</button>` : ''}
-      <button class="btn btn-sm" data-edit-cr="${cr.id}">Edit</button>
-      <button class="btn btn-sm btn-danger" data-del-cr="${cr.id}">Delete</button>
+      ${prog.count && usage !== 'perstay' ? `<button class="btn btn-sm" data-editredemption-cr="${cr.id}">Edit details</button>` : ''}
+      ${prog.count && usage !== 'perstay' ? `<button class="btn btn-sm btn-danger" data-unredeem-cr="${cr.id}">Unredeem</button>` : ''}
+      ${prog.count && usage === 'perstay' ? `<button class="btn btn-sm" data-stays-cr="${cr.id}">See stays</button>` : ''}
+      <button class="btn btn-sm btn-link" data-setup-cr="${cr.id}" title="Change this credit in Setup">Edit in Setup →</button>
     </div>
   </div>`;
 }
 
 function renderCredits(){
   const today = bangkokToday();
+  const ordered = sortedCreditsList(today);
+  const hiddenCount = DATA.credits.length - ordered.length;
   const content = document.getElementById('content');
   content.innerHTML = `
     <div class="panel">
       <div class="panel-head">
-        <h2>${DATA.credits.length} recurring credits</h2>
+        <h2>${ordered.length} active credits</h2>
         <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
           <label style="font-size:12.5px;display:flex;align-items:center;gap:5px;white-space:nowrap;">
             <input type="checkbox" id="creditsGroupToggle" ${creditsGroupByCard?'checked':''}> Group by card
@@ -2472,17 +3174,15 @@ function renderCredits(){
             <option value="value">Sort: value</option>
             <option value="manual">Sort: manual order</option>
           </select>
-          <button class="btn btn-primary" id="addCreditBtn">+ Add credit</button>
+          <button class="btn" id="addCreditBtn">Set up credits →</button>
         </div>
       </div>
       <div class="panel-body" id="creditList"></div>
     </div>
+    ${hiddenCount ? `<div class="hint" style="margin:-6px 4px 12px;">${hiddenCount} credit${hiddenCount===1?' is':'s are'} hidden because the card is closed or the benefit has ended — see Setup › Credits.</div>` : ''}
   `;
   document.getElementById('creditsSortSelect').value = creditsSortMode;
   const list = document.getElementById('creditList');
-  if(DATA.credits.length===0){ list.innerHTML = '<div class="empty">No credits yet.</div>'; }
-
-  const ordered = sortedCreditsList(today);
 
   let rowsHtml;
   if(creditsGroupByCard){
@@ -2510,16 +3210,17 @@ function renderCredits(){
   } else {
     rowsHtml = ordered.map(item=>renderCreditRowHtml(today, item, true)).join('');
   }
-  list.innerHTML = rowsHtml || '<div class="empty">No credits yet.</div>';
+  list.innerHTML = rowsHtml || '<div class="empty">No active credits. Add them in Setup › Credits.</div>';
 
-  document.getElementById('addCreditBtn').onclick = ()=>openCreditModal();
+  document.getElementById('addCreditBtn').onclick = ()=>switchView('setupCredits');
   document.getElementById('creditsSortSelect').onchange = (e)=>{ creditsSortMode = e.target.value; renderCredits(); };
   document.getElementById('creditsGroupToggle').onchange = (e)=>{ creditsGroupByCard = e.target.checked; renderCredits(); };
-  list.querySelectorAll('[data-edit-cr]').forEach(b=>b.onclick=()=>openCreditModal(b.dataset.editCr));
-  list.querySelectorAll('[data-del-cr]').forEach(b=>b.onclick=()=>{
-    showConfirm('Delete this credit? Its logged redemption history will remain in the log but become unlinked.', ()=>{
-      DATA.credits=DATA.credits.filter(x=>x.id!==b.dataset.delCr); saveData(); renderCredits();
-    });
+  // v2.1 (decision D3): daily tab = status + logging only; definitions are changed in Setup.
+  list.querySelectorAll('[data-setup-cr]').forEach(b=>b.onclick=()=>{ switchView('setupCredits'); openCreditModal(b.dataset.setupCr); });
+  list.querySelectorAll('[data-stays-cr]').forEach(b=>b.onclick=()=>{
+    historyFilterSearch = (DATA.credits.find(x=>x.id===b.dataset.staysCr)||{}).name || '';
+    historyFilterYear = String(today.getFullYear()); historyFilterPanelOpen = true;
+    switchView('history');
   });
   list.querySelectorAll('[data-mark-cr]').forEach(b=>{
     const id = b.dataset.markCr;
@@ -2548,72 +3249,14 @@ function renderCredits(){
   if(!creditsGroupByCard){
     makeDragReorderable(list, '.list-row', row=>row.dataset.rowId, (newOrderIds)=>{
       const wasManual = creditsSortMode === 'manual';
-      DATA.credits = newOrderIds.map(id=>DATA.credits.find(c=>c.id===id));
+      // v2.1: the list may hide closed/ended items — keep them (at the end) instead of dropping them
+      DATA.credits = newOrderIds.map(id=>DATA.credits.find(c=>c.id===id)).concat(DATA.credits.filter(c=>!newOrderIds.includes(c.id)));
       creditsSortMode = 'manual';
       saveData();
       if(!wasManual){ toast('Switched to manual order'); renderCredits(); }
       else { document.getElementById('creditsSortSelect').value = 'manual'; }
     });
   }
-}
-
-function openCreditModal(id){
-  const editing = !!id;
-  const cr = editing ? DATA.credits.find(x=>x.id===id) : {cardId:DATA.cards[0]?.id||'', name:'', value:'', frequency:'Annual', anchor:'', renewalType:'anniversary'};
-  // NEW FEATURE: renewal type. Doesn't change any cycle math at all — a
-  // credit's reset date has always just been "the anchor's month/day,
-  // recurring every year" (see currentCycle/occurrenceForYear), and that's
-  // unchanged. What was missing was any indication of WHICH kind of reset
-  // a given credit actually represents, which made it easy to set the
-  // wrong anchor (e.g. using your card's account-open date for a benefit
-  // that actually resets every calendar Jan 1, or vice versa). This adds
-  // an explicit label plus guidance text for each case; existing credits
-  // default to 'anniversary' since that's exactly what they've always
-  // effectively been (no behavior change for anything already set up).
-  const renewalType = cr.renewalType || 'anniversary';
-  const renewalHint = (type)=> type === 'calendar'
-    ? 'Resets on a fixed calendar date every year, regardless of when you got the card — e.g. Jan 1 for a full calendar year, Jan 1 or Jul 1 for H1/H2, or Jan 1 / Apr 1 / Jul 1 / Oct 1 for Q1-Q4. Set the anchor to that calendar date.'
-    : 'Resets on your card\'s specific anniversary — e.g. the date you opened the card, or whenever this particular benefit\'s year actually starts for you. Set the anchor to that real date, whatever it is.';
-  showModal(`
-    <div class="modal-head"><h3>${editing?'Edit credit':'Add credit'}</h3><button class="close-x" id="modalClose"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
-    <div class="modal-body">
-      <div class="field"><label>Card</label><select id="f_card">${DATA.cards.map(c=>`<option value="${c.id}" ${c.id===cr.cardId?'selected':''}>${escHtml(c.name)}</option>`).join('')}</select></div>
-      <div class="field"><label>Credit name</label><input id="f_name" value="${escAttr(cr.name)}"></div>
-      <div class="field-row">
-        <div class="field"><label>Value ($)</label><input id="f_value" type="number" min="0" value="${cr.value}"></div>
-        <div class="field"><label>Frequency</label>
-          <select id="f_freq">
-            ${['Annual','Semi-Annual','Quarterly','Per Stay'].map(f=>`<option ${f===cr.frequency?'selected':''}>${f}</option>`).join('')}
-          </select>
-        </div>
-      </div>
-      <div class="field"><label>Renews based on</label>
-        <select id="f_renewaltype">
-          <option value="anniversary" ${renewalType==='anniversary'?'selected':''}>Card anniversary date</option>
-          <option value="calendar" ${renewalType==='calendar'?'selected':''}>Calendar year / period</option>
-        </select>
-      </div>
-      <div class="hint" id="renewalTypeHint">${renewalHint(renewalType)}</div>
-      <div class="field"><label>Anchor date (when this specific window starts)</label><input id="f_anchor" type="date" value="${cr.anchor||''}"></div>
-      <div class="hint">Set this to the actual start date of this credit's window (e.g. Apr 1 for a "Q2" row, Jul 1 for an "H2" row). It only needs to be set once — this exact row resets on that same date every year going forward, so distinct rows like Q1-Q4 never drift into each other's dates.</div>
-      <div class="field"><label><input id="f_autoredeem" type="checkbox" style="width:auto;margin-right:6px;" ${cr.autoRedeem?'checked':''}>This is auto-applied by the issuer (no spending or booking needed)</label></div>
-      <div class="hint">Check this for benefits like an anniversary bonus that just post automatically. The app will log it as redeemed by itself once the anchor date arrives each year, instead of waiting for a manual "Mark redeemed" click.</div>
-    </div>
-    <div class="modal-foot">
-      <button class="btn" id="modalCancel">Cancel</button>
-      <button class="btn btn-primary" id="modalSave">Save</button>
-    </div>
-  `);
-  document.getElementById('f_renewaltype').onchange = (e)=>{
-    document.getElementById('renewalTypeHint').textContent = renewalHint(e.target.value);
-  };
-  document.getElementById('modalSave').onclick = ()=>{
-    const obj = { id: editing?id:uid('cr'), cardId: val('f_card'), name: val('f_name'), value: Number(val('f_value'))||0, frequency: val('f_freq'), anchor: val('f_anchor')||null, autoRedeem: document.getElementById('f_autoredeem').checked, renewalType: val('f_renewaltype') };
-    if(!obj.name){ toast('Credit name is required'); return; }
-    if(obj.value < 0){ toast('Credit value cannot be negative'); return; }
-    if(editing){ const i=DATA.credits.findIndex(x=>x.id===id); DATA.credits[i]=obj; } else DATA.credits.push(obj);
-    saveData(); closeModal(); runAutoRedemptions(); renderCredits(); toast('Credit saved');
-  };
 }
 
 function openRedeemModal(kind, sourceId, cycle){
@@ -2631,12 +3274,20 @@ function openRedeemModal(kind, sourceId, cycle){
   // logged, but that's just UI — this check is the real gate, so a stale
   // render, a double-click before re-render, or any other path into this
   // function can't create a second entry for the same window.
-  if(cycle && historyEntriesInCycle(sourceId, cycle).length > 0){
-    toast('Already logged for this period — edit the amount or unredeem it first.');
+  // v2.0.1 FIX: free nights with "Certificates granted per year" > 1 offer
+  // "Log redemption (2 of N)", but this guard used to block any second entry.
+  // v2.1: spend-down credits take any number of logs until the value is
+  // used up; every-stay credits have no limit at all.
+  const usage = kind==='cr' ? creditUsage(item) : null;
+  const prog = kind==='cr' ? creditProgress(item, cycle) : null;
+  let maxEntries = kind==='fn' ? Math.max(1, item.certsPerCycle||1) : 1;
+  if(usage === 'perstay' || usage === 'spenddown') maxEntries = Infinity;
+  if(cycle && (historyEntriesInCycle(sourceId, cycle).length >= maxEntries || (prog && prog.done))){
+    toast('Already used up for this period — edit the amount or unredeem it first.');
     return;
   }
 
-  const defaultAmount = kind==='cr' ? item.value : (item.cashValue||'');
+  const defaultAmount = kind==='cr' ? (usage==='spenddown' ? prog.remaining : item.value) : (item.cashValue||'');
   // A credit always has a known face value (its "value" field), so it can
   // always default the Amount field. A free night doesn't — its cash value
   // depends on which hotel you actually book — so a brand-new certificate
@@ -2647,11 +3298,13 @@ function openRedeemModal(kind, sourceId, cycle){
   // had silently done nothing. Requiring a real value up front fixes both.
   const needsValue = kind==='fn' && !defaultAmount;
   showModal(`
-    <div class="modal-head"><h3>Log redemption</h3><button class="close-x" id="modalClose"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
+    <div class="modal-head"><h3>${usage==='perstay' ? 'Log stay' : 'Log redemption'}${kind==='cr' ? ` — ${escHtml(item.name)}` : ''}</h3><button class="close-x" id="modalClose"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
     <div class="modal-body">
       <div class="field"><label>Date used</label><input id="f_date" type="date" value="${defaultRedeemDate(cycle)}"></div>
       <div class="field"><label>Amount ($)</label><input id="f_amount" type="number" min="0" value="${defaultAmount}" placeholder="${needsValue?'Estimated cash value of the stay you booked':''}"></div>
       ${needsValue ? `<div class="hint">Free nights don't have a fixed dollar value — enter what the stay would have cost in cash (check the hotel's rate for your dates) so it counts toward value realized.</div>` : ''}
+      ${usage==='spenddown' ? `<div class="hint">$${prog.remaining.toLocaleString()} of $${Number(item.value).toLocaleString()} left for this period${prog.count?` (${prog.count} use${prog.count===1?'':'s'} logged)`:''}. Log each purchase separately.</div>` : ''}
+      ${usage==='perstay' ? `<div class="hint">Every stay counts — log one entry per stay.</div>` : ''}
       ${kind==='fn' ? `<div class="field"><label>Property (optional)</label><input id="f_property" value="${escAttr(item.property||'')}"></div>` : ''}
       <div class="field"><label>Where / how redeemed (optional)</label><textarea id="f_notes" rows="2" placeholder="e.g. Hilton Bangkok spa, booked via app, confirmation #..."></textarea></div>
     </div>
@@ -2663,8 +3316,10 @@ function openRedeemModal(kind, sourceId, cycle){
   document.getElementById('modalSave').onclick = ()=>{
     // Re-check at save time too — the modal can sit open for a while (or a
     // sync from another device could land) before Save is actually clicked.
-    if(historyEntriesInCycle(sourceId, cycle).length > 0){
-      toast('Already logged for this period — edit the amount or unredeem it first.');
+    // (v2.1: same limit as the check above — spend-down and every-stay credits allow more than one entry)
+    const progNow = kind==='cr' ? creditProgress(item, cycle) : null;
+    if(cycle && (historyEntriesInCycle(sourceId, cycle).length >= maxEntries || (progNow && progNow.done))){
+      toast('Already used up for this period — edit the amount or unredeem it first.');
       closeModal();
       if(kind==='cr') renderCredits(); else renderFreeNights();
       return;
@@ -2673,6 +3328,10 @@ function openRedeemModal(kind, sourceId, cycle){
     if(amount < 0){ toast('Amount cannot be negative'); return; }
     if(kind==='fn' && amount <= 0){
       toast('Enter the cash value of this free night before marking it used');
+      return;
+    }
+    if(usage === 'spenddown' && amount > progNow.remaining){
+      toast(`Only $${progNow.remaining.toLocaleString()} is left on this credit for this period`);
       return;
     }
     const entry = {
@@ -2698,9 +3357,9 @@ function sortedFreeNightsList(today){
     // DESIGN FIX: see the matching comment on sortedCreditsList() above —
     // this tab now always shows each certificate's real, current status,
     // regardless of the top-level year selector.
-    const cycle = currentCycle(fn.anchor, 12, 12, today);
+    const cycle = fnCycle(fn, today);
     return {fn, cycle, isLive: !!cycle};
-  });
+  }).filter(item=>fnIsLive(item.fn, today)); // v2.1: closed cards / ended / expired one-offs live only in Setup
   if(fnSortMode === 'value'){
     withCycle.sort((a,b)=> (b.fn.cashValue||0) - (a.fn.cashValue||0));
   } else if(fnSortMode === 'daysLeft'){
@@ -2753,7 +3412,7 @@ function renderFreeNightRowHtml(today, {fn, cycle, isLive}, showDragHandle){
   else { pill = {label:'Not redeemed', cls:'pill-gray'}; }
   let progressPct = null;
   if(cycle && isLive){
-    const total = cycle.nextStart - cycle.start;
+    const total = (fn.repeats===false ? cycle.end : cycle.nextStart) - cycle.start; // one-off: no next period
     const elapsed = today - cycle.start;
     progressPct = Math.max(0, Math.min(100, Math.round((elapsed/total)*100)));
   }
@@ -2766,8 +3425,8 @@ function renderFreeNightRowHtml(today, {fn, cycle, isLive}, showDragHandle){
   <div class="list-row" data-row-id="${fn.id}">
     ${showDragHandle ? '<div class="drag-handle"><svg width="12" height="16" viewBox="0 0 12 16" fill="currentColor"><circle cx="3" cy="3" r="1.3"/><circle cx="9" cy="3" r="1.3"/><circle cx="3" cy="8" r="1.3"/><circle cx="9" cy="8" r="1.3"/><circle cx="3" cy="13" r="1.3"/><circle cx="9" cy="13" r="1.3"/></svg></div>' : '<div style="width:20px;"></div>'}
     <div class="main-col">
-      <div class="title"${isExpired ? ' style="color:var(--text-muted);"' : ''}>${escHtml(fn.desc)}${certsPerCycle>1?` <span style="font-size:11px;font-weight:400;color:var(--text-muted);">(${certsPerCycle}/yr)</span>`:''}</div>
-      <div class="subtitle">${card?escHtml(card.name):'(unlinked)'} · ${escHtml(fn.program)}${expiration?` · expires ${fmtDate(expiration)}${fn.expirationOverride?' (set manually)':''}`:(cycle?'':' · no anchor date set')}${(redeemedCount>0 && redemptionNotesInCycle(fn.id, cycle)) ? ` · <span style="color:var(--text);">Redeemed at: ${escHtml(redemptionNotesInCycle(fn.id, cycle))}</span>` : ''}</div>
+      <div class="title"${isExpired ? ' style="color:var(--text-muted);"' : ''}>${escHtml(fn.desc)}${certsPerCycle>1?` <span style="font-size:11px;font-weight:400;color:var(--text-muted);">(${certsPerCycle}/yr)</span>`:''}${fn.repeats===false?' <span class="pill pill-gray" style="font-size:10.5px;">One-off</span>':''}</div>
+      <div class="subtitle">${card?escHtml(card.name):'(unlinked)'} · ${escHtml(fn.program)}${expiration?` · expires ${fmtDate(expiration)}${overrideAppliesToCycle(fn, cycle)?' (set manually)':''}`:(cycle?'':' · no anchor date set')}${(redeemedCount>0 && redemptionNotesInCycle(fn.id, cycle)) ? ` · <span style="color:var(--text);">Redeemed at: ${escHtml(redemptionNotesInCycle(fn.id, cycle))}</span>` : ''}</div>
       ${progressPct!==null ? `<div style="height:4px;background:var(--gray-bg);border-radius:2px;margin-top:6px;overflow:hidden;"><div style="height:100%;width:${progressPct}%;background:${isFullyUsed?'var(--green)':'var(--text-soft)'};"></div></div>` : ''}
     </div>
     <div class="row-break"></div>
@@ -2779,19 +3438,20 @@ function renderFreeNightRowHtml(today, {fn, cycle, isLive}, showDragHandle){
       ${!isFullyUsed && cycle ? `<button class="btn btn-sm btn-primary" data-mark-fn="${fn.id}">${redeemedCount>0?`Log redemption (${redeemedCount+1} of ${certsPerCycle})`:'Mark used'}</button>` : ''}
       ${!cycle ? `<button class="btn btn-sm btn-primary" data-mark-fn="${fn.id}">+ Log redemption</button>` : ''}
       ${redeemedCount>0 ? `<button class="btn btn-sm" data-editredemption-fn="${fn.id}">Edit details</button><button class="btn btn-sm btn-danger" data-unredeem-fn="${fn.id}">Unredeem</button>` : ''}
-      <button class="btn btn-sm" data-edit-fn="${fn.id}">Edit</button>
-      <button class="btn btn-sm btn-danger" data-del-fn="${fn.id}">Delete</button>
+      <button class="btn btn-sm btn-link" data-setup-fn="${fn.id}" title="Change this certificate in Setup">Edit in Setup →</button>
     </div>
   </div>`;
 }
 
 function renderFreeNights(){
   const today = bangkokToday();
+  const ordered = sortedFreeNightsList(today);
+  const hiddenCount = DATA.freeNights.length - ordered.length;
   const content = document.getElementById('content');
   content.innerHTML = `
     <div class="panel">
       <div class="panel-head">
-        <h2>${DATA.freeNights.length} free night certificates</h2>
+        <h2>${ordered.length} active free night certificates</h2>
         <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
           <label style="font-size:12.5px;display:flex;align-items:center;gap:5px;white-space:nowrap;">
             <input type="checkbox" id="fnGroupToggle" ${fnGroupByCard?'checked':''}> Group by card
@@ -2801,16 +3461,15 @@ function renderFreeNights(){
             <option value="value">Sort: value</option>
             <option value="manual">Sort: manual order</option>
           </select>
-          <button class="btn btn-primary" id="addFnBtn">+ Add certificate</button>
+          <button class="btn" id="addFnBtn">Set up free nights →</button>
         </div>
       </div>
       <div class="panel-body" id="fnList"></div>
     </div>
+    ${hiddenCount ? `<div class="hint" style="margin:-6px 4px 12px;">${hiddenCount} certificate${hiddenCount===1?' is':'s are'} hidden (card closed, benefit ended, or one-off certificate expired) — see Setup › Free nights.</div>` : ''}
   `;
   document.getElementById('fnSortSelect').value = fnSortMode;
   const list = document.getElementById('fnList');
-
-  const ordered = sortedFreeNightsList(today);
 
   let rowsHtml;
   if(fnGroupByCard){
@@ -2832,17 +3491,12 @@ function renderFreeNights(){
   } else {
     rowsHtml = ordered.map(item=>renderFreeNightRowHtml(today, item, true)).join('');
   }
-  list.innerHTML = rowsHtml || '<div class="empty">No certificates yet.</div>';
+  list.innerHTML = rowsHtml || '<div class="empty">No active certificates. Add them in Setup › Free nights.</div>';
 
-  document.getElementById('addFnBtn').onclick = ()=>openFnModal();
+  document.getElementById('addFnBtn').onclick = ()=>switchView('setupFreeNights');
   document.getElementById('fnSortSelect').onchange = (e)=>{ fnSortMode = e.target.value; renderFreeNights(); };
   document.getElementById('fnGroupToggle').onchange = (e)=>{ fnGroupByCard = e.target.checked; renderFreeNights(); };
-  list.querySelectorAll('[data-edit-fn]').forEach(b=>b.onclick=()=>openFnModal(b.dataset.editFn));
-  list.querySelectorAll('[data-del-fn]').forEach(b=>b.onclick=()=>{
-    showConfirm('Delete this certificate? Its logged redemption history will remain in the log but become unlinked.', ()=>{
-      DATA.freeNights=DATA.freeNights.filter(x=>x.id!==b.dataset.delFn); saveData(); renderFreeNights();
-    });
-  });
+  list.querySelectorAll('[data-setup-fn]').forEach(b=>b.onclick=()=>{ switchView('setupFreeNights'); openFnModal(b.dataset.setupFn); });
   list.querySelectorAll('[data-mark-fn]').forEach(b=>{
     const id = b.dataset.markFn;
     const row = ordered.find(o=>o.fn.id===id);
@@ -2866,42 +3520,14 @@ function renderFreeNights(){
   if(!fnGroupByCard){
     makeDragReorderable(list, '.list-row', row=>row.dataset.rowId, (newOrderIds)=>{
       const wasManual = fnSortMode === 'manual';
-      DATA.freeNights = newOrderIds.map(id=>DATA.freeNights.find(f=>f.id===id));
+      // v2.1: keep hidden (closed/ended/expired one-off) certificates instead of dropping them
+      DATA.freeNights = newOrderIds.map(id=>DATA.freeNights.find(f=>f.id===id)).concat(DATA.freeNights.filter(f=>!newOrderIds.includes(f.id)));
       fnSortMode = 'manual';
       saveData();
       if(!wasManual){ toast('Switched to manual order'); renderFreeNights(); }
       else { document.getElementById('fnSortSelect').value = 'manual'; }
     });
   }
-}
-
-function openFnModal(id){
-  const editing = !!id;
-  const fn = editing ? DATA.freeNights.find(x=>x.id===id) : {cardId:DATA.cards[0]?.id||'', program:'', desc:'', anchor:'', cashValue:null, expirationOverride:null};
-  showModal(`
-    <div class="modal-head"><h3>${editing?'Edit certificate':'Add certificate'}</h3><button class="close-x" id="modalClose"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
-    <div class="modal-body">
-      <div class="field"><label>Card</label><select id="f_card">${DATA.cards.map(c=>`<option value="${c.id}" ${c.id===fn.cardId?'selected':''}>${escHtml(c.name)}</option>`).join('')}</select></div>
-      <div class="field"><label>Loyalty program</label><input id="f_program" value="${escAttr(fn.program)}"></div>
-      <div class="field"><label>Description</label><input id="f_desc" value="${escAttr(fn.desc)}"></div>
-      <div class="field"><label>Anchor / issue date</label><input id="f_anchor" type="date" value="${fn.anchor||''}"></div>
-      <div class="hint">Leave blank if this card's first certificate hasn't been issued yet.</div>
-      <div class="field"><label>Certificates granted per year</label><input id="f_certsPerCycle" type="number" min="1" step="1" value="${fn.certsPerCycle||1}"></div>
-      <div class="hint">Most cards grant one. If yours grants more than one on the same anniversary (e.g. an annual certificate plus a separate bonus one), set this to how many — each one can then be logged and tracked independently instead of the whole thing showing "redeemed" after just the first.</div>
-      <div class="field"><label>Expiration date override (optional)</label><input id="f_expiration" type="date" value="${fn.expirationOverride||''}"></div>
-      <div class="hint">By default the expiration shown is calculated as 12 months from the anchor date. A certificate's real expiration doesn't always match that exactly — issuers sometimes run a few days behind, or grant a one-time extension — so once you see the actual date in your hotel account, enter it here and it'll be used instead. Leave blank to keep using the calculated date.</div>
-    </div>
-    <div class="modal-foot">
-      <button class="btn" id="modalCancel">Cancel</button>
-      <button class="btn btn-primary" id="modalSave">Save</button>
-    </div>
-  `);
-  document.getElementById('modalSave').onclick = ()=>{
-    const obj = { id: editing?id:uid('fn'), cardId: val('f_card'), program: val('f_program'), desc: val('f_desc'), anchor: val('f_anchor')||null, cashValue: fn.cashValue||null, certsPerCycle: Math.max(1, parseInt(val('f_certsPerCycle'),10)||1), expirationOverride: val('f_expiration')||null };
-    if(!obj.desc){ toast('Description is required'); return; }
-    if(editing){ const i=DATA.freeNights.findIndex(x=>x.id===id); DATA.freeNights[i]=obj; } else DATA.freeNights.push(obj);
-    saveData(); closeModal(); renderFreeNights(); toast('Certificate saved');
-  };
 }
 
 /* ---------- Miles & Vouchers ---------- */
@@ -3433,7 +4059,7 @@ document.getElementById('importFile').onchange = (e)=>{
       const parsed = JSON.parse(reader.result);
       if(!parsed.cards || !parsed.credits) throw new Error('bad format');
       delete parsed._exportedFromAppVersion; // export-only stamp, not app data
-      DATA = migrateData(parsed); saveData(); runAutoRedemptions(); switchView(currentView);
+      DATA = migrateData(parsed); saveData(); runDailyChecks(); switchView(currentView);
       toast('Data imported');
     }catch(err){ toast('Could not read that file — is it a tracker backup JSON?'); }
   };
@@ -3520,7 +4146,7 @@ hasRenderedOnce = true;
 
 bootstrapSync().then(safeToProceed=>{
   updateDataRiskWarning(safeToProceed);
-  if(safeToProceed && runAutoRedemptions()){
+  if(safeToProceed && runDailyChecks()){
     switchView(currentView);
   }
 });
@@ -3539,7 +4165,7 @@ document.addEventListener('visibilitychange', ()=>{
     : bootstrapSync();
   syncAttempt.then(safeToProceed=>{
     updateDataRiskWarning(safeToProceed);
-    if(safeToProceed && runAutoRedemptions()) switchView(currentView);
+    if(safeToProceed && runDailyChecks()) switchView(currentView);
   });
 });
 </script>
