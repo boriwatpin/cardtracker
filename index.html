@@ -774,7 +774,7 @@ const SEED = {
    ============================================================ */
 // Shown next to the app name (sidebar + mobile header) and stamped into
 // exported backups. Bump this one line on each deployment.
-const APP_VERSION = 'v2.3.1';
+const APP_VERSION = 'v2.4';
 const STORE_KEY = 'hotelCardTrackerData_v1';
 const SYNCED_AT_KEY = STORE_KEY + '_syncedAt';
 const DIRTY_KEY = STORE_KEY + '_dirty'; // FIX: persists across reloads/tab-closes
@@ -1234,24 +1234,45 @@ initLockScreen();
 
 let syncPending = false; // true if we have local changes not yet confirmed saved to the cloud
 
+/* ============================================================
+   v2.4 REALTIME SYNC — plain-language summary
+   - Every save is written to the cloud with a CONDITIONAL write: it only lands
+     if the cloud row is still the version this device last saw.
+   - If another device saved in between, this device fetches that version and
+     MERGES it with its own changes automatically (mergeTrackerData below):
+     different items / different fields from both devices are all kept; only
+     when the very same field was changed on both does this device's value win
+     — and then the other device's whole version is first saved to Backups
+     ("Auto-merge: other device's version"), so nothing is ever lost.
+   - After every successful save, a small "changed" message is broadcast on a
+     Supabase Realtime channel. Every open device listens and pulls the new
+     version within a second ("Live" in the status pill). If the live
+     connection is down (iPhone suspends it in the background), the app still
+     pulls whenever it's opened / brought forward / back online.
+   - Import and Restore are deliberate full replacements: never merged.
+   ============================================================ */
+const BASE_KEY = STORE_KEY + '_base';       // the last cloud data this device synced (the merge "base")
+const REPLACE_KEY = STORE_KEY + '_replace'; // '1' = next push is an Import/Restore: overwrite, don't merge
+const LIVE_CHANNEL = 'tracker-sync';
+const DEVICE_ID = Math.random().toString(36).slice(2, 10); // this open copy of the app (ignores its own broadcasts)
+
+// Sync status pill. "Live" = in sync AND listening for other devices' changes
+// in real time; "Synced" = in sync, live connection not up right now.
+let lastSyncState = '', liveConnected = false;
 function setSyncStatus(state){
+  lastSyncState = state;
   const el = document.getElementById('syncStatus');
   if(!el) return;
-  const label = {syncing:'Syncing…', synced:'Synced', offline:'Offline — saved locally', conflict:'Not synced — choose a version'}[state] || '';
+  const shown = (state === 'synced' && liveConnected) ? 'live' : state;
+  const label = {syncing:'Syncing…', synced:'Synced', live:'Live', offline:'Offline — saved locally'}[shown] || '';
   el.textContent = label;
-  el.className = 'sync-status sync-' + (state === 'conflict' ? 'offline' : state);
+  el.className = 'sync-status sync-' + (shown === 'live' ? 'synced' : shown);
+  el.title = shown === 'live' ? 'Changes from your other devices show up here automatically' : '';
 }
 
 // Fetch the shared row from Supabase.
-// FIX: returns a tagged result instead of a bare null, because the old code
-// collapsed two very different situations — "no row saved yet" vs. "the
-// request itself failed" (network blip, timeout, RLS error) — into the same
-// `null` return value. bootstrapSync() then treated *any* null as "nothing
-// there yet" and responded by pushing local data up, unconditionally
-// overwriting the cloud. That meant a plain network hiccup on one device
-// could silently clobber data another device had already saved. Now the
-// caller can tell the two cases apart and only push-as-first-write when it's
-// actually true.
+// FIX: returns a tagged result instead of a bare null, so "no row saved yet"
+// and "the request itself failed" can never be confused.
 async function pullFromCloud(){
   if(!supabaseClient) return {status:'no-client'};
   try{
@@ -1268,11 +1289,8 @@ async function pullFromCloud(){
   }
 }
 
-// v2.3.1 (L6): updated_at values are compared for EQUALITY only ("is the cloud
-// row still the exact version this device last read or wrote?"), never by
-// which clock is ahead — so a device whose clock is off can't make another
-// device skip or overwrite its changes. The value stored locally is the one
-// the server hands back, so formats always match. No database change needed.
+// v2.3.1 (L6): updated_at values are compared for EQUALITY only, never by
+// which clock is ahead. The stored value is the one the server hands back.
 function sameTimestamp(a, b){
   if(!a || !b) return false;
   if(a === b) return true;
@@ -1280,12 +1298,135 @@ function sameTimestamp(a, b){
   return !isNaN(x) && x === y;
 }
 function cloneJson(o){ return JSON.parse(JSON.stringify(o)); }
+function readBase(){ try{ const r = localStorage.getItem(BASE_KEY); return r ? JSON.parse(r) : null; }catch(e){ return null; } }
+function writeBase(d){ try{ localStorage.setItem(BASE_KEY, JSON.stringify(d)); }catch(e){ console.warn('Could not store the sync base copy', e); } }
+
+/* ---------- v2.4 three-way merge ---------- */
+function isPlainObj(v){ return v !== null && typeof v === 'object' && !Array.isArray(v); }
+function deepEqual(a, b){
+  if(a === b) return true;
+  if(a == null || b == null || typeof a !== typeof b || typeof a !== 'object') return false;
+  if(Array.isArray(a) !== Array.isArray(b)) return false;
+  if(Array.isArray(a)){
+    if(a.length !== b.length) return false;
+    for(let i = 0; i < a.length; i++) if(!deepEqual(a[i], b[i])) return false;
+    return true;
+  }
+  const ka = Object.keys(a).filter(k=>a[k] !== undefined), kb = Object.keys(b).filter(k=>b[k] !== undefined);
+  if(ka.length !== kb.length) return false;
+  return ka.every(k=>deepEqual(a[k], b[k]));
+}
+function stableKey(v){ return JSON.stringify(v, (k, x)=> isPlainObj(x) ? Object.keys(x).sort().reduce((o, key)=>(o[key] = x[key], o), {}) : x); }
+function isIdArray(a){ return Array.isArray(a) && a.every(x=>isPlainObj(x) && (typeof x.id === 'string' || typeof x.id === 'number')); }
+// Arrays that are really sets (order and position mean nothing).
+const SET_ARRAYS = new Set(['suppressedAutoRedemptions']);
+
+// mergeValue(base, local, remote): one side unchanged vs base → take the other;
+// changed on both → objects/id-lists merge inside, anything else: local wins
+// (and the path is recorded as a conflict). Deleted on one side but edited on
+// the other → the edited version is kept. `undefined` = "not there".
+function mergeValue(base, local, remote, path, conflicts){
+  if(deepEqual(local, remote)) return local;
+  if(deepEqual(base, local)) return remote;
+  if(deepEqual(base, remote)) return local;
+  if(local === undefined) return remote; // deleted here, edited there → keep the edit
+  if(remote === undefined) return local; // deleted there, edited here → keep the edit
+  if(isPlainObj(local) && isPlainObj(remote)){
+    const b = isPlainObj(base) ? base : {};
+    const out = {};
+    const keys = Object.keys(local).concat(Object.keys(remote).filter(k=>!(k in local)));
+    keys.forEach(k=>{ const v = mergeValue(b[k], local[k], remote[k], path + '.' + k, conflicts); if(v !== undefined) out[k] = v; });
+    return out;
+  }
+  if(Array.isArray(local) && Array.isArray(remote)){
+    const key = path.slice(path.lastIndexOf('.') + 1);
+    const b = Array.isArray(base) ? base : undefined;
+    if(SET_ARRAYS.has(key)) return mergeSetArray(b || [], local, remote);
+    if(isIdArray(local) && isIdArray(remote) && (!b || isIdArray(b))) return mergeIdArray(b, local, remote, path, conflicts);
+  }
+  conflicts.push(path);
+  return local;
+}
+function mergeSetArray(base, local, remote){
+  const inB = new Set(base.map(stableKey)), inL = new Set(local.map(stableKey)), inR = new Set(remote.map(stableKey));
+  const keep = x=>{ const k = stableKey(x); return (inL.has(k) && inR.has(k)) || !inB.has(k); };
+  const out = [], seen = new Set();
+  local.concat(remote).forEach(x=>{ const k = stableKey(x); if(!seen.has(k) && keep(x)){ seen.add(k); out.push(x); } });
+  return out;
+}
+// Lists of things with an id (cards, credits, history…): merged item by item.
+// base === undefined means "no base known" (first sync after upgrading while
+// this device had unsynced changes): a union by id, local wins on differences.
+function mergeIdArray(base, local, remote, path, conflicts){
+  const twoWay = base === undefined;
+  const map = a=>new Map((a || []).map(x=>[String(x.id), x]));
+  const bM = map(base), lM = map(local), rM = map(remote);
+  const result = new Map();
+  new Set([...lM.keys(), ...rM.keys(), ...bM.keys()]).forEach(id=>{
+    const v = mergeValue(twoWay ? undefined : bM.get(id), lM.get(id), rM.get(id), `${path}[${id}]`, conflicts);
+    if(v !== undefined) result.set(id, v);
+  });
+  // An entry the APP posted automatically (auto-posting credits) on both
+  // devices while apart: v2.4 gives these a fixed id so they simply match, but
+  // a device still on an older version uses a random id — keep one copy.
+  // Only app-generated entries are collapsed: two identical redemptions YOU
+  // logged (e.g. two $10 charges on the same day) are both kept.
+  if(path === 'data.history'){
+    const strip = x=>{ const c = {...x}; delete c.id; delete c.auto; return stableKey(c); };
+    const remoteNew = new Set([...rM.keys()].filter(id=>!lM.has(id) && !bM.has(id) && isAutoEntry(rM.get(id))).map(id=>strip(rM.get(id))));
+    [...lM.keys()].filter(id=>!rM.has(id) && !bM.has(id) && isAutoEntry(lM.get(id))).forEach(id=>{ if(remoteNew.has(strip(lM.get(id)))) result.delete(id); });
+  }
+  // Order: follow the other device's order, unless only this device re-ordered
+  // the list (manual sort) — then keep this device's order. Items that exist
+  // only in the other list go right after their neighbour there (else at the end).
+  const ids = a=>(a || []).map(x=>String(x.id));
+  const sameOrder = (a, b)=>{ const common = a.filter(id=>b.includes(id)); const commonB = b.filter(id=>a.includes(id)); return common.join('\u0000') === commonB.join('\u0000'); };
+  const localReordered = !twoWay && !sameOrder(ids(local), ids(base));
+  const remoteReordered = !twoWay && !sameOrder(ids(remote), ids(base));
+  const [primary, secondary] = (localReordered && !remoteReordered) ? [ids(local), ids(remote)] : [ids(remote), ids(local)];
+  const out = primary.filter(id=>result.has(id));
+  let prev = null;
+  secondary.forEach(id=>{
+    if(result.has(id) && !out.includes(id)){
+      const at = prev !== null ? out.indexOf(prev) : -1;
+      if(at >= 0) out.splice(at + 1, 0, id); else out.push(id);
+    }
+    if(out.includes(id)) prev = id;
+  });
+  return out.map(id=>result.get(id));
+}
+// Merges the cloud copy into this device's copy. Base and remote are migrated
+// first (so an older app's data compares like for like), the result too.
+// Was this history entry created by the app itself (runAutoRedemptions)?
+// v2.4 marks them (auto:true, id "auto_<credit>_<date>"); older versions
+// didn't, so an entry also counts when it belongs to an auto-posting credit
+// and sits exactly on one of that credit's period start dates — the only
+// way such an entry is made (those credits have no "Mark redeemed" button,
+// and Redemption Log entries aren't linked to a credit).
+let mergeAutoCredits = new Map();
+function isAutoEntry(h){
+  if(!h) return false;
+  if(h.auto === true || /^auto_/.test(String(h.id))) return true;
+  const cr = h.sourceId ? mergeAutoCredits.get(h.sourceId) : null;
+  const d = parseDate(h.date);
+  if(!cr || !d) return false;
+  const c = currentCycle(cr.anchor, 12, 12, d);
+  return !!c && toISODate(c.start) === h.date;
+}
+function mergeTrackerData(base, local, remote){
+  const conflicts = [];
+  const b = base ? migrateData(cloneJson(base)) : undefined;
+  const r = migrateData(cloneJson(remote));
+  mergeAutoCredits = new Map();
+  (r.credits || []).concat(local.credits || []).forEach(cr=>{ if(cr && cr.autoRedeem && cr.anchor) mergeAutoCredits.set(cr.id, cr); });
+  const merged = mergeValue(b, cloneJson(local), r, 'data', conflicts);
+  return { data: migrateData(merged), conflicts };
+}
 
 // Push the current in-memory DATA up to Supabase.
-// v2.3.1 (M4): pushes run one at a time. A save made while a push is in
-// flight just asks for one more push, which then sends the newest DATA —
-// so an older snapshot can never land in the cloud after a newer one.
-// Resolves to 'ok' | 'offline' | 'conflict' | 'no-client'.
+// v2.3.1 (M4): pushes run one at a time; a save made while a push is in
+// flight asks for one more push, which then sends the newest DATA.
+// Resolves to 'ok' | 'offline' | 'no-client'.
 let pushChain = null, pushRequested = false;
 function pushToCloud(){
   if(!supabaseClient) return Promise.resolve('no-client');
@@ -1300,57 +1441,72 @@ function pushToCloud(){
   })();
   return pushChain;
 }
-// v2.3.1 (H3): a CONDITIONAL write. The row is only updated if its
-// updated_at is still the version this device last synced; if another device
-// saved in between, nothing is overwritten — the cloud copy is saved to
-// Backups and you're asked which version to keep (see showSyncConflict).
-async function pushOnce(retries = 2){
+// A conditional write: only lands if the cloud row's updated_at is still the
+// version this device last synced. If the cloud moved on, fetch it, merge
+// (or, for Import/Restore, simply overwrite), and try again.
+let mergeBackupFor = null; // cloud version already saved to Backups for a merge conflict
+async function pushOnce(retries = 4){
   setSyncStatus('syncing');
-  const gen = saveGen;
-  const payload = cloneJson(DATA);
-  const base = localStorage.getItem(SYNCED_AT_KEY);
-  // ENHANCEMENT (security): edit_secret travels as its own column,
-  // deliberately kept out of the `data` JSON blob — it's not part of
-  // your tracker data, it's a gate the RLS policy checks.
-  const row = { data: payload, updated_at: new Date().toISOString(), edit_secret: APP_EDIT_SECRET };
-  const casUpdate = async (expected)=>{
+  let merged = false;
+  const casUpdate = async (row, expected)=>{
     const { data, error } = await supabaseClient.from('tracker_data').update(row)
       .eq('id', 'main').eq('updated_at', expected).select('updated_at');
     if(error) throw error;
     return (data && data.length) ? (data[0].updated_at || row.updated_at) : null;
   };
   try{
-    let saved = base ? await casUpdate(base) : null;
-    if(!saved){
-      // Never synced from this device, or the cloud changed since: look first.
-      const cur = await pullFromCloud();
-      if(cur.status === 'error') throw new Error('Could not read the cloud copy before saving');
-      if(cur.status === 'ok'){
-        const cloudNow = migrateData(cloneJson(cur.row.data || {}));
-        if(JSON.stringify(cloudNow) !== JSON.stringify(payload)){
-          setSyncStatus('conflict');
-          await showSyncConflict(cur.row);
-          return 'conflict';
+    let expected = localStorage.getItem(SYNCED_AT_KEY);
+    for(let attempt = 0; ; attempt++){
+      const gen = saveGen;
+      const payload = cloneJson(DATA);
+      // ENHANCEMENT (security): edit_secret travels as its own column, never inside DATA.
+      const row = { data: payload, updated_at: new Date().toISOString(), edit_secret: APP_EDIT_SECRET };
+      let saved = expected ? await casUpdate(row, expected) : null;
+      if(!saved){
+        if(attempt >= retries) throw new Error('The cloud copy kept changing — will retry');
+        const cur = await pullFromCloud();
+        if(cur.status === 'error') throw new Error('Could not read the cloud copy before saving');
+        if(cur.status === 'empty'){
+          // No row yet — genuinely the first save anywhere.
+          const { data, error } = await supabaseClient.from('tracker_data')
+            .upsert({ id: 'main', ...row }).select('updated_at');
+          if(error) throw error;
+          saved = (data && data[0] && data[0].updated_at) || row.updated_at;
+        } else {
+          expected = cur.row.updated_at;
+          const replacing = localStorage.getItem(REPLACE_KEY) === '1';
+          if(!replacing && !deepEqual(migrateData(cloneJson(cur.row.data || {})), DATA)){
+            // v2.4: another device saved meanwhile → merge automatically.
+            let m = mergeTrackerData(readBase(), DATA, cur.row.data || {});
+            if(m.conflicts.length){
+              console.info('Point Tracker: merged with another device; same field changed on both (this device kept):', m.conflicts);
+              if(!sameTimestamp(mergeBackupFor, cur.row.updated_at)){
+                const ok = await createBackup({ data: cur.row.data, label: 'Auto-merge: other device\'s version', quiet: true });
+                if(!ok) throw new Error('Could not back up the other device\'s version before merging');
+                mergeBackupFor = cur.row.updated_at;
+              }
+              m = mergeTrackerData(readBase(), DATA, cur.row.data || {}); // DATA may have changed during the backup
+            }
+            DATA = m.data;
+            localStorage.setItem(STORE_KEY, JSON.stringify(DATA));
+            merged = true;
+            renderAfterSync();
+          }
+          continue; // write again, conditional on the version just read
         }
-        // Same content as ours (e.g. both devices did the same new-year fee
-        // roll-over): nothing to resolve, just write conditionally.
-        saved = await casUpdate(cur.row.updated_at);
-        if(!saved){ if(retries > 0) return pushOnce(retries - 1); throw new Error('Cloud copy kept changing'); }
-      } else {
-        // No row yet — genuinely the first save anywhere.
-        const { data, error } = await supabaseClient.from('tracker_data')
-          .upsert({ id: 'main', ...row }).select('updated_at');
-        if(error) throw error;
-        saved = (data && data[0] && data[0].updated_at) || row.updated_at;
       }
+      localStorage.setItem(SYNCED_AT_KEY, saved);
+      writeBase(payload);
+      localStorage.removeItem(REPLACE_KEY);
+      if(saveGen === gen){
+        localStorage.removeItem(DIRTY_KEY); // FIX: only clear "unsynced" once the push actually succeeds
+        syncPending = false;
+        setSyncStatus('synced');
+      }
+      announceChange(saved);
+      if(merged) toast('Synced — merged changes from another device');
+      return 'ok';
     }
-    localStorage.setItem(SYNCED_AT_KEY, saved);
-    if(saveGen === gen){
-      localStorage.removeItem(DIRTY_KEY); // FIX: only clear "unsynced" once the push actually succeeds
-      syncPending = false;
-      setSyncStatus('synced');
-    }
-    return 'ok';
   }catch(e){
     console.warn('Cloud push failed — will retry next time this tab becomes active or reloads.', e);
     syncPending = true;
@@ -1359,67 +1515,72 @@ async function pushOnce(retries = 2){
   }
 }
 
-// v2.3.1 (H3): shown when this device has unsynced changes but the cloud copy
-// was changed by another device since this device last synced. The cloud copy
-// is saved to Backups FIRST (once per cloud version), so either choice is
-// undoable. Phone-friendly: two full-width buttons plus "Decide later".
-let conflictBackupFor = null;
-async function showSyncConflict(cloudRow){
-  const overlayOpen = document.getElementById('overlay').classList.contains('open');
-  if(overlayOpen && document.getElementById('syncConflictBox')) return; // already asking
-  let cloudBackedUp = !!conflictBackupFor && sameTimestamp(conflictBackupFor, cloudRow.updated_at);
-  if(!cloudBackedUp){
-    cloudBackedUp = await createBackup({ data: cloudRow.data, label: `Cloud copy before overwrite from ${deviceLabel()}`, quiet: true });
-    if(cloudBackedUp) conflictBackupFor = cloudRow.updated_at;
+/* ---------- v2.4 live channel (Supabase Realtime broadcast) ---------- */
+let liveChannel = null, liveEverConnected = false, liveTimer = null;
+function startLiveSync(){
+  if(!supabaseClient || typeof supabaseClient.channel !== 'function') return;
+  try{
+    if(liveChannel){
+      if(liveChannel.state === 'joined' || liveChannel.state === 'joining') return;
+      try{ supabaseClient.removeChannel(liveChannel); }catch(e){}
+      liveChannel = null;
+    }
+    const ch = supabaseClient.channel(LIVE_CHANNEL, { config: { broadcast: { self: false } } });
+    ch.on('broadcast', { event: 'changed' }, onLiveMessage);
+    liveChannel = ch;
+    ch.subscribe((status)=>{
+      if(ch !== liveChannel) return;
+      const was = liveConnected;
+      liveConnected = status === 'SUBSCRIBED';
+      if(liveConnected && !was){
+        // (Re)connected: catch up on anything missed while disconnected.
+        if(liveEverConnected) syncFromCloud({ live: true });
+        liveEverConnected = true;
+      }
+      if(lastSyncState) setSyncStatus(lastSyncState);
+    });
+  }catch(e){
+    console.warn('Live sync unavailable — other devices\' changes arrive when the app is reopened.', e);
+    liveConnected = false;
   }
-  const cloudData = migrateData(cloneJson(cloudRow.data || {}));
-  const sum = d => `${(d.cards||[]).length} cards · ${(d.credits||[]).length} credits · ${(d.freeNights||[]).length} free nights · ${(d.history||[]).length} redemptions · ${(d.mileagePrograms||[]).length} mileage accounts`;
-  showModal(`
-    ${modalHead('Changed on another device')}
-    <div class="modal-body" id="syncConflictBox">
-      <div style="font-size:13.5px;line-height:1.5;">This device has changes that weren't uploaded yet, and your data was also changed on another device (saved ${escHtml(fmtDateTime(cloudRow.updated_at))}). Which version do you want to keep?</div>
-      <div class="sync-choice">
-        <div class="preview-box"><strong>This device (${escHtml(deviceLabel())})</strong><br>${sum(DATA)}</div>
-        <div class="preview-box"><strong>Cloud (other device)</strong><br>${sum(cloudData)}</div>
-      </div>
-      ${cloudBackedUp
-        ? '<div class="hint">The cloud version is saved in Backups, so you can restore it later either way.</div>'
-        : '<div class="hint" style="color:var(--red);">Couldn\'t save a backup of the cloud version (no connection?). "Keep this device\'s" would replace it permanently — "Decide later" is safest.</div>'}
-      <button class="btn btn-primary" id="syncKeepLocal" style="width:100%;">Keep this device's version</button>
-      <button class="btn" id="syncLoadCloud" style="width:100%;">Load the cloud version</button>
-    </div>
-    <div class="modal-foot"><button class="btn" id="modalCancel">Decide later</button></div>
-  `);
-  document.getElementById('syncKeepLocal').onclick = async ()=>{
-    closeModal();
-    // Overwrite only that exact cloud version (still conditional): if it
-    // changed yet again meanwhile, you're simply asked again.
-    localStorage.setItem(SYNCED_AT_KEY, cloudRow.updated_at);
-    const r = await pushToCloud();
-    if(r === 'ok') toast('Kept this device\'s version' + (cloudBackedUp ? ' — the other version is in Backups' : ''));
-    else if(r === 'offline') toast('Couldn\'t upload yet — it will retry automatically.');
-  };
-  document.getElementById('syncLoadCloud').onclick = async ()=>{
-    const btn = document.getElementById('syncLoadCloud'); btn.disabled = true; btn.textContent = 'Saving this device\'s copy…';
-    // This device's unsynced version goes to Backups (or a downloaded file if the cloud can't be reached) before it's replaced.
-    const label = `This device's copy (${deviceLabel()}) before loading the cloud copy`;
-    let kept = await createBackup({ data: DATA, label, quiet: true });
-    if(!kept) kept = downloadJsonFile({...DATA, _exportedFromAppVersion: APP_VERSION}, `point-tracker-this-device-${toISODate(bangkokToday())}.json`);
-    if(!kept){ btn.disabled = false; btn.textContent = 'Load the cloud version'; toast('Couldn\'t save a copy of this device\'s version first — nothing was changed.'); return; }
-    DATA = cloudData;
-    dataUnconfirmedSeed = false;
-    saveGen++; // any push still queued must not clear "dirty" for the old copy
-    localStorage.setItem(STORE_KEY, JSON.stringify(DATA));
-    localStorage.setItem(SYNCED_AT_KEY, cloudRow.updated_at);
-    localStorage.removeItem(DIRTY_KEY);
-    syncPending = false;
-    setSyncStatus('synced');
-    closeModal();
-    runDailyChecks();
-    switchView(currentView);
-    toast('Loaded the cloud version — this device\'s copy is in Backups');
-  };
 }
+function onLiveMessage(msg){
+  const p = (msg && msg.payload) || {};
+  if(p.device === DEVICE_ID) return;
+  if(p.updated_at && sameTimestamp(p.updated_at, localStorage.getItem(SYNCED_AT_KEY))) return; // already have it
+  clearTimeout(liveTimer); // debounce bursts of saves into one pull
+  liveTimer = setTimeout(()=>{ syncFromCloud({ live: true }); }, 400);
+}
+function announceChange(updatedAt){
+  if(!liveChannel) return;
+  const payload = { updated_at: updatedAt, device: DEVICE_ID };
+  try{
+    const p = liveConnected
+      ? liveChannel.send({ type: 'broadcast', event: 'changed', payload })
+      : (typeof liveChannel.httpSend === 'function' ? liveChannel.httpSend('changed', payload) : null);
+    if(p && p.catch) p.catch(()=>{});
+  }catch(e){ /* other devices still catch up when opened */ }
+}
+
+/* ---------- v2.4 re-render without yanking an open form ---------- */
+// Data from another device is applied at once, but if you're in a form (a
+// modal, typing in a field on the page, or dragging a row) the screen behind
+// it is only redrawn once you're done. Save buttons re-find their item by id.
+let renderPending = false;
+function userIsBusy(){
+  if(document.getElementById('overlay').classList.contains('open')) return true;
+  if(document.querySelector('.dragging')) return true;
+  const a = document.activeElement;
+  return !!(a && a.closest && a.closest('#content') && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && a.id !== 'histSearchInput');
+}
+function renderAfterSync(){
+  if(userIsBusy()){ renderPending = true; try{ updateSetupDot(); }catch(e){} return; }
+  renderPending = false;
+  try{ switchView(currentView); }catch(e){ console.error('Render after sync failed', e); }
+}
+function flushPendingRender(){ if(renderPending) setTimeout(()=>{ if(renderPending) renderAfterSync(); }, 0); }
+document.addEventListener('focusout', flushPendingRender);
+document.addEventListener('pointerup', flushPendingRender);
 
 /* ============================================================
    POINT-IN-TIME BACKUPS
@@ -1558,6 +1719,7 @@ async function restoreBackup(timestamp){
   DATA = migrateData(JSON.parse(JSON.stringify(match.data)));
   dataUnconfirmedSeed = false;
   retentionHold = true; // v2.2: don't immediately re-remove old data you just restored (until the next reload)
+  localStorage.setItem(REPLACE_KEY, '1'); // v2.4: a restore replaces the cloud copy; it is never merged
   saveData();
   switchView(currentView);
   closeModal();
@@ -1670,15 +1832,30 @@ async function renderBackupsList(){
 // edits) — false specifically when the pull errored/timed out and we
 // genuinely don't know the real state yet. Callers (see the bottom of this
 // file) only run runAutoRedemptions() when this comes back true.
-async function bootstrapSync(){
+// v2.4: every pull goes through syncFromCloud() so two triggers at once (a
+// live message and the app coming to the front) never run side by side.
+let pullChain = null, pullAgain = false;
+function syncFromCloud(opts = {}){
+  if(pullChain){ pullAgain = true; return pullChain; }
+  pullChain = (async()=>{
+    let r;
+    try{ do{ pullAgain = false; r = await bootstrapSync(opts); } while(pullAgain); }
+    finally{ pullChain = null; }
+    return r;
+  })();
+  return pullChain;
+}
+// Returns whether it's safe to run the daily checks (see runDailyChecks).
+async function bootstrapSync(opts = {}){
   // v2.3.1 (H2): no Supabase client (its script failed to load) is NOT the
   // same as "the cloud is empty" — we simply don't know what's real yet.
   if(!supabaseClient){ setSyncStatus('offline'); return false; }
-  // FIX: if a previous edit never got confirmed as pushed (DIRTY_KEY
-  // survives reloads/tab closes), push it before doing anything else.
-  // v2.3.1 (H3): that push is now conditional — if another device saved in
-  // the meantime you're asked which version to keep instead of losing theirs.
-  if(localStorage.getItem(DIRTY_KEY) === '1'){
+  const isDirty = ()=>localStorage.getItem(DIRTY_KEY) === '1';
+  // A push already running includes any merge with the cloud — wait for it.
+  if(pushChain) await pushChain;
+  // Unsynced edits on this device: push them (conditional write + automatic
+  // merge with anything another device saved meanwhile).
+  if(isDirty()){
     const r = await pushToCloud();
     return r === 'ok' || r === 'offline'; // offline: this device's real data stays authoritative locally
   }
@@ -1699,28 +1876,29 @@ async function bootstrapSync(){
   }
 
   const remote = result.row;
-  const lastSyncedAt = localStorage.getItem(SYNCED_AT_KEY);
-  if(sameTimestamp(remote.updated_at, lastSyncedAt)){
+  if(sameTimestamp(remote.updated_at, localStorage.getItem(SYNCED_AT_KEY))){
     // Cloud is still exactly the version this device last synced — nothing to pull.
     dataUnconfirmedSeed = false;
+    if(!readBase()) writeBase(DATA); // first run after upgrading to v2.4
     setSyncStatus('synced');
     return true;
   }
   // A save on this device may have happened while the pull was in flight —
-  // never replace that; push it (conditionally) instead.
-  if(localStorage.getItem(DIRTY_KEY) === '1'){
-    const r = await pushToCloud();
+  // never replace that; push it (the push merges with the cloud) instead.
+  // The row just read is then stale, so it isn't applied.
+  if(isDirty() || pushChain){
+    if(pushChain) await pushChain;
+    const r = isDirty() ? await pushToCloud() : 'ok';
     return r === 'ok' || r === 'offline';
   }
   DATA = migrateData(remote.data);
   dataUnconfirmedSeed = false;
   localStorage.setItem(STORE_KEY, JSON.stringify(DATA));
   localStorage.setItem(SYNCED_AT_KEY, remote.updated_at);
-  switchView(currentView);
+  writeBase(DATA);
+  renderAfterSync();
   setSyncStatus('synced');
-  // UI IMPROVEMENT: surface a remote update with a toast once the page has
-  // already rendered (not on the very first load).
-  if(hasRenderedOnce) toast('Updated with changes from another device');
+  if(!opts.initial) toast('Updated from another device');
   return true; // freshly synced with confirmed remote data
 }
 
@@ -2354,7 +2532,8 @@ function runAutoRedemptions(){
       if(isAutoRedemptionSuppressed(cr.id, toISODate(st))) return;
       if(cardClosedOn(cr.cardId, st) || benefitEnded(cr, c)) return;
       DATA.history.push({
-        id: uid('rh'), date: toISODate(st), cardId: cr.cardId, type:'Credit',
+        // v2.4: fixed id + auto flag, so the same auto-posted entry made on two devices is one entry
+        id: `auto_${cr.id}_${toISODate(st)}`, auto: true, date: toISODate(st), cardId: cr.cardId, type:'Credit',
         sourceId: cr.id, desc: cr.name, amount: cr.value
       });
       changed = true;
@@ -2428,7 +2607,7 @@ function openEditLinkedAmountModal(entryId){
     const date = readDateField('f_date', 'Pick the date it was used'); if(date === null) return;
     const amount = readAmount('f_amount', {allowZero:false}); if(amount === null) return;
     const live = DATA.history.find(h=>h.id===entryId); // re-find: a sync may have replaced DATA while this was open
-    if(!live){ toast('This entry changed on another device — reopen it and try again.'); closeModal(); return; }
+    if(!live){ toast('This entry was deleted on another device, so your change wasn’t saved.'); closeModal(); return; }
     const room = spenddownRoom(live.sourceId, date, live.id);
     if(room !== null && amount > room){ fieldError('f_amount', `Only $${room.toLocaleString()} is left on this credit for that period`); return; }
     live.date = date;
@@ -3186,7 +3365,7 @@ function renderSetupCards(){
   document.querySelectorAll('[data-reopen-card]').forEach(b=>b.onclick=()=>{
     const c = cardById(b.dataset.reopenCard);
     showConfirm(`Reopen "${escHtml(c.name)}"? Its credits, free nights and fee reminders come back from today.`, ()=>{
-      const live = cardById(c.id); if(!live){ toast('This card changed on another device.'); renderSetupCards(); return; } // v2.3.1 (M1)
+      const live = cardById(c.id); if(!live){ toast('This card was deleted on another device.'); renderSetupCards(); return; } // v2.3.1 (M1)
       delete live.closedDate; runFeeRollover(); saveData(); renderSetupCards(); toast('Card reopened');
     }, {danger:false, confirmLabel:'Reopen', title:'Reopen card'});
   });
@@ -3271,7 +3450,7 @@ function openCardModal(id){
     // Keep the legacy single `fee` in step with this year's fee — older
     // copies of the app and anything else reading `fee` stay sensible.
     obj.fee = feeInfoForYear(obj, thisYear).amount;
-    if(editing){ const i = DATA.cards.findIndex(x=>x.id===id); if(i < 0){ toast('This item changed on another device — reopen it and try again.'); closeModal(); return; } DATA.cards[i] = {...DATA.cards[i], ...obj}; }
+    if(editing){ const i = DATA.cards.findIndex(x=>x.id===id); if(i < 0){ toast('This item was deleted on another device, so your change wasn’t saved.'); closeModal(); return; } DATA.cards[i] = {...DATA.cards[i], ...obj}; }
     else DATA.cards.push(obj);
     saveData(); closeModal(); views[currentView].render(); toast('Card saved');
   };
@@ -3293,7 +3472,7 @@ function openCloseCardModal(id){
   document.getElementById('modalSave').onclick = ()=>{
     const d = readDateField('f_closed', 'Pick the date the card was closed'); if(d === null) return;
     const live = cardById(id); // v2.3.1 (M1): re-find — a sync may have replaced DATA while this was open
-    if(!live){ toast('This card changed on another device — reopen it and try again.'); closeModal(); return; }
+    if(!live){ toast('This card was deleted on another device, so your change wasn’t saved.'); closeModal(); return; }
     live.closedDate = d;
     saveData(); closeModal(); renderSetupCards(); toast('Card closed');
   };
@@ -3476,7 +3655,7 @@ function openCreditModal(id){
     const err = t.usage==='perstay' ? '' : creditAnchorError(t.frequency, t.renewalType, t.anchor);
     if(err){ toast(err); return; }
     const obj = {id: editing?id:uid('cr'), ...t};
-    if(editing){ const i = DATA.credits.findIndex(x=>x.id===id); if(i < 0){ toast('This item changed on another device — reopen it and try again.'); closeModal(); return; } DATA.credits[i] = {...DATA.credits[i], ...obj}; }
+    if(editing){ const i = DATA.credits.findIndex(x=>x.id===id); if(i < 0){ toast('This item was deleted on another device, so your change wasn’t saved.'); closeModal(); return; } DATA.credits[i] = {...DATA.credits[i], ...obj}; }
     else DATA.credits.push(obj);
     saveData(); closeModal(); runDailyChecks(); views[currentView].render(); toast('Credit saved');
   };
@@ -3638,7 +3817,7 @@ function openFnModal(id){
     const err = overrideError(t);
     if(err){ toast('Check the manual expiry date'); return; }
     const obj = {id: editing?id:uid('fn'), cashValue: fn.cashValue||null, ...t};
-    if(editing){ const i = DATA.freeNights.findIndex(x=>x.id===id); if(i < 0){ toast('This item changed on another device — reopen it and try again.'); closeModal(); return; } DATA.freeNights[i] = {...DATA.freeNights[i], ...obj}; }
+    if(editing){ const i = DATA.freeNights.findIndex(x=>x.id===id); if(i < 0){ toast('This item was deleted on another device, so your change wasn’t saved.'); closeModal(); return; } DATA.freeNights[i] = {...DATA.freeNights[i], ...obj}; }
     else DATA.freeNights.push(obj);
     saveData(); closeModal(); views[currentView].render(); toast('Certificate saved');
   };
@@ -3856,7 +4035,7 @@ function renderCredits(){
     makeDragReorderable(list, '.list-row', row=>row.dataset.rowId, (newOrderIds)=>{
       const wasManual = creditsSortMode === 'manual';
       // v2.1: the list may hide closed/ended items — keep them (at the end) instead of dropping them
-      DATA.credits = newOrderIds.map(id=>DATA.credits.find(c=>c.id===id)).concat(DATA.credits.filter(c=>!newOrderIds.includes(c.id)));
+      DATA.credits = newOrderIds.map(id=>DATA.credits.find(c=>c.id===id)).filter(Boolean).concat(DATA.credits.filter(c=>!newOrderIds.includes(c.id)));
       creditsSortMode = 'manual';
       saveData();
       if(!wasManual){ toast('Switched to manual order'); renderCredits(); }
@@ -3923,7 +4102,10 @@ function openRedeemModal(kind, sourceId, cycle){
     // Re-check at save time too — the modal can sit open for a while (or a
     // sync from another device could land) before Save is actually clicked.
     // (v2.1: same limit as the check above — spend-down and every-stay credits allow more than one entry)
-    const progNow = kind==='cr' ? creditProgress(item, cycle) : null;
+    // v2.4: re-find — the credit/certificate may have been changed or deleted on another device while this was open.
+    const liveItem = kind==='cr' ? DATA.credits.find(x=>x.id===sourceId) : DATA.freeNights.find(x=>x.id===sourceId);
+    if(!liveItem){ toast(`This ${kind==='cr'?'credit':'certificate'} was deleted on another device — nothing was logged.`); closeModal(); return; }
+    const progNow = kind==='cr' ? creditProgress(liveItem, cycle) : null;
     if(cycle && (historyEntriesInCycle(sourceId, cycle).length >= maxEntries || (progNow && progNow.done))){
       toast('Already used up for this period — edit the amount or unredeem it first.');
       closeModal();
@@ -3939,12 +4121,12 @@ function openRedeemModal(kind, sourceId, cycle){
       return;
     }
     const entry = {
-      id: uid('rh'), date, cardId: item.cardId, type: kind==='cr'?'Credit':'Free Night',
-      sourceId: item.id, desc: kind==='cr'?item.name:item.desc, amount,
+      id: uid('rh'), date, cardId: liveItem.cardId, type: kind==='cr'?'Credit':'Free Night',
+      sourceId: liveItem.id, desc: kind==='cr'?liveItem.name:liveItem.desc, amount,
       notes: val('f_notes').trim()
     };
     DATA.history.push(entry);
-    const liveFn = kind==='fn' ? DATA.freeNights.find(x=>x.id===sourceId) : null; // v2.3.1 (M1): re-find — a sync may have replaced DATA
+    const liveFn = kind==='fn' ? liveItem : null;
     if(liveFn){
       liveFn.cashValue = entry.amount;
       const propEl = document.getElementById('f_property');
@@ -4128,7 +4310,7 @@ function renderFreeNights(){
     makeDragReorderable(list, '.list-row', row=>row.dataset.rowId, (newOrderIds)=>{
       const wasManual = fnSortMode === 'manual';
       // v2.1: keep hidden (closed/ended/expired one-off) certificates instead of dropping them
-      DATA.freeNights = newOrderIds.map(id=>DATA.freeNights.find(f=>f.id===id)).concat(DATA.freeNights.filter(f=>!newOrderIds.includes(f.id)));
+      DATA.freeNights = newOrderIds.map(id=>DATA.freeNights.find(f=>f.id===id)).filter(Boolean).concat(DATA.freeNights.filter(f=>!newOrderIds.includes(f.id)));
       fnSortMode = 'manual';
       saveData();
       if(!wasManual){ toast('Switched to manual order'); renderFreeNights(); }
@@ -4571,7 +4753,7 @@ function openMileageModal(id){
     };
     if(editing){
       const live = DATA.mileagePrograms.find(x=>x.id===id); // v2.3.1 (M1): re-find — a sync may have replaced DATA while this was open
-      if(!live){ toast('This account changed on another device — reopen it and try again.'); closeModal(); return; }
+      if(!live){ toast('This account was deleted on another device, so your change wasn’t saved.'); closeModal(); return; }
       Object.assign(live, fields);
     }
     else { DATA.mileagePrograms.push({ id: uid('mp'), ...fields }); }
@@ -4614,7 +4796,7 @@ function openVoucherModal(id){
     };
     if(editing){
       const live = DATA.vouchers.find(x=>x.id===id); // v2.3.1 (M1): re-find — a sync may have replaced DATA while this was open
-      if(!live){ toast('This voucher changed on another device — reopen it and try again.'); closeModal(); return; }
+      if(!live){ toast('This voucher was deleted on another device, so your change wasn’t saved.'); closeModal(); return; }
       Object.assign(live, fields);
     }
     else { DATA.vouchers.push({ id: uid('v'), ...fields }); }
@@ -4764,7 +4946,8 @@ function renderHistory(){
   if(rows.length && canDragReorder){
     makeDragReorderable(body, 'tr[data-row-id]', row=>row.dataset.rowId, (newOrderIds)=>{
       const wasManual = historySortMode === 'manual';
-      DATA.history = newOrderIds.map(id=>DATA.history.find(h=>h.id===id));
+      // v2.4: keep entries added on another device after this list was drawn (at the end)
+      DATA.history = newOrderIds.map(id=>DATA.history.find(h=>h.id===id)).filter(Boolean).concat(DATA.history.filter(h=>!newOrderIds.includes(h.id)));
       historySortMode = 'manual';
       saveData();
       if(!wasManual){ toast('Switched to manual order'); renderHistory(); }
@@ -4800,7 +4983,7 @@ function openHistModal(id){
     const amount = readAmount('f_amount'); if(amount === null) return;
     if(editing){
       const live = DATA.history.find(h=>h.id===id); // re-find: a sync may have replaced DATA while this was open
-      if(!live){ toast('This entry changed on another device — reopen it and try again.'); closeModal(); return; }
+      if(!live){ toast('This entry was deleted on another device, so your change wasn’t saved.'); closeModal(); return; }
       const room = spenddownRoom(live.sourceId, date, live.id);
       if(room !== null && amount > room){ fieldError('f_amount', `Only $${room.toLocaleString()} is left on this credit for that period`); return; }
       Object.assign(live, { date, cardId: val('f_card'), type: val('f_type'), desc, amount, notes: val('f_notes').trim() });
@@ -4821,7 +5004,7 @@ function showModal(html){
   document.getElementById('modalClose').onclick = closeModal;
   document.getElementById('modalCancel').onclick = closeModal;
 }
-function closeModal(){ document.getElementById('overlay').classList.remove('open'); }
+function closeModal(){ document.getElementById('overlay').classList.remove('open'); flushPendingRender(); } // v2.4: redraw what changed on another device while the form was open
 document.getElementById('overlay').addEventListener('click', (e)=>{ if(e.target.id==='overlay') closeModal(); });
 
 // FIX: replaces native confirm() throughout the app. confirm()/prompt()
@@ -4930,6 +5113,7 @@ document.getElementById('importFile').onchange = (e)=>{
       if(!safe) safe = downloadJsonFile({...DATA, _exportedFromAppVersion: APP_VERSION}, `point-tracker-before-import-${toISODate(bangkokToday())}.json`);
       if(!safe){ toast('Could not save a safety copy first — import cancelled, nothing changed.'); return; }
       delete parsed._exportedFromAppVersion; // export-only stamp, not app data
+      localStorage.setItem(REPLACE_KEY, '1'); // v2.4: an import replaces the cloud copy; it is never merged
       DATA = migrateData(parsed); dataUnconfirmedSeed = false; retentionHold = true; /* v2.2: keep imported old data until the next reload */ saveData(); runDailyChecks(); switchView(currentView);
       toast('Data imported — the previous data is in Backups');
     }, {confirmLabel:'Replace my data', title:'Import backup file'});
@@ -5051,20 +5235,18 @@ async function checkForUpdate(){
 }
 document.getElementById('updateBannerBtn').onclick = ()=>{
   // Never reload over an edit that hasn't reached the cloud yet.
-  // v2.3.1: if the push turns into a "which version?" question, answer that first.
   if(localStorage.getItem(DIRTY_KEY) === '1' && supabaseClient){
-    pushToCloud().then(r=>{ if(r === 'conflict') toast('Choose which version to keep first, then tap Update now again.'); else location.reload(); });
+    pushToCloud().finally(()=>location.reload());
   }
   else location.reload();
 };
 setTimeout(checkForUpdate, 4000);
 
-bootstrapSync().then(safeToProceed=>{
+syncFromCloud({initial: true}).then(safeToProceed=>{
   updateDataRiskWarning(safeToProceed);
-  if(safeToProceed && runDailyChecks()){
-    switchView(currentView);
-  }
+  if(safeToProceed && runDailyChecks()) renderAfterSync();
 });
+startLiveSync(); // v2.4: live updates from other devices (falls back to the pulls below if unavailable)
 
 // Whenever this tab/window becomes active again (switching back from
 // another app, waking the laptop, reopening on the phone), either flush any
@@ -5073,18 +5255,20 @@ bootstrapSync().then(safeToProceed=>{
 // whose date may have arrived while the tab was in the background — but,
 // same fix as above, only once that sync attempt has actually confirmed
 // it's safe to, not unconditionally.
-document.addEventListener('visibilitychange', ()=>{
-  if(document.visibilityState !== 'visible') return;
+// v2.4: this is also the safety net for live updates — iPhone drops the live
+// connection in the background, so coming back always reconnects and pulls.
+// (Live messages themselves never run the daily checks, so devices can't
+// ping-pong saves at each other.)
+function syncOnReturn(){
   checkForUpdate(); // v2.2.2
-  // v2.3.1: the push is conditional (H3) and a missing Supabase client is not "safe" (H2).
-  const syncAttempt = ((localStorage.getItem(DIRTY_KEY) === '1' || syncPending) && supabaseClient)
-    ? pushToCloud().then(r=> r === 'ok' || r === 'offline')
-    : bootstrapSync();
-  syncAttempt.then(safeToProceed=>{
+  startLiveSync();
+  syncFromCloud({focus: true}).then(safeToProceed=>{
     updateDataRiskWarning(safeToProceed);
-    if(safeToProceed && runDailyChecks()) switchView(currentView);
+    if(safeToProceed && runDailyChecks()) renderAfterSync();
   });
-});
+}
+document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState === 'visible') syncOnReturn(); });
+window.addEventListener('online', syncOnReturn);
 </script>
 </body>
 </html>
