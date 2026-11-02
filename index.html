@@ -745,7 +745,7 @@ const SEED = {
    ============================================================ */
 // Shown next to the app name (sidebar + mobile header) and stamped into
 // exported backups. Bump this one line on each deployment.
-const APP_VERSION = 'v2.2.3';
+const APP_VERSION = 'v2.2.4';
 const STORE_KEY = 'hotelCardTrackerData_v1';
 const SYNCED_AT_KEY = STORE_KEY + '_syncedAt';
 const DIRTY_KEY = STORE_KEY + '_dirty'; // FIX: persists across reloads/tab-closes
@@ -2518,6 +2518,8 @@ function renderDashboard(){
   const feeLabel = r => `$${r.fee.toLocaleString()}${r.feeEst?'<span title="Not confirmed yet — confirm in Setup › Cards & fees" style="color:var(--text-soft);font-size:11px;"> est.</span>':''}`;
   const cardLabel = r => `${escHtml(r.card.name)}${r.closed?' <span class="pill pill-gray" style="font-size:10.5px;">Closed</span>':''}`;
   const anyFeeEst = rows.some(r=>r.feeEst);
+  // v2.2.4: one scale for the year, whichever provider is selected, so bars keep the same length when filtering
+  const scaleMax = Math.max(1, ...yearCards.map(c=>Math.max(feeInfoForYear(c, selectedYear).amount, valueRealizedForCardYear(c.id, selectedYear))));
   const totalFee = rows.reduce((s,r)=>s+r.fee,0);
   const totalValue = rows.reduce((s,r)=>s+r.value,0);
   const totalNet = totalValue - totalFee;
@@ -2583,7 +2585,7 @@ function renderDashboard(){
           ${allYears().map(y=>`<option value="${y}" ${y===selectedYear?'selected':''}>${y}</option>`).join('')}
         </select>
       </div>
-      <div class="chart-wrap dashboard-chart-desktop" style="height:${Math.max(280, rows.length * 74)}px;"><canvas id="feeChart"></canvas></div>
+      <div class="chart-wrap dashboard-chart-desktop" style="height:${rows.length * 64 + 110}px;"><canvas id="feeChart"></canvas></div>
       <!-- MOBILE: the rotated-label bar chart above becomes unreadable at
            phone width (9 diagonal card names overlapping each other). This
            renders the exact same fee-vs-value numbers as a vertical list —
@@ -2595,7 +2597,7 @@ function renderDashboard(){
       <div class="dashboard-fee-mobile">
         <div class="fee-chart-legend"><span class="fee-chart-swatch fee"></span> Annual fee &nbsp; <span class="fee-chart-swatch value"></span> Redeemed</div>
         ${(()=>{
-          const maxAmount = Math.max(1, ...rows.map(r=>Math.max(r.fee, r.value)));
+          const maxAmount = scaleMax;
           return rows.map(r=>{
             const feePct = Math.round((r.fee / maxAmount) * 100);
             const valuePct = Math.round((r.value / maxAmount) * 100);
@@ -2683,8 +2685,9 @@ function renderDashboard(){
     data:{
       labels: rows.map(r=>r.card.name.replace(/\s*\(.*?\)\s*/g,' ').trim()),
       datasets:[
-        {label:'Annual fee', data:rows.map(r=>r.fee), backgroundColor:chartFeeColor, categoryPercentage:0.65, barPercentage:0.9, borderRadius:6, borderSkipped:false},
-        {label:'Redeemed', data:rows.map(r=>r.value), backgroundColor:chartValueColor, categoryPercentage:0.65, barPercentage:0.9, borderRadius:6, borderSkipped:false},
+        // v2.2.4: fixed bar thickness so bars look the same whether 1 card or 9 is shown (the chart's height follows the row count)
+        {label:'Annual fee', data:rows.map(r=>r.fee), backgroundColor:chartFeeColor, barThickness:18, maxBarThickness:18, categoryPercentage:0.8, barPercentage:0.9, borderRadius:6, borderSkipped:false},
+        {label:'Redeemed', data:rows.map(r=>r.value), backgroundColor:chartValueColor, barThickness:18, maxBarThickness:18, categoryPercentage:0.8, barPercentage:0.9, borderRadius:6, borderSkipped:false},
       ]
     },
     options:{
@@ -2702,7 +2705,7 @@ function renderDashboard(){
       // v2.2.3: $ everywhere, one tooltip per card (fee + redeemed + net), real colour swatches, readable sizes
       interaction:{ mode:'index', axis:'y', intersect:false },
       plugins:{
-        legend:{ position:'bottom', labels:{ font:{size:12.5}, boxWidth:14, boxHeight:14, padding:16 } },
+        legend:{ position:'bottom', onClick:()=>{}, labels:{ font:{size:12.5}, boxWidth:14, boxHeight:14, padding:16 } }, // v2.2.4: a key only — tapping no longer hides a series
         tooltip:{
           titleFont:{size:13, weight:'600'}, bodyFont:{size:13}, footerFont:{size:13, weight:'600'},
           padding:10, boxPadding:4,
@@ -2714,7 +2717,7 @@ function renderDashboard(){
         },
       },
       scales:{
-        x:{ beginAtZero:true, ticks:{ font:{size:12.5}, callback: v=>'$'+Number(v).toLocaleString() } },
+        x:{ beginAtZero:true, suggestedMax: scaleMax, ticks:{ font:{size:12.5}, callback: v=>'$'+Number(v).toLocaleString() } },
         y:{ ticks:{ autoSkip:false, font:{size:13} } },
       }
     }
