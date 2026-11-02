@@ -681,7 +681,7 @@ const SEED = {
    ============================================================ */
 // Shown next to the app name (sidebar + mobile header) and stamped into
 // exported backups. Bump this one line on each deployment.
-const APP_VERSION = 'v2.1';
+const APP_VERSION = 'v2.2';
 const STORE_KEY = 'hotelCardTrackerData_v1';
 const SYNCED_AT_KEY = STORE_KEY + '_syncedAt';
 const DIRTY_KEY = STORE_KEY + '_dirty'; // FIX: persists across reloads/tab-closes
@@ -1814,21 +1814,127 @@ function runFeeRollover(){
   const y = bangkokToday().getFullYear();
   let changed = false;
   DATA.cards.forEach(c=>{
-    if(!c.feeByYear || c.feeByYear[y]) return;
-    if(c.closedDate){ const cd = parseDate(c.closedDate); if(cd && cd <= new Date(y, 0, 1)) return; }
-    const prior = feeYears(c).filter(k=>k<y);
+    if(!c.feeByYear) return;
+    const prior = feeYears(c).filter(k=>k<=y);
     if(!prior.length) return;
-    c.feeByYear[y] = {amount: Number(c.feeByYear[prior[prior.length-1]].amount)||0, confirmed: false};
-    c.fee = c.feeByYear[y].amount;
-    changed = true;
+    // v2.1.1 FIX: fill EVERY missing year up to this one, not just this year —
+    // otherwise a year in which the app was never opened had no fee at all and
+    // disappeared from the Dashboard's year list.
+    for(let yr = prior[prior.length-1] + 1; yr <= y; yr++){
+      if(c.closedDate){ const cd = parseDate(c.closedDate); if(cd && cd <= new Date(yr, 0, 1)) break; }
+      c.feeByYear[yr] = {amount: Number(c.feeByYear[yr-1].amount)||0, confirmed: false};
+      changed = true;
+    }
+    if(c.feeByYear[y]) c.fee = Number(c.feeByYear[y].amount)||0;
   });
   return changed;
 }
+/* ---------- v2.2 10-year data cap (decisions R1–R4, see v2.2-plan.md) ----------
+   Keep this year + the 9 before it. Anything older is archived first — a
+   full snapshot saved to Backups in Supabase AND downloaded as a JSON file —
+   and only then removed: redemptions, fee rows, expired mileage batches and
+   vouchers, auto-post suppression notes, and cards closed before the window
+   (with their credits and free nights). If the cloud copy can't be made,
+   nothing is removed; Setup's checklist offers "Download archive & remove". */
+const KEEP_YEARS = 10;
+function retentionKeepFrom(){ return bangkokToday().getFullYear() - (KEEP_YEARS - 1); }
+function retentionPlan(){
+  const keepFrom = retentionKeepFrom();
+  const cutoff = new Date(keepFrom, 0, 1);
+  const isOld = d => !!d && d < cutoff;
+  const years = new Set();
+  const history = DATA.history.filter(h=>{ const d = parseDate(h.date); if(isOld(d)){ years.add(d.getFullYear()); return true; } return false; });
+  const fees = [];
+  DATA.cards.forEach(c=>feeYears(c).filter(y=>y<keepFrom).forEach(y=>{ fees.push({cardId:c.id, year:y}); years.add(y); }));
+  const cards = DATA.cards.filter(c=>{
+    const cd = parseDate(c.closedDate);
+    if(!cd || cd > cutoff) return false;
+    if(DATA.history.some(h=>h.cardId===c.id && !isOld(parseDate(h.date)))) return false;
+    return !feeYears(c).some(y=>y>=keepFrom);
+  }).map(c=>c.id);
+  let miles = 0;
+  DATA.mileagePrograms.forEach(mp=>(mp.expirations||[]).forEach(e=>{ const d = parseDate(e.date); if(isOld(d)){ miles++; years.add(d.getFullYear()); } }));
+  const vouchers = DATA.vouchers.filter(v=>{ const d = parseDate(v.expirationDate); if(isOld(d)){ years.add(d.getFullYear()); return true; } return false; }).map(v=>v.id);
+  const suppressed = (DATA.suppressedAutoRedemptions||[]).filter(x=>isOld(parseDate(x.cycleStart))).length;
+  // Internal auto-post notes alone don't justify an archive/download — they're tidied silently.
+  const empty = !history.length && !fees.length && !cards.length && !miles && !vouchers.length;
+  return {keepFrom, cutoff, empty, years: Array.from(years).sort((a,b)=>a-b), historyCount: history.length, fees, cards, miles, vouchers, suppressed};
+}
+function applyRetention(plan){
+  const isOld = d => !!d && d < plan.cutoff;
+  DATA.history = DATA.history.filter(h=>!isOld(parseDate(h.date)));
+  DATA.cards.forEach(c=>{ if(c.feeByYear) feeYears(c).filter(y=>y<plan.keepFrom).forEach(y=>{ delete c.feeByYear[y]; }); });
+  const gone = new Set(plan.cards);
+  DATA.cards = DATA.cards.filter(c=>!gone.has(c.id));
+  DATA.credits = DATA.credits.filter(c=>!gone.has(c.cardId));
+  DATA.freeNights = DATA.freeNights.filter(f=>!gone.has(f.cardId));
+  DATA.mileagePrograms.forEach(mp=>{ mp.expirations = (mp.expirations||[]).filter(e=>!isOld(parseDate(e.date))); });
+  DATA.vouchers = DATA.vouchers.filter(v=>!isOld(parseDate(v.expirationDate)));
+  DATA.suppressedAutoRedemptions = (DATA.suppressedAutoRedemptions||[]).filter(x=>!isOld(parseDate(x.cycleStart)));
+}
+function retentionSummary(plan){
+  const bits = [];
+  if(plan.historyCount) bits.push(`${plan.historyCount} redemption${plan.historyCount===1?'':'s'}`);
+  if(plan.fees.length) bits.push(`${plan.fees.length} fee record${plan.fees.length===1?'':'s'}`);
+  if(plan.cards.length) bits.push(`${plan.cards.length} closed card${plan.cards.length===1?'':'s'}`);
+  if(plan.miles) bits.push(`${plan.miles} expired mileage batch${plan.miles===1?'':'es'}`);
+  if(plan.vouchers.length) bits.push(`${plan.vouchers.length} expired voucher${plan.vouchers.length===1?'':'s'}`);
+  return bits.join(', ') || 'old notes';
+}
+function downloadArchiveFile(plan){
+  try{
+    const blob = new Blob([JSON.stringify({...DATA, _exportedFromAppVersion: APP_VERSION, _archiveBeforeYear: plan.keepFrom}, null, 2)], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `point-tracker-archive-before-${plan.keepFrom}-${toISODate(bangkokToday())}.json`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url), 4000);
+    return true;
+  }catch(e){ console.warn('Archive download failed', e); return false; }
+}
+let retentionPending = null;   // plan waiting for the manual "Download archive & remove" step
+let retentionRunning = false;
+async function maybeRunRetention(){
+  if(retentionRunning) return false;
+  const plan = retentionPlan();
+  if(plan.empty){
+    retentionPending = null;
+    if(plan.suppressed){ applyRetention(plan); saveData(); }
+    return false;
+  }
+  // Already failed this session for the same cutoff: don't retry on every tab focus; the checklist offers the manual step.
+  if(retentionPending && retentionPending.keepFrom === plan.keepFrom) return false;
+  retentionRunning = true;
+  try{
+    // The cloud copy is the safety net that doesn't depend on the browser
+    // allowing a download (phones often don't without a tap).
+    const cloudOk = supabaseClient ? await createBackup() : false;
+    if(!cloudOk){ retentionPending = plan; updateSetupDot(); if(currentView.startsWith('setup')) views[currentView].render(); return false; }
+    downloadArchiveFile(plan);
+    applyRetention(plan);
+    retentionPending = null;
+    saveData();
+    switchView(currentView);
+    toast(`Archived & removed data before ${plan.keepFrom} (${retentionSummary(plan)}). Copy saved in Backups and downloaded.`);
+    return true;
+  } finally { retentionRunning = false; }
+}
+function runRetentionManually(){
+  const plan = retentionPlan();
+  if(plan.empty){ retentionPending = null; views[currentView].render(); return; }
+  showConfirm(`Download an archive of everything, then remove data from before ${plan.keepFrom} (${retentionSummary(plan)})? Keep the downloaded file — it can be loaded back with Import.`, ()=>{
+    if(!downloadArchiveFile(plan)){ toast('The download did not start, so nothing was removed.'); return; }
+    applyRetention(plan); retentionPending = null; saveData(); switchView(currentView);
+    toast(`Removed data before ${plan.keepFrom}. Keep the downloaded archive file.`);
+  }, {danger:false, confirmLabel:'Download & remove', title:'10-year cleanup'});
+}
+
 // Everything that runs on load / tab focus once sync has confirmed it's safe.
 function runDailyChecks(){
   const autoChanged = runAutoRedemptions(); // saves itself if it changed anything
   const feeChanged = runFeeRollover();
   if(feeChanged && !autoChanged) saveData();
+  maybeRunRetention(); // v2.2: async (makes a cloud backup first); re-renders itself when done
   return autoChanged || feeChanged;
 }
 
@@ -1880,13 +1986,29 @@ function runAutoRedemptions(){
     if(!creditIsLive(cr, today)) return; // v2.1: closed card / ended benefit
     const cycle = creditCycle(cr, today);
     if(!cycle || today < cycle.start) return;
-    if(historyEntriesInCycle(cr.id, cycle).length > 0) return;
-    if(isAutoRedemptionSuppressed(cr.id, toISODate(cycle.start))) return;
-    DATA.history.push({
-      id: uid('rh'), date: toISODate(cycle.start), cardId: cr.cardId, type:'Credit',
-      sourceId: cr.id, desc: cr.name, amount: cr.value
+    // v2.1.1 FIX: if the app wasn't opened for a whole period (e.g. all of
+    // 2027), that period's auto-posted value was never logged. Walk back from
+    // the current period to just after the most recent logged entry for this
+    // credit (max 10 periods) and log every period that was skipped. A credit
+    // with nothing logged ever only gets the current period, as before.
+    const own = DATA.history.filter(h=>h.sourceId===cr.id).map(h=>parseDate(h.date)).filter(Boolean);
+    const lastLogged = own.length ? new Date(Math.max(...own)) : null;
+    const starts = [cycle.start];
+    if(lastLogged){
+      let st = addMonths(cycle.start, -12);
+      for(let i=0; i<10 && st > lastLogged; i++){ starts.push(st); st = addMonths(st, -12); }
+    }
+    starts.forEach(st=>{
+      const c = {start: st, nextStart: addMonths(st, 12)};
+      if(historyEntriesInCycle(cr.id, c).length > 0) return;
+      if(isAutoRedemptionSuppressed(cr.id, toISODate(st))) return;
+      if(cardClosedOn(cr.cardId, st) || benefitEnded(cr, c)) return;
+      DATA.history.push({
+        id: uid('rh'), date: toISODate(st), cardId: cr.cardId, type:'Credit',
+        sourceId: cr.id, desc: cr.name, amount: cr.value
+      });
+      changed = true;
     });
-    changed = true;
   });
   if(changed) saveData();
   return changed;
@@ -2494,11 +2616,18 @@ function setupChecklistItems(){
   const today = bangkokToday();
   const y = today.getFullYear();
   const items = [];
+  if(retentionPending){
+    const p = retentionPending;
+    items.push({view:'setupCards', kind:'retention', text:`Data from before ${p.keepFrom} (${p.years.join(', ')}) is older than 10 years and couldn't be backed up to the cloud automatically`, fixLabel:'Download archive & remove'});
+  }
   DATA.cards.forEach(c=>{
     if(cardClosedOn(c.id, today)) return;
-    const fi = (c.feeByYear||{})[y];
-    if(!fi) items.push({view:'setupCards', kind:'card', id:c.id, text:`${escHtml(c.name)}: no ${y} fee recorded`});
-    else if(fi.confirmed === false) items.push({view:'setupCards', kind:'confirmfee', id:c.id, year:y, text:`${escHtml(c.name)}: ${y} fee $${Number(fi.amount).toLocaleString()} was copied from last year`, fixLabel:'Confirm', extraLabel:'Change'});
+    const fy = c.feeByYear || {};
+    if(!fy[y]) items.push({view:'setupCards', kind:'card', id:c.id, text:`${escHtml(c.name)}: no ${y} fee recorded`});
+    // v2.1.1: every unconfirmed year up to this one (a skipped year is filled in as unconfirmed too)
+    feeYears(c).filter(yr=>yr<=y && fy[yr].confirmed===false).forEach(yr=>{
+      items.push({view:'setupCards', kind:'confirmfee', id:c.id, year:yr, text:`${escHtml(c.name)}: ${yr} fee $${Number(fy[yr].amount).toLocaleString()} was copied from the year before`, fixLabel:'Confirm', extraLabel:'Change'});
+    });
     if(!c.feeAnchor) items.push({view:'setupCards', kind:'card', id:c.id, text:`${escHtml(c.name)}: no fee posting date, so no fee reminders`});
   });
   DATA.credits.forEach(cr=>{
@@ -2519,7 +2648,7 @@ function checklistHtml(){
   const items = setupChecklistItems();
   if(!items.length) return '';
   return `<div class="checklist">
-    <h3>Needs attention (${items.length})${items.filter(i=>i.kind==='confirmfee').length>1?` <a data-confirm-all-fees style="font-size:12px;font-weight:600;margin-left:8px;">Confirm all ${items.find(i=>i.kind==='confirmfee').year} fees as shown</a>`:''}</h3>
+    <h3>Needs attention (${items.length})${items.filter(i=>i.kind==='confirmfee').length>1?` <a data-confirm-all-fees style="font-size:12px;font-weight:600;margin-left:8px;">Confirm all fees as shown</a>`:''}</h3>
     <ul>${items.map((it,i)=>`<li>${it.text} — <a data-check="${i}">${it.fixLabel||'Fix'}</a>${it.extraLabel?` · <a data-check-extra="${i}">${it.extraLabel}</a>`:''}</li>`).join('')}</ul>
   </div>`;
 }
@@ -2527,7 +2656,8 @@ function wireChecklist(){
   const items = setupChecklistItems();
   const open = it=>{
     if(currentView !== it.view) switchView(it.view);
-    if(it.kind==='card' || it.kind==='confirmfee') openCardModal(it.id);
+    if(it.kind==='retention') runRetentionManually();
+    else if(it.kind==='card' || it.kind==='confirmfee') openCardModal(it.id);
     else if(it.kind==='cr') openCreditModal(it.id);
     else if(it.kind==='fn') openFnModal(it.id);
   };
@@ -2599,7 +2729,7 @@ function renderSetupCards(){
       <div class="panel-head"><h2>${DATA.cards.length} cards</h2><button class="btn btn-primary" id="addCardBtn">+ Add card</button></div>
       <div class="panel-body">${rows || '<div class="empty">No cards yet. Add your first one.</div>'}</div>
     </div>
-    <div class="hint" style="margin:-6px 4px 12px;">Each year keeps its own fee, so changing a fee never rewrites a past year. Cards with redemptions can't be deleted — close them instead, so past years stay correct.</div>`);
+    <div class="hint" style="margin:-6px 4px 12px;">Each year keeps its own fee, so changing a fee never rewrites a past year. Cards with redemptions can't be deleted — close them instead, so past years stay correct. The app keeps 10 years (${retentionKeepFrom()}–${bangkokToday().getFullYear()}); older data is archived (Backups + a downloaded file) and removed automatically.</div>`);
   document.getElementById('addCardBtn').onclick = ()=>openCardModal();
   document.querySelectorAll('[data-edit-card]').forEach(b=>b.onclick=()=>openCardModal(b.dataset.editCard));
   document.querySelectorAll('[data-close-card]').forEach(b=>b.onclick=()=>openCloseCardModal(b.dataset.closeCard));
