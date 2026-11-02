@@ -523,7 +523,7 @@
     <div class="brand">
       <div class="logo"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21V8l8-5 8 5v13M4 21h16M9 21v-6h6v6M9 11h.01M9 15h.01M15 11h.01M15 15h.01"/></svg></div>
       <div>
-        <div class="title">Point Tracker</div>
+        <div class="title">Point Tracker<span class="version-tag" data-app-version></span></div>
         <div class="sub">Credits &amp; free nights</div>
       </div>
     </div>
@@ -549,7 +549,7 @@
       <button class="btn btn-sm btn-primary" id="backupReminderBtn">Backup now</button>
       <button class="close-x" id="backupReminderDismiss" title="Dismiss for now"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
     </div>
-    <div class="mobile-brand-bar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21V8l8-5 8 5v13M4 21h16M9 21v-6h6v6M9 11h.01M9 15h.01M15 11h.01M15 15h.01"/></svg> Point Tracker</div>
+    <div class="mobile-brand-bar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21V8l8-5 8 5v13M4 21h16M9 21v-6h6v6M9 11h.01M9 15h.01M15 11h.01M15 15h.01"/></svg> Point Tracker<span class="version-tag" data-app-version></span></div>
     <div class="topbar">
       <div>
         <h1 id="pageTitle">Dashboard</h1>
@@ -644,6 +644,9 @@ const SEED = {
 /* ============================================================
    STATE — load from localStorage, or fall back to seed data
    ============================================================ */
+// Shown next to the app name (sidebar + mobile header) and stamped into
+// exported backups. Bump this one line on each deployment.
+const APP_VERSION = 'v2.0';
 const STORE_KEY = 'hotelCardTrackerData_v1';
 const SYNCED_AT_KEY = STORE_KEY + '_syncedAt';
 const DIRTY_KEY = STORE_KEY + '_dirty'; // FIX: persists across reloads/tab-closes
@@ -1607,6 +1610,11 @@ function historyEntriesInCycle(sourceId, cycle){
     .filter(h => h.sourceId === sourceId)
     .filter(h => { const d = parseDate(h.date); return d >= cycle.start && d < cycle.nextStart; });
 }
+// Free-text "where / how I redeemed it" for the logged redemption(s) in a
+// cycle, shown under the row and pre-filled when editing.
+function redemptionNotesInCycle(sourceId, cycle){
+  return historyEntriesInCycle(sourceId, cycle).map(h=>(h.notes||'').trim()).filter(Boolean).join('; ');
+}
 function redeemedInCycle(sourceId, cycle){
   return historyEntriesInCycle(sourceId, cycle).reduce((sum,h) => sum + Number(h.amount||0), 0);
 }
@@ -1712,6 +1720,7 @@ function openEditLinkedAmountModal(entryId){
     <div class="modal-body">
       <div class="field"><label>Date used</label><input id="f_date" type="date" value="${entry.date}"></div>
       <div class="field"><label>Amount ($)</label><input id="f_amount" type="number" min="0" value="${entry.amount}"></div>
+      <div class="field"><label>Where / how redeemed (optional)</label><textarea id="f_notes" rows="2" placeholder="e.g. Hilton Bangkok spa, booked via app, confirmation #...">${escHtml(entry.notes||'')}</textarea></div>
     </div>
     <div class="modal-foot">
       <button class="btn" id="modalCancel">Cancel</button>
@@ -1723,6 +1732,7 @@ function openEditLinkedAmountModal(entryId){
     if(amount <= 0){ toast('Enter an amount greater than $0'); return; }
     entry.date = val('f_date');
     entry.amount = amount;
+    entry.notes = val('f_notes').trim();
     saveData(); closeModal();
     views[currentView].render();
     toast('Redemption updated');
@@ -2089,14 +2099,14 @@ function renderDashboard(){
           ).join(' · ')}`) : '';
 
           const expiredHtml = expired.length ? row(expiredIcon, `<strong>${expired.length} item${expired.length===1?'':'s'} expired, still unredeemed:</strong> ${expired.map(r=>
-            `<span style="color:var(--text-muted);">${escHtml(r.name)}</span> (${Math.abs(r.daysLeft)}d ago)`
+            `<span style="text-decoration:line-through;color:var(--text-muted);">${escHtml(r.name)} (${Math.abs(r.daysLeft)}d ago)</span>`
           ).join(' · ')}`) : '';
 
           const feesHtml = fees.length ? row(feeIcon, `<strong>${fees.length} fee${fees.length===1?'':'s'} due within 30 days:</strong> ${fees.map(r=>
             `${escHtml(r.name)} posts in ${r.daysLeft}d ($${r.amount.toLocaleString()})`
           ).join(' · ')}`) : '';
 
-          return expiringHtml + expiredHtml + feesHtml;
+          return expiringHtml + feesHtml + expiredHtml;
         })()}
       </div>
     </div>` : ''}
@@ -2427,7 +2437,7 @@ function renderCreditRowHtml(today, {cr, cycle, isLive}, showDragHandle){
     ${showDragHandle ? '<div class="drag-handle"><svg width="12" height="16" viewBox="0 0 12 16" fill="currentColor"><circle cx="3" cy="3" r="1.3"/><circle cx="9" cy="3" r="1.3"/><circle cx="3" cy="8" r="1.3"/><circle cx="9" cy="8" r="1.3"/><circle cx="3" cy="13" r="1.3"/><circle cx="9" cy="13" r="1.3"/></svg></div>' : '<div style="width:20px;"></div>'}
     <div class="main-col">
       <div class="title"${isExpired ? ' style="color:var(--text-muted);"' : ''}>${escHtml(cr.name)}</div>
-      <div class="subtitle">${card?escHtml(card.name):'(unlinked)'} · ${escHtml(cr.frequency)} · ${renewalLabel} · ${cycle ? (isLive ? `resets ${fmtDate(cycle.end)}` : `${fmtDate(cycle.start)} – ${fmtDate(cycle.end)}`) : 'no anchor date set'}${cr.autoRedeem?' · Auto-credited, no action needed':''}</div>
+      <div class="subtitle">${card?escHtml(card.name):'(unlinked)'} · ${escHtml(cr.frequency)} · ${renewalLabel} · ${cycle ? (isLive ? `resets ${fmtDate(cycle.end)}` : `${fmtDate(cycle.start)} – ${fmtDate(cycle.end)}`) : 'no anchor date set'}${cr.autoRedeem?' · Auto-credited, no action needed':''}${(isRedeemed && redemptionNotesInCycle(cr.id, cycle)) ? ` · <span style="color:var(--text);">Redeemed at: ${escHtml(redemptionNotesInCycle(cr.id, cycle))}</span>` : ''}</div>
       ${progressPct!==null ? `<div style="height:4px;background:var(--gray-bg);border-radius:2px;margin-top:6px;overflow:hidden;"><div style="height:100%;width:${progressPct}%;background:${isRedeemed?'var(--green)':'var(--text-soft)'};"></div></div>` : ''}
     </div>
     <div class="row-break"></div>
@@ -2438,7 +2448,7 @@ function renderCreditRowHtml(today, {cr, cycle, isLive}, showDragHandle){
     <div class="actions">
       ${!isRedeemed && cycle && !cr.autoRedeem ? `<button class="btn btn-sm btn-primary" data-mark-cr="${cr.id}">Mark redeemed</button>` : ''}
       ${!cycle ? `<button class="btn btn-sm btn-primary" data-mark-cr="${cr.id}">+ Log redemption</button>` : ''}
-      ${isRedeemed ? `<button class="btn btn-sm" data-editredemption-cr="${cr.id}">Edit amount</button>` : ''}
+      ${isRedeemed ? `<button class="btn btn-sm" data-editredemption-cr="${cr.id}">Edit details</button>` : ''}
       ${isRedeemed ? `<button class="btn btn-sm btn-danger" data-unredeem-cr="${cr.id}">Unredeem</button>` : ''}
       <button class="btn btn-sm" data-edit-cr="${cr.id}">Edit</button>
       <button class="btn btn-sm btn-danger" data-del-cr="${cr.id}">Delete</button>
@@ -2643,6 +2653,7 @@ function openRedeemModal(kind, sourceId, cycle){
       <div class="field"><label>Amount ($)</label><input id="f_amount" type="number" min="0" value="${defaultAmount}" placeholder="${needsValue?'Estimated cash value of the stay you booked':''}"></div>
       ${needsValue ? `<div class="hint">Free nights don't have a fixed dollar value — enter what the stay would have cost in cash (check the hotel's rate for your dates) so it counts toward value realized.</div>` : ''}
       ${kind==='fn' ? `<div class="field"><label>Property (optional)</label><input id="f_property" value="${escAttr(item.property||'')}"></div>` : ''}
+      <div class="field"><label>Where / how redeemed (optional)</label><textarea id="f_notes" rows="2" placeholder="e.g. Hilton Bangkok spa, booked via app, confirmation #..."></textarea></div>
     </div>
     <div class="modal-foot">
       <button class="btn" id="modalCancel">Cancel</button>
@@ -2666,7 +2677,8 @@ function openRedeemModal(kind, sourceId, cycle){
     }
     const entry = {
       id: uid('rh'), date: val('f_date'), cardId: item.cardId, type: kind==='cr'?'Credit':'Free Night',
-      sourceId: item.id, desc: kind==='cr'?item.name:item.desc, amount
+      sourceId: item.id, desc: kind==='cr'?item.name:item.desc, amount,
+      notes: val('f_notes').trim()
     };
     DATA.history.push(entry);
     if(kind==='fn'){
@@ -2755,7 +2767,7 @@ function renderFreeNightRowHtml(today, {fn, cycle, isLive}, showDragHandle){
     ${showDragHandle ? '<div class="drag-handle"><svg width="12" height="16" viewBox="0 0 12 16" fill="currentColor"><circle cx="3" cy="3" r="1.3"/><circle cx="9" cy="3" r="1.3"/><circle cx="3" cy="8" r="1.3"/><circle cx="9" cy="8" r="1.3"/><circle cx="3" cy="13" r="1.3"/><circle cx="9" cy="13" r="1.3"/></svg></div>' : '<div style="width:20px;"></div>'}
     <div class="main-col">
       <div class="title"${isExpired ? ' style="color:var(--text-muted);"' : ''}>${escHtml(fn.desc)}${certsPerCycle>1?` <span style="font-size:11px;font-weight:400;color:var(--text-muted);">(${certsPerCycle}/yr)</span>`:''}</div>
-      <div class="subtitle">${card?escHtml(card.name):'(unlinked)'} · ${escHtml(fn.program)}${expiration?` · expires ${fmtDate(expiration)}${fn.expirationOverride?' (set manually)':''}`:(cycle?'':' · no anchor date set')}</div>
+      <div class="subtitle">${card?escHtml(card.name):'(unlinked)'} · ${escHtml(fn.program)}${expiration?` · expires ${fmtDate(expiration)}${fn.expirationOverride?' (set manually)':''}`:(cycle?'':' · no anchor date set')}${(redeemedCount>0 && redemptionNotesInCycle(fn.id, cycle)) ? ` · <span style="color:var(--text);">Redeemed at: ${escHtml(redemptionNotesInCycle(fn.id, cycle))}</span>` : ''}</div>
       ${progressPct!==null ? `<div style="height:4px;background:var(--gray-bg);border-radius:2px;margin-top:6px;overflow:hidden;"><div style="height:100%;width:${progressPct}%;background:${isFullyUsed?'var(--green)':'var(--text-soft)'};"></div></div>` : ''}
     </div>
     <div class="row-break"></div>
@@ -2766,7 +2778,7 @@ function renderFreeNightRowHtml(today, {fn, cycle, isLive}, showDragHandle){
     <div class="actions">
       ${!isFullyUsed && cycle ? `<button class="btn btn-sm btn-primary" data-mark-fn="${fn.id}">${redeemedCount>0?`Log redemption (${redeemedCount+1} of ${certsPerCycle})`:'Mark used'}</button>` : ''}
       ${!cycle ? `<button class="btn btn-sm btn-primary" data-mark-fn="${fn.id}">+ Log redemption</button>` : ''}
-      ${redeemedCount>0 ? `<button class="btn btn-sm" data-editredemption-fn="${fn.id}">Edit amount</button><button class="btn btn-sm btn-danger" data-unredeem-fn="${fn.id}">Unredeem</button>` : ''}
+      ${redeemedCount>0 ? `<button class="btn btn-sm" data-editredemption-fn="${fn.id}">Edit details</button><button class="btn btn-sm btn-danger" data-unredeem-fn="${fn.id}">Unredeem</button>` : ''}
       <button class="btn btn-sm" data-edit-fn="${fn.id}">Edit</button>
       <button class="btn btn-sm btn-danger" data-del-fn="${fn.id}">Delete</button>
     </div>
@@ -2936,7 +2948,7 @@ function mileageRowHtml(mp, today){
           <span style="color:var(--text);">${Number(exp.amount||0).toLocaleString()} miles${expiration?` expiring ${fmtDate(expiration)}`:''}</span>
           <span style="display:flex;align-items:center;gap:8px;white-space:nowrap;">
             <span class="pill ${pill.cls}">${pill.label}</span>
-            <span style="color:var(--text-muted);min-width:80px;text-align:right;">${daysLeft!==null?(daysLeft>=0?daysLeft+' days left':Math.abs(daysLeft)+' days overdue'):''}</span>
+            <span style="color:var(--text-muted);min-width:80px;text-align:right;">${daysLeft!==null?(daysLeft>=0?daysLeft+' days left':'expired '+Math.abs(daysLeft)+'d ago'):''}</span>
           </span>
         </div>`;
       }).join('');
@@ -2973,7 +2985,7 @@ function voucherRowHtml(v, today){
     </div>
     <div class="row-break"></div>
     <div><span class="pill ${pill.cls}">${pill.label}</span></div>
-    <div class="days">${daysLeft!==null?(daysLeft>=0?daysLeft+' days left':Math.abs(daysLeft)+' days overdue'):''}</div>
+    <div class="days">${daysLeft!==null?(daysLeft>=0?daysLeft+' days left':'expired '+Math.abs(daysLeft)+'d ago'):''}</div>
     <div class="row-break"></div>
     <div class="actions">
       <button class="btn btn-sm" data-edit-v="${v.id}">Edit</button>
@@ -3195,7 +3207,7 @@ function renderHistory(){
     if(historyFilterYear !== 'all' && String(parseDate(h.date).getFullYear()) !== historyFilterYear) return false;
     if(historyFilterCardId !== 'all' && h.cardId !== historyFilterCardId) return false;
     if(historyFilterType !== 'all' && h.type !== historyFilterType) return false;
-    if(searchLower && !h.desc.toLowerCase().includes(searchLower)) return false;
+    if(searchLower && !(h.desc.toLowerCase().includes(searchLower) || (h.notes||'').toLowerCase().includes(searchLower))) return false;
     return true;
   });
 
@@ -3215,7 +3227,7 @@ function renderHistory(){
       ${historyFilterPanelOpen ? `
       <div class="panel-body" style="padding-top:0;">
         <div style="background:var(--surface-tile);border:1px solid var(--border);border-radius:9px;padding:14px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-          <input id="histSearchInput" placeholder="Search description..." value="${escAttr(historyFilterSearch)}" style="border:1px solid var(--border);border-radius:7px;padding:7px 12px;font-size:12.5px;width:180px;">
+          <input id="histSearchInput" placeholder="Search description or notes..." value="${escAttr(historyFilterSearch)}" style="border:1px solid var(--border);border-radius:7px;padding:7px 12px;font-size:12.5px;width:180px;">
           <select id="histYearSelect">
             <option value="all">Year: All</option>
             ${availableYears.map(y=>`<option value="${y}" ${historyFilterYear==String(y)?'selected':''}>${y}</option>`).join('')}
@@ -3240,7 +3252,7 @@ function renderHistory(){
       <div class="panel-body">
         <div class="table-scroll">
         <table>
-          <thead><tr><th></th><th>Date</th><th>Card</th><th>Type</th><th>Credit / Certificate</th><th>Amount</th><th></th></tr></thead>
+          <thead><tr><th></th><th>Date</th><th>Card</th><th>Type</th><th>Credit / Certificate</th><th>Amount</th><th>Where / notes</th><th></th></tr></thead>
           <tbody id="histBody"></tbody>
         </table>
         </div>
@@ -3262,9 +3274,10 @@ function renderHistory(){
       <td><span class="pill ${h.type==='Credit'?'pill-accent':'pill-gray'}">${escHtml(h.type)}</span></td>
       <td>${escHtml(h.desc)}</td>
       <td style="font-weight:700;">$${Number(h.amount).toLocaleString()}</td>
+      <td style="color:var(--text-muted);font-size:12.5px;max-width:260px;">${h.notes?escHtml(h.notes):'—'}</td>
       <td><button class="btn btn-sm" data-edit-h="${h.id}">Edit</button> <button class="btn btn-sm btn-danger" data-del-h="${h.id}">Delete</button></td>
     </tr>`;
-  }).join('') : `<tr><td colspan="7" class="empty">${DATA.history.length === 0 ? 'No redemptions logged yet.' : 'No entries match your filters.'}</td></tr>`;
+  }).join('') : `<tr><td colspan="8" class="empty">${DATA.history.length === 0 ? 'No redemptions logged yet.' : 'No entries match your filters.'}</td></tr>`;
 
   document.getElementById('addHistBtn').onclick = ()=>openHistModal();
   document.getElementById('histFilterToggle').onclick = ()=>{ historyFilterPanelOpen = !historyFilterPanelOpen; renderHistory(); };
@@ -3326,6 +3339,7 @@ function openHistModal(id){
       <div class="field"><label>Type</label><select id="f_type"><option ${entry&&entry.type==='Credit'?'selected':''}>Credit</option><option ${entry&&entry.type==='Free Night'?'selected':''}>Free Night</option></select></div>
       <div class="field"><label>Description</label><input id="f_desc" value="${escAttr(entry?entry.desc:'')}" placeholder="e.g. $300 Annual Travel Credit"></div>
       <div class="field"><label>Amount ($)</label><input id="f_amount" type="number" min="0" value="${entry?entry.amount:''}"></div>
+      <div class="field"><label>Where / how redeemed (optional)</label><textarea id="f_notes" rows="2" placeholder="e.g. Hilton Bangkok spa, booked via app, confirmation #...">${escHtml(entry?(entry.notes||''):'')}</textarea></div>
       ${entry&&entry.sourceId ? `<div class="hint">This entry is linked to a row on the Annual Credits or Free Nights tab. Editing it here updates that row's status too.</div>` : ''}
     </div>
     <div class="modal-foot">
@@ -3339,9 +3353,9 @@ function openHistModal(id){
     if(!desc){ toast('Description is required'); return; }
     if(amount < 0){ toast('Amount cannot be negative'); return; }
     if(editing){
-      Object.assign(entry, { date: val('f_date'), cardId: val('f_card'), type: val('f_type'), desc, amount });
+      Object.assign(entry, { date: val('f_date'), cardId: val('f_card'), type: val('f_type'), desc, amount, notes: val('f_notes').trim() });
     } else {
-      DATA.history.push({ id:uid('rh'), date: val('f_date'), cardId: val('f_card'), type: val('f_type'), sourceId:null, desc, amount });
+      DATA.history.push({ id:uid('rh'), date: val('f_date'), cardId: val('f_card'), type: val('f_type'), sourceId:null, desc, amount, notes: val('f_notes').trim() });
     }
     saveData(); closeModal(); renderHistory(); toast(editing?'Redemption updated':'Redemption logged');
   };
@@ -3404,7 +3418,7 @@ function toast(msg){
    EXPORT / IMPORT
    ============================================================ */
 document.getElementById('exportBtn').onclick = ()=>{
-  const blob = new Blob([JSON.stringify(DATA, null, 2)], {type:'application/json'});
+  const blob = new Blob([JSON.stringify({...DATA, _exportedFromAppVersion: APP_VERSION}, null, 2)], {type:'application/json'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url; a.download = `hotel-card-tracker-backup-${new Date().toISOString().slice(0,10)}.json`;
@@ -3418,6 +3432,7 @@ document.getElementById('importFile').onchange = (e)=>{
     try{
       const parsed = JSON.parse(reader.result);
       if(!parsed.cards || !parsed.credits) throw new Error('bad format');
+      delete parsed._exportedFromAppVersion; // export-only stamp, not app data
       DATA = migrateData(parsed); saveData(); runAutoRedemptions(); switchView(currentView);
       toast('Data imported');
     }catch(err){ toast('Could not read that file — is it a tracker backup JSON?'); }
@@ -3429,6 +3444,7 @@ document.getElementById('importFile').onchange = (e)=>{
 /* ============================================================
    INIT
    ============================================================ */
+document.querySelectorAll('[data-app-version]').forEach(el=>{ el.textContent = APP_VERSION; });
 document.querySelectorAll('#nav button').forEach(b=> b.onclick = ()=> switchView(b.dataset.view));
 document.getElementById('backupsBtn').onclick = openBackupsModal;
 document.getElementById('backupReminderBtn').onclick = async ()=>{
