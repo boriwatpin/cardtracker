@@ -745,7 +745,7 @@ const SEED = {
    ============================================================ */
 // Shown next to the app name (sidebar + mobile header) and stamped into
 // exported backups. Bump this one line on each deployment.
-const APP_VERSION = 'v2.2.4';
+const APP_VERSION = 'v2.2.5';
 const STORE_KEY = 'hotelCardTrackerData_v1';
 const SYNCED_AT_KEY = STORE_KEY + '_syncedAt';
 const DIRTY_KEY = STORE_KEY + '_dirty'; // FIX: persists across reloads/tab-closes
@@ -2498,6 +2498,29 @@ function switchView(v){
 
 /* ---------- Dashboard ---------- */
 let chartInstance = null;
+/* v2.2.5 CHART FONT FIX: the chart is painted into a canvas. If Safari paints it while the
+   app font (Instrument Sans) is still downloading, it uses Times instead of the next font in the
+   list — and never repaints. So: ask the browser to load the exact faces the chart uses, and the
+   first time they arrive, rebuild the chart once. Works whatever document.fonts.status says. */
+const CHART_FONT = '"Instrument Sans", "Helvetica Neue", Helvetica, Arial, sans-serif';
+let chartFontReady = false;
+function ensureChartFont(){
+  if(chartFontReady || !document.fonts || !document.fonts.load) return Promise.resolve(true);
+  const want = ['400 13px "Instrument Sans"', '500 13px "Instrument Sans"', '600 13px "Instrument Sans"'];
+  // Only "ready" once an Instrument Sans face actually exists AND has loaded — check() alone says
+  // true while the font stylesheet hasn't even arrived yet.
+  const hasLoadedFace = ()=>Array.from(document.fonts).some(f=>f.family.replace(/["']/g,'')==='Instrument Sans' && f.status==='loaded');
+  const loaded = Promise.all(want.map(f=>document.fonts.load(f))).then(()=>hasLoadedFace());
+  const timeout = new Promise(r=>setTimeout(()=>r(false), 4000));
+  return Promise.race([loaded, timeout]).then(ok=>{ chartFontReady = !!ok; return chartFontReady; }).catch(()=>false);
+}
+// If the font stylesheet arrives later, try again when the browser finishes loading fonts.
+if(document.fonts && document.fonts.addEventListener){
+  document.fonts.addEventListener('loadingdone', ()=>{
+    if(chartFontReady) return;
+    ensureChartFont().then(ok=>{ if(ok && currentView === 'dashboard') renderDashboard(); });
+  });
+}
 let dashboardIssuer = 'all'; // v2.2.3 provider filter — not saved between visits
 function issuerLabel(issuer){ const s = (issuer||'').trim(); return /^american express$/i.test(s) ? 'Amex' : (s || 'Other'); }
 function renderDashboard(){
@@ -2679,15 +2702,17 @@ function renderDashboard(){
   const chartFeeColor = chartStyles.getPropertyValue('--chart-fee').trim();
   const chartValueColor = chartStyles.getPropertyValue('--chart-value').trim();
   // MODERN THEME: make the chart text match the app font and current theme.
-  if(window.Chart){ Chart.defaults.font.size = 12.5; Chart.defaults.font.family = getComputedStyle(document.body).fontFamily; Chart.defaults.color = chartStyles.getPropertyValue('--text-muted').trim() || '#666'; Chart.defaults.borderColor = chartStyles.getPropertyValue('--border').trim() || '#e5e5e5'; }
+  // v2.2.5: an explicit font list for the canvas — the app font first, then fonts every Mac/iPhone/PC has.
+  // (The page's list starts with system keywords that Safari's canvas doesn't understand.)
+  if(window.Chart){ Chart.defaults.font.size = 12.5; Chart.defaults.font.family = CHART_FONT; Chart.defaults.color = chartStyles.getPropertyValue('--text-muted').trim() || '#666'; Chart.defaults.borderColor = chartStyles.getPropertyValue('--border').trim() || '#e5e5e5'; }
   chartInstance = new Chart(ctx, {
     type:'bar',
     data:{
       labels: rows.map(r=>r.card.name.replace(/\s*\(.*?\)\s*/g,' ').trim()),
       datasets:[
         // v2.2.4: fixed bar thickness so bars look the same whether 1 card or 9 is shown (the chart's height follows the row count)
-        {label:'Annual fee', data:rows.map(r=>r.fee), backgroundColor:chartFeeColor, barThickness:18, maxBarThickness:18, categoryPercentage:0.8, barPercentage:0.9, borderRadius:6, borderSkipped:false},
-        {label:'Redeemed', data:rows.map(r=>r.value), backgroundColor:chartValueColor, barThickness:18, maxBarThickness:18, categoryPercentage:0.8, barPercentage:0.9, borderRadius:6, borderSkipped:false},
+        {label:'Annual fee', data:rows.map(r=>r.fee), backgroundColor:chartFeeColor, barThickness:16, maxBarThickness:16, categoryPercentage:0.8, barPercentage:0.9, borderRadius:8, borderSkipped:false},
+        {label:'Redeemed', data:rows.map(r=>r.value || null), /* v2.2.5: $0 draws no stub */ backgroundColor:chartValueColor, barThickness:16, maxBarThickness:16, categoryPercentage:0.8, barPercentage:0.9, borderRadius:8, borderSkipped:false},
       ]
     },
     options:{
@@ -2705,10 +2730,10 @@ function renderDashboard(){
       // v2.2.3: $ everywhere, one tooltip per card (fee + redeemed + net), real colour swatches, readable sizes
       interaction:{ mode:'index', axis:'y', intersect:false },
       plugins:{
-        legend:{ position:'bottom', onClick:()=>{}, labels:{ font:{size:12.5}, boxWidth:14, boxHeight:14, padding:16 } }, // v2.2.4: a key only — tapping no longer hides a series
+        legend:{ position:'bottom', align:'start', onClick:()=>{}, labels:{ font:{size:12.5}, usePointStyle:true, pointStyle:'rectRounded', boxWidth:10, boxHeight:10, padding:18 } }, // v2.2.4: a key only — tapping no longer hides a series
         tooltip:{
           titleFont:{size:13, weight:'600'}, bodyFont:{size:13}, footerFont:{size:13, weight:'600'},
-          padding:10, boxPadding:4,
+          padding:12, boxPadding:4, cornerRadius:10, displayColors:true,
           callbacks:{
             label: c=>` ${c.dataset.label}: $${Number(c.raw||0).toLocaleString()}`,
             labelColor: c=>{ const col = c.dataset.backgroundColor; return {borderColor:col, backgroundColor:col, borderWidth:0, borderRadius:3}; },
@@ -2716,17 +2741,21 @@ function renderDashboard(){
           },
         },
       },
+      // v2.2.5 modern look: no box lines, soft dashed value guides, card names in the page's text colour
       scales:{
-        x:{ beginAtZero:true, suggestedMax: scaleMax, ticks:{ font:{size:12.5}, callback: v=>'$'+Number(v).toLocaleString() } },
-        y:{ ticks:{ autoSkip:false, font:{size:13} } },
+        x:{ beginAtZero:true, suggestedMax: scaleMax,
+            grid:{ color: chartStyles.getPropertyValue('--border').trim() || '#e5e5e5', drawTicks:false, lineWidth:1 },
+            border:{display:false, dash:[3,4]},
+            ticks:{ padding:8, font:{size:12}, maxTicksLimit:6, callback: v=>'$'+Number(v).toLocaleString() } },
+        y:{ border:{display:false}, grid:{ display:false },
+            ticks:{ autoSkip:false, padding:10, color: chartStyles.getPropertyValue('--text').trim() || '#222', font:{size:13, weight:'500'} } },
       }
     }
   });
-  // v2.2.3 #3: the chart is drawn once; if the app font wasn't loaded yet (fresh launch on iPhone), Safari drew
-  // the labels in its default serif. Redraw as soon as the fonts are ready.
-  if(document.fonts && document.fonts.status !== 'loaded'){
+  // v2.2.5: rebuild once when the app font is really available (see ensureChartFont).
+  if(!chartFontReady){
     const inst = chartInstance;
-    document.fonts.ready.then(()=>{ if(chartInstance === inst && currentView === 'dashboard') chartInstance.update(); });
+    ensureChartFont().then(ok=>{ if(ok && chartInstance === inst && currentView === 'dashboard') renderDashboard(); });
   }
 }
 
