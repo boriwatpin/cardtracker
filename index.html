@@ -14,7 +14,8 @@
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <link rel="manifest" href="manifest.webmanifest">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<!-- v2.3.1 (L8): pinned to an exact, released supabase-js version (was "@2", i.e. whatever is newest). -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3"></script>
 <!-- MODERN THEME fonts: Instrument Sans (UI) + Bricolage Grotesque (titles/numbers). Falls back to system fonts if unavailable. -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -590,6 +591,10 @@
   .setup-row-meta{font-size:12px;color:var(--text-muted);margin-top:3px;line-height:1.5;}
   .preview-box{background:var(--gray-bg);border-radius:10px;padding:10px 12px;font-size:12.5px;line-height:1.6;margin-top:6px;}
   .pill-amber-text{color:var(--amber, #b45309);}
+  /* v2.3.1: inline form error shown under the field that needs fixing */
+  .field-error{color:var(--red);font-size:12px;font-weight:600;margin-top:4px;}
+  .sync-choice{display:flex;flex-direction:column;gap:8px;}
+  .sync-choice .preview-box{margin-top:0;}
 </style>
 </head>
 <body>
@@ -769,7 +774,7 @@ const SEED = {
    ============================================================ */
 // Shown next to the app name (sidebar + mobile header) and stamped into
 // exported backups. Bump this one line on each deployment.
-const APP_VERSION = 'v2.3';
+const APP_VERSION = 'v2.3.1';
 const STORE_KEY = 'hotelCardTrackerData_v1';
 const SYNCED_AT_KEY = STORE_KEY + '_syncedAt';
 const DIRTY_KEY = STORE_KEY + '_dirty'; // FIX: persists across reloads/tab-closes
@@ -790,6 +795,10 @@ const CURRENT_DATA_VERSION = 12;
 // logic near the bottom of this script.
 let startedFromEmptyLocalCache = false;
 let DATA = loadLocalData();
+// v2.3.1 (H2): true while DATA is the built-in demo SEED that no successful
+// cloud read has confirmed yet. While true, saveData() never marks anything
+// as "unsynced" and never pushes, so demo data can't overwrite the cloud.
+let dataUnconfirmedSeed = startedFromEmptyLocalCache;
 
 // Local-only load — instant, works offline, used for first paint on every
 // page open. Cloud sync (below) reconciles with this right after.
@@ -813,7 +822,7 @@ function migrateData(data){
   if(!data._version || data._version < 2){
     // v2: dropped 2025 redemption history entries permanently, and introduced
     // an explicit "tracked years" list so future years can be added on demand.
-    data.history = (data.history||[]).filter(h => parseDate(h.date).getFullYear() !== 2025);
+    data.history = (data.history||[]).filter(h => { const d = parseDate(h.date); return !d || d.getFullYear() !== 2025; });
     const existing = new Set(data.trackedYears || []);
     [2027, 2028, 2029].forEach(y => existing.add(y));
     data.trackedYears = Array.from(existing).sort((a,b)=>a-b);
@@ -1001,10 +1010,50 @@ function migrateData(data){
     data.pointValues = Object.assign({}, seed, data.pointValues || {});
     data._version = 12;
   }
+  // v2.3.1: not version-gated, safe to run on every load/pull/import (idempotent).
+  ['cards','credits','freeNights','history','mileagePrograms','vouchers'].forEach(k=>{ if(!Array.isArray(data[k])) data[k] = []; });
+  repairHistoryDates(data);
   return data;
 }
+
+// v2.3.1 (H1): v2.3 and earlier let a redemption be saved with the date field
+// cleared (iPhone's date picker has a "Clear" button). Such an entry crashed
+// every screen on every device. Chosen repair — the safest that loses nothing:
+// the entry is KEPT (amount, card, link, notes untouched) and given the most
+// likely date: the start of its credit's / certificate's current period (the
+// period it was almost certainly logged against, since the bug needed the
+// "Mark redeemed" button of that period), or today for an entry not linked to
+// a credit/certificate; never a date in the future. It is flagged
+// dateRepaired so the Redemption Log shows "check date" until you edit it.
+// Deliberately uses only hoisted helper functions (no constants declared
+// further down), because this also runs while DATA itself is being loaded.
+function repairHistoryDates(data){
+  const today = bangkokToday();
+  (data.history||[]).forEach(h=>{
+    if(!h || parseDate(h.date)) return;
+    const src = h.sourceId ? ((data.credits||[]).find(c=>c.id===h.sourceId) || (data.freeNights||[]).find(f=>f.id===h.sourceId)) : null;
+    let d = today;
+    if(src){
+      const perStay = src.usage === 'perstay' || (!src.usage && src.frequency === 'Per Stay');
+      if(perStay) d = new Date(today.getFullYear(), 0, 1);
+      else if(src.repeats === false && parseDate(src.anchor)) d = parseDate(src.anchor);
+      else if(parseDate(src.anchor)){ const c = currentCycle(src.anchor, 12, 12, today); if(c) d = c.start; }
+      if(d > today) d = today;
+    }
+    console.warn('Point Tracker: redemption "' + (h.desc||h.id) + '" had no valid date (' + JSON.stringify(h.date) + '); kept it and set ' + toISODate(d) + ' — please check it in the Redemption Log.');
+    h.date = toISODate(d);
+    h.dateRepaired = true;
+  });
+}
+let saveGen = 0; // v2.3.1 (M4): bumped on every save; a push only clears "dirty" if no save happened while it ran
 function saveData(){
+  // v2.3.1 (H2): demo SEED data that no cloud read has confirmed is never
+  // stored as this device's data, marked unsynced, or pushed — otherwise a
+  // later load could push it over your real cloud data (the warning banner
+  // already tells you not to edit until the real data has loaded).
+  if(dataUnconfirmedSeed){ toast('Not saved — your real data hasn\'t loaded yet. Reload once you\'re online.'); return; }
   localStorage.setItem(STORE_KEY, JSON.stringify(DATA));
+  saveGen++;
   // FIX: mark dirty *before* attempting the push, and persist that flag to
   // localStorage (not just an in-memory variable). If the tab is closed or
   // the push otherwise never completes, this flag survives a reload so we
@@ -1188,9 +1237,9 @@ let syncPending = false; // true if we have local changes not yet confirmed save
 function setSyncStatus(state){
   const el = document.getElementById('syncStatus');
   if(!el) return;
-  const label = {syncing:'Syncing…', synced:'Synced', offline:'Offline — saved locally'}[state] || '';
+  const label = {syncing:'Syncing…', synced:'Synced', offline:'Offline — saved locally', conflict:'Not synced — choose a version'}[state] || '';
   el.textContent = label;
-  el.className = 'sync-status sync-' + state;
+  el.className = 'sync-status sync-' + (state === 'conflict' ? 'offline' : state);
 }
 
 // Fetch the shared row from Supabase.
@@ -1219,30 +1268,157 @@ async function pullFromCloud(){
   }
 }
 
+// v2.3.1 (L6): updated_at values are compared for EQUALITY only ("is the cloud
+// row still the exact version this device last read or wrote?"), never by
+// which clock is ahead — so a device whose clock is off can't make another
+// device skip or overwrite its changes. The value stored locally is the one
+// the server hands back, so formats always match. No database change needed.
+function sameTimestamp(a, b){
+  if(!a || !b) return false;
+  if(a === b) return true;
+  const x = Date.parse(a), y = Date.parse(b);
+  return !isNaN(x) && x === y;
+}
+function cloneJson(o){ return JSON.parse(JSON.stringify(o)); }
+
 // Push the current in-memory DATA up to Supabase.
-async function pushToCloud(){
-  if(!supabaseClient) return;
+// v2.3.1 (M4): pushes run one at a time. A save made while a push is in
+// flight just asks for one more push, which then sends the newest DATA —
+// so an older snapshot can never land in the cloud after a newer one.
+// Resolves to 'ok' | 'offline' | 'conflict' | 'no-client'.
+let pushChain = null, pushRequested = false;
+function pushToCloud(){
+  if(!supabaseClient) return Promise.resolve('no-client');
+  pushRequested = true;
+  if(pushChain) return pushChain;
+  pushChain = (async()=>{
+    let r = 'ok';
+    try{
+      while(pushRequested){ pushRequested = false; r = await pushOnce(); if(r !== 'ok') break; }
+    } finally { pushChain = null; }
+    return r;
+  })();
+  return pushChain;
+}
+// v2.3.1 (H3): a CONDITIONAL write. The row is only updated if its
+// updated_at is still the version this device last synced; if another device
+// saved in between, nothing is overwritten — the cloud copy is saved to
+// Backups and you're asked which version to keep (see showSyncConflict).
+async function pushOnce(retries = 2){
   setSyncStatus('syncing');
-  const nowIso = new Date().toISOString();
-  try{
-    const { error } = await supabaseClient
-      .from('tracker_data')
-      // ENHANCEMENT (security): edit_secret travels as its own column,
-      // deliberately kept out of the `data` JSON blob — it's not part of
-      // your tracker data, it's a gate the RLS policy checks, so it should
-      // never end up inside DATA, get exported in a backup, or show up
-      // anywhere migrateData()/valueRealizedForCardYear()/etc. could see it.
-      .upsert({ id: 'main', data: DATA, updated_at: nowIso, edit_secret: APP_EDIT_SECRET });
+  const gen = saveGen;
+  const payload = cloneJson(DATA);
+  const base = localStorage.getItem(SYNCED_AT_KEY);
+  // ENHANCEMENT (security): edit_secret travels as its own column,
+  // deliberately kept out of the `data` JSON blob — it's not part of
+  // your tracker data, it's a gate the RLS policy checks.
+  const row = { data: payload, updated_at: new Date().toISOString(), edit_secret: APP_EDIT_SECRET };
+  const casUpdate = async (expected)=>{
+    const { data, error } = await supabaseClient.from('tracker_data').update(row)
+      .eq('id', 'main').eq('updated_at', expected).select('updated_at');
     if(error) throw error;
-    localStorage.setItem(SYNCED_AT_KEY, nowIso);
-    localStorage.removeItem(DIRTY_KEY); // FIX: only clear "unsynced" once the push actually succeeds
-    syncPending = false;
-    setSyncStatus('synced');
+    return (data && data.length) ? (data[0].updated_at || row.updated_at) : null;
+  };
+  try{
+    let saved = base ? await casUpdate(base) : null;
+    if(!saved){
+      // Never synced from this device, or the cloud changed since: look first.
+      const cur = await pullFromCloud();
+      if(cur.status === 'error') throw new Error('Could not read the cloud copy before saving');
+      if(cur.status === 'ok'){
+        const cloudNow = migrateData(cloneJson(cur.row.data || {}));
+        if(JSON.stringify(cloudNow) !== JSON.stringify(payload)){
+          setSyncStatus('conflict');
+          await showSyncConflict(cur.row);
+          return 'conflict';
+        }
+        // Same content as ours (e.g. both devices did the same new-year fee
+        // roll-over): nothing to resolve, just write conditionally.
+        saved = await casUpdate(cur.row.updated_at);
+        if(!saved){ if(retries > 0) return pushOnce(retries - 1); throw new Error('Cloud copy kept changing'); }
+      } else {
+        // No row yet — genuinely the first save anywhere.
+        const { data, error } = await supabaseClient.from('tracker_data')
+          .upsert({ id: 'main', ...row }).select('updated_at');
+        if(error) throw error;
+        saved = (data && data[0] && data[0].updated_at) || row.updated_at;
+      }
+    }
+    localStorage.setItem(SYNCED_AT_KEY, saved);
+    if(saveGen === gen){
+      localStorage.removeItem(DIRTY_KEY); // FIX: only clear "unsynced" once the push actually succeeds
+      syncPending = false;
+      setSyncStatus('synced');
+    }
+    return 'ok';
   }catch(e){
     console.warn('Cloud push failed — will retry next time this tab becomes active or reloads.', e);
     syncPending = true;
     setSyncStatus('offline');
+    return 'offline';
   }
+}
+
+// v2.3.1 (H3): shown when this device has unsynced changes but the cloud copy
+// was changed by another device since this device last synced. The cloud copy
+// is saved to Backups FIRST (once per cloud version), so either choice is
+// undoable. Phone-friendly: two full-width buttons plus "Decide later".
+let conflictBackupFor = null;
+async function showSyncConflict(cloudRow){
+  const overlayOpen = document.getElementById('overlay').classList.contains('open');
+  if(overlayOpen && document.getElementById('syncConflictBox')) return; // already asking
+  let cloudBackedUp = !!conflictBackupFor && sameTimestamp(conflictBackupFor, cloudRow.updated_at);
+  if(!cloudBackedUp){
+    cloudBackedUp = await createBackup({ data: cloudRow.data, label: `Cloud copy before overwrite from ${deviceLabel()}`, quiet: true });
+    if(cloudBackedUp) conflictBackupFor = cloudRow.updated_at;
+  }
+  const cloudData = migrateData(cloneJson(cloudRow.data || {}));
+  const sum = d => `${(d.cards||[]).length} cards · ${(d.credits||[]).length} credits · ${(d.freeNights||[]).length} free nights · ${(d.history||[]).length} redemptions · ${(d.mileagePrograms||[]).length} mileage accounts`;
+  showModal(`
+    ${modalHead('Changed on another device')}
+    <div class="modal-body" id="syncConflictBox">
+      <div style="font-size:13.5px;line-height:1.5;">This device has changes that weren't uploaded yet, and your data was also changed on another device (saved ${escHtml(fmtDateTime(cloudRow.updated_at))}). Which version do you want to keep?</div>
+      <div class="sync-choice">
+        <div class="preview-box"><strong>This device (${escHtml(deviceLabel())})</strong><br>${sum(DATA)}</div>
+        <div class="preview-box"><strong>Cloud (other device)</strong><br>${sum(cloudData)}</div>
+      </div>
+      ${cloudBackedUp
+        ? '<div class="hint">The cloud version is saved in Backups, so you can restore it later either way.</div>'
+        : '<div class="hint" style="color:var(--red);">Couldn\'t save a backup of the cloud version (no connection?). "Keep this device\'s" would replace it permanently — "Decide later" is safest.</div>'}
+      <button class="btn btn-primary" id="syncKeepLocal" style="width:100%;">Keep this device's version</button>
+      <button class="btn" id="syncLoadCloud" style="width:100%;">Load the cloud version</button>
+    </div>
+    <div class="modal-foot"><button class="btn" id="modalCancel">Decide later</button></div>
+  `);
+  document.getElementById('syncKeepLocal').onclick = async ()=>{
+    closeModal();
+    // Overwrite only that exact cloud version (still conditional): if it
+    // changed yet again meanwhile, you're simply asked again.
+    localStorage.setItem(SYNCED_AT_KEY, cloudRow.updated_at);
+    const r = await pushToCloud();
+    if(r === 'ok') toast('Kept this device\'s version' + (cloudBackedUp ? ' — the other version is in Backups' : ''));
+    else if(r === 'offline') toast('Couldn\'t upload yet — it will retry automatically.');
+  };
+  document.getElementById('syncLoadCloud').onclick = async ()=>{
+    const btn = document.getElementById('syncLoadCloud'); btn.disabled = true; btn.textContent = 'Saving this device\'s copy…';
+    // This device's unsynced version goes to Backups (or a downloaded file if the cloud can't be reached) before it's replaced.
+    const label = `This device's copy (${deviceLabel()}) before loading the cloud copy`;
+    let kept = await createBackup({ data: DATA, label, quiet: true });
+    if(!kept) kept = downloadJsonFile({...DATA, _exportedFromAppVersion: APP_VERSION}, `point-tracker-this-device-${toISODate(bangkokToday())}.json`);
+    if(!kept){ btn.disabled = false; btn.textContent = 'Load the cloud version'; toast('Couldn\'t save a copy of this device\'s version first — nothing was changed.'); return; }
+    DATA = cloudData;
+    dataUnconfirmedSeed = false;
+    saveGen++; // any push still queued must not clear "dirty" for the old copy
+    localStorage.setItem(STORE_KEY, JSON.stringify(DATA));
+    localStorage.setItem(SYNCED_AT_KEY, cloudRow.updated_at);
+    localStorage.removeItem(DIRTY_KEY);
+    syncPending = false;
+    setSyncStatus('synced');
+    closeModal();
+    runDailyChecks();
+    switchView(currentView);
+    toast('Loaded the cloud version — this device\'s copy is in Backups');
+  };
 }
 
 /* ============================================================
@@ -1299,11 +1475,14 @@ async function fetchBackups(){
 // most recent. Returns true/false so callers (the reminder banner, the
 // toolbar button, restoreBackup()'s own pre-restore safety snapshot) can
 // react to whether it actually succeeded.
+// v2.3.1: opts.data backs up something other than the live DATA (used for the
+// cloud copy in a sync conflict), opts.label is shown in the Backups list, and
+// opts.quiet suppresses the failure toasts (the caller explains instead).
 async function createBackup(opts={}){
-  if(!supabaseClient){ toast('Backups need cloud sync connected first.'); return false; }
+  if(!supabaseClient){ if(!opts.quiet) toast('Backups need cloud sync connected first.'); return false; }
   const existing = await fetchBackups();
   if(existing === null){
-    toast('Could not reach the cloud to save a backup — check your connection and try again.');
+    if(!opts.quiet) toast('Could not reach the cloud to save a backup — check your connection and try again.');
     return false;
   }
   // BUG FOUND: `data: DATA` stored a live reference to the same mutable
@@ -1313,7 +1492,8 @@ async function createBackup(opts={}){
   // that implicitly is fragile, and it's simply not a real snapshot until
   // it's actually deep-cloned. Explicit clone here matches the same
   // pattern restoreBackup() already uses when reading a backup back out.
-  const entry = { timestamp: new Date().toISOString(), data: JSON.parse(JSON.stringify(DATA)) };
+  const entry = { timestamp: new Date().toISOString(), data: JSON.parse(JSON.stringify(opts.data || DATA)) };
+  if(opts.label) entry.label = String(opts.label);
   // v2.2: yearly archives (made by the 10-year cleanup) never rotate out with
   // ordinary backups — they are the copy of data the app has removed. The 10
   // most recent archives are kept.
@@ -1333,13 +1513,15 @@ async function createBackup(opts={}){
       .update({ backups: updated, edit_secret: APP_EDIT_SECRET })
       .eq('id', 'main');
     if(error) throw error;
-    changesSinceBackup = 0;
-    localStorage.setItem(BACKUP_COUNT_KEY, '0');
-    hideBackupReminder();
+    if(!opts.data){ // only a snapshot of the live data resets the "changes since backup" reminder
+      changesSinceBackup = 0;
+      localStorage.setItem(BACKUP_COUNT_KEY, '0');
+      hideBackupReminder();
+    }
     return true;
   }catch(e){
     console.warn('Backup failed', e);
-    toast('Backup failed — check your connection and try again.');
+    if(!opts.quiet) toast('Backup failed — check your connection and try again.');
     return false;
   }
 }
@@ -1367,13 +1549,14 @@ async function restoreBackup(timestamp){
   // restore proceeded anyway with no safety net at all — directly
   // undermining the "this can always be undone" guarantee promised in the
   // confirmation dialog just before this runs.
-  const safetyOk = await createBackup();
+  const safetyOk = await createBackup({label: 'Before restore'});
   if(!safetyOk){
     toast('Could not save a safety backup first — restore cancelled so nothing is lost. Try again once your connection is stable.');
     return;
   }
 
   DATA = migrateData(JSON.parse(JSON.stringify(match.data)));
+  dataUnconfirmedSeed = false;
   retentionHold = true; // v2.2: don't immediately re-remove old data you just restored (until the next reload)
   saveData();
   switchView(currentView);
@@ -1447,7 +1630,7 @@ async function renderBackupsList(){
     <div class="field">
       <label>Restore from</label>
       <select id="restoreBackupSelect">
-        ${backups.map(b=>`<option value="${escAttr(b.timestamp)}">${escHtml(fmtDateTime(b.timestamp))}${b.archiveBeforeYear?` — yearly archive (data before ${b.archiveBeforeYear}), kept permanently`:''}</option>`).join('')}
+        ${backups.map(b=>`<option value="${escAttr(b.timestamp)}">${escHtml(fmtDateTime(b.timestamp))}${b.label?` — ${escHtml(b.label)}`:''}${b.archiveBeforeYear?` — yearly archive (data before ${escHtml(b.archiveBeforeYear)}), kept permanently`:''}</option>`).join('')}
       </select>
     </div>
     <div class="hint" id="restoreBackupSummary">${escHtml(summaryFor(backups[0]))}</div>
@@ -1488,50 +1671,55 @@ async function renderBackupsList(){
 // genuinely don't know the real state yet. Callers (see the bottom of this
 // file) only run runAutoRedemptions() when this comes back true.
 async function bootstrapSync(){
+  // v2.3.1 (H2): no Supabase client (its script failed to load) is NOT the
+  // same as "the cloud is empty" — we simply don't know what's real yet.
+  if(!supabaseClient){ setSyncStatus('offline'); return false; }
   // FIX: if a previous edit never got confirmed as pushed (DIRTY_KEY
-  // survives reloads/tab closes, unlike the old in-memory-only
-  // `syncPending`), push it before doing anything else. Pulling first here
-  // risked overwriting that unsynced local edit with an older cloud copy —
-  // which is the "my changes keep reverting" bug.
+  // survives reloads/tab closes), push it before doing anything else.
+  // v2.3.1 (H3): that push is now conditional — if another device saved in
+  // the meantime you're asked which version to keep instead of losing theirs.
   if(localStorage.getItem(DIRTY_KEY) === '1'){
-    await pushToCloud();
-    return true; // this device's local data is the known-authoritative copy
+    const r = await pushToCloud();
+    return r === 'ok' || r === 'offline'; // offline: this device's real data stays authoritative locally
   }
 
   const result = await pullFromCloud();
 
   if(result.status === 'error'){
     // FIX: a failed/errored pull is NOT the same as "no data saved yet".
-    // Don't touch local data and don't push — just reflect that we
-    // couldn't reach the cloud this time. The next successful sync
-    // (reload, tab focus, or next edit) will reconcile properly.
     setSyncStatus('offline');
     return false; // unknown state — NOT safe to auto-redeem/auto-push yet
   }
 
-  if(result.status === 'no-client' || result.status === 'empty'){
+  if(result.status === 'empty'){
     // Genuinely nothing saved to the cloud yet — seed it with what we have.
-    if(supabaseClient) await pushToCloud();
+    dataUnconfirmedSeed = false;
+    await pushToCloud();
     return true; // confirmed empty — safe, this is a real first-time setup
   }
 
   const remote = result.row;
   const lastSyncedAt = localStorage.getItem(SYNCED_AT_KEY);
-  if(lastSyncedAt && remote.updated_at && new Date(remote.updated_at) <= new Date(lastSyncedAt)){
-    // Cloud hasn't changed since we last synced from this device — nothing to pull.
+  if(sameTimestamp(remote.updated_at, lastSyncedAt)){
+    // Cloud is still exactly the version this device last synced — nothing to pull.
+    dataUnconfirmedSeed = false;
     setSyncStatus('synced');
     return true;
   }
+  // A save on this device may have happened while the pull was in flight —
+  // never replace that; push it (conditionally) instead.
+  if(localStorage.getItem(DIRTY_KEY) === '1'){
+    const r = await pushToCloud();
+    return r === 'ok' || r === 'offline';
+  }
   DATA = migrateData(remote.data);
+  dataUnconfirmedSeed = false;
   localStorage.setItem(STORE_KEY, JSON.stringify(DATA));
   localStorage.setItem(SYNCED_AT_KEY, remote.updated_at);
   switchView(currentView);
   setSyncStatus('synced');
-  // UI IMPROVEMENT: the sync status badge is small and easy to miss, so a
-  // remote update overwriting what's on screen could happen silently. Once
-  // the page has already rendered once, surface it with a toast too — but
-  // not on the very first load, where "updating" from the cloud is just
-  // normal startup, not a surprise.
+  // UI IMPROVEMENT: surface a remote update with a toast once the page has
+  // already rendered (not on the very first load).
   if(hasRenderedOnce) toast('Updated with changes from another device');
   return true; // freshly synced with confirmed remote data
 }
@@ -1540,9 +1728,35 @@ async function bootstrapSync(){
    DATE / CYCLE HELPERS
    ============================================================ */
 const MS_DAY = 86400000;
-function parseDate(s){ if(!s) return null; const [y,m,d]=s.split('-').map(Number); return new Date(y, m-1, d); }
+// v2.3.1 (H1): returns null for anything that isn't a real YYYY-MM-DD date
+// (blank, garbage, 2026-02-30) instead of an Invalid/rolled-over Date, so a
+// bad stored value can never crash a screen. Callers already handle null.
+function parseDate(s){
+  if(typeof s !== 'string') return null;
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s.trim());
+  if(!m) return null;
+  const y = +m[1], mo = +m[2], d = +m[3];
+  const dt = new Date(y, mo-1, d);
+  return (dt.getFullYear() === y && dt.getMonth() === mo-1 && dt.getDate() === d) ? dt : null;
+}
+function isValidDateStr(s){ return !!parseDate(s); }
+// Year of a history entry's date, or null if it has no valid date.
+function entryYear(h){ const d = parseDate(h && h.date); return d ? d.getFullYear() : null; }
 function fmtDate(d){ if(!d) return '—'; return d.toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'}); }
-function addMonths(date, months){ const d = new Date(date); d.setMonth(d.getMonth()+months); return d; }
+// v2.3.1 (L4): clamps to the end of the month instead of overflowing — 31 Aug
+// + 6 months is 28/29 Feb (it used to be 3 Mar), 29 Feb + 12 months is 28 Feb.
+// Recurring dates are always computed from the ORIGINAL anchor (see
+// currentCycle), so a 29 Feb anchor is 28 Feb in normal years and 29 Feb again
+// in leap years, instead of drifting to 1 Mar forever.
+function addMonths(date, months){
+  const d = new Date(date);
+  const day = d.getDate();
+  d.setDate(1);
+  d.setMonth(d.getMonth() + months);
+  const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+  d.setDate(Math.min(day, lastDay));
+  return d;
+}
 function daysBetween(a,b){ return Math.round((b-a)/MS_DAY); }
 
 // Returns "today" as a local-midnight Date object representing the current
@@ -1596,7 +1810,14 @@ const CYCLE_MONTHS = {'Annual':12, 'Semi-Annual':6, 'Quarterly':3, 'Per Stay':12
 function currentCycle(anchorStr, durationMonths, rollMonths, today){
   const anchor = parseDate(anchorStr);
   if(!anchor) return null;
-  let start = anchor, end = addMonths(anchor, durationMonths), nextStart = addMonths(anchor, rollMonths);
+  // v2.3.1 (L4): occurrence k starts at anchor + k*rollMonths, always counted
+  // from the anchor itself (not from the previous occurrence), so month-end
+  // and 29 Feb anchors never drift — and occurrenceForYear() agrees exactly.
+  let k = 0;
+  while(today && addMonths(anchor, (k+1)*rollMonths) <= today) k++;
+  const start = addMonths(anchor, k*rollMonths);
+  const end = addMonths(anchor, k*rollMonths + durationMonths);
+  const nextStart = addMonths(anchor, (k+1)*rollMonths);
   // Roll forward while the *next* occurrence has already begun — not just
   // while this slot's own narrow window has ended. For a quarterly credit,
   // durationMonths (3) is shorter than rollMonths (12), so the window is
@@ -1608,11 +1829,6 @@ function currentCycle(anchorStr, durationMonths, rollMonths, today){
   // "current" — available to mark redeemed, even if overdue — for the
   // whole rollMonths period, only actually advancing once the *next*
   // occurrence's start date arrives.
-  while(nextStart <= today){
-    start = nextStart;
-    end = addMonths(start, durationMonths);
-    nextStart = addMonths(start, rollMonths);
-  }
   return {start, end, nextStart};
 }
 
@@ -1630,9 +1846,10 @@ function occurrenceForYear(anchorStr, durationMonths, year){
   // for it — showing a "2024" row for a benefit that didn't exist until
   // 2027. This row simply has no occurrence in years before its anchor.
   if(year < anchor.getFullYear()) return null;
-  const start = addMonths(anchor, (year - anchor.getFullYear()) * 12);
-  const end = addMonths(start, durationMonths);
-  const nextStart = addMonths(start, 12);
+  const k = year - anchor.getFullYear();
+  const start = addMonths(anchor, k * 12);
+  const end = addMonths(anchor, k * 12 + durationMonths);
+  const nextStart = addMonths(anchor, (k + 1) * 12);
   return {start, end, nextStart};
 }
 
@@ -1670,11 +1887,9 @@ function defaultRedeemDate(cycle){
 function nextOccurrenceOnOrAfter(anchorStr, today){
   const anchor = parseDate(anchorStr);
   if(!anchor) return null;
-  let next = anchor;
-  while(next < today){
-    next = addMonths(next, 12);
-  }
-  return next;
+  let k = 0;
+  while(addMonths(anchor, k*12) < today) k++; // v2.3.1 (L4): from the anchor, no drift
+  return addMonths(anchor, k*12);
 }
 
 // UI IMPROVEMENT: powers the Dashboard's "expiring soon" reminder banner.
@@ -1905,7 +2120,7 @@ function feeInfoForYear(c, year){
   return {amount: 0, confirmed: true, recorded: false};
 }
 function cardHasHistoryInYear(c, year){
-  return DATA.history.some(h=>h.cardId===c.id && parseDate(h.date).getFullYear()===year);
+  return DATA.history.some(h=>h.cardId===c.id && entryYear(h)===year);
 }
 // Which cards belong on a year's Dashboard: from the first year with a fee
 // recorded, up to and including the year it was closed. A card with
@@ -2003,16 +2218,24 @@ function retentionSummary(plan){
   if(plan.vouchers.length) bits.push(`${plan.vouchers.length} expired voucher${plan.vouchers.length===1?'':'s'}`);
   return bits.join(', ') || 'old notes';
 }
-function downloadArchiveFile(plan){
+// v2.3.1 (M6): one download helper for every JSON file the app hands you.
+// The link is attached to the page and the blob URL is kept alive for a
+// while — revoking it straight after click() can make iPhone Safari fail
+// the download.
+function downloadJsonFile(obj, filename){
   try{
-    const blob = new Blob([JSON.stringify({...DATA, _exportedFromAppVersion: APP_VERSION, _archiveBeforeYear: plan.keepFrom}, null, 2)], {type:'application/json'});
+    const blob = new Blob([JSON.stringify(obj, null, 2)], {type:'application/json'});
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url; a.download = `point-tracker-archive-before-${plan.keepFrom}-${toISODate(bangkokToday())}.json`;
+    a.href = url; a.download = filename; a.rel = 'noopener';
     document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(()=>URL.revokeObjectURL(url), 4000);
+    setTimeout(()=>URL.revokeObjectURL(url), 60000);
     return true;
-  }catch(e){ console.warn('Archive download failed', e); return false; }
+  }catch(e){ console.warn('Download failed', e); return false; }
+}
+function downloadArchiveFile(plan){
+  return downloadJsonFile({...DATA, _exportedFromAppVersion: APP_VERSION, _archiveBeforeYear: plan.keepFrom},
+    `point-tracker-archive-before-${plan.keepFrom}-${toISODate(bangkokToday())}.json`);
 }
 let retentionPending = null;   // plan waiting for the manual "Download archive & remove" step
 let retentionRunning = false;
@@ -2122,8 +2345,8 @@ function runAutoRedemptions(){
     const own = DATA.history.filter(h=>h.sourceId===cr.id).map(h=>parseDate(h.date)).filter(Boolean);
     const lastLogged = own.length ? new Date(Math.max(...own)) : null;
     let periods = [];
-    { let st = parseDate(cr.anchor), guard = 0;
-      while(st && st <= cycle.start && guard++ < 200){ const nx = addMonths(st, 12); periods.push({start: st, nextStart: nx}); st = nx; } }
+    { const a = parseDate(cr.anchor);
+      for(let k = 0; a && k < 200; k++){ const st = addMonths(a, k*12); if(st > cycle.start) break; periods.push({start: st, nextStart: addMonths(a, (k+1)*12)}); } }
     periods = lastLogged ? periods.filter(p=>p.nextStart > lastLogged).slice(-10) : periods.slice(-1);
     periods.forEach(c=>{
       const st = c.start;
@@ -2192,8 +2415,8 @@ function openEditLinkedAmountModal(entryId){
   showModal(`
     <div class="modal-head"><h3>Edit redemption</h3><button class="close-x" id="modalClose"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
     <div class="modal-body">
-      <div class="field"><label>Date used</label><input id="f_date" type="date" value="${entry.date}"></div>
-      <div class="field"><label>Amount ($)</label><input id="f_amount" type="number" min="0" value="${entry.amount}"></div>
+      <div class="field"><label>Date used</label><input id="f_date" type="date" value="${escAttr(entry.date)}"></div>
+      <div class="field"><label>Amount ($)</label><input id="f_amount" type="number" min="0" inputmode="decimal" value="${escAttr(entry.amount)}"></div>
       <div class="field"><label>Where / how redeemed (optional)</label><textarea id="f_notes" rows="2" placeholder="e.g. Hilton Bangkok spa, booked via app, confirmation #...">${escHtml(entry.notes||'')}</textarea></div>
     </div>
     <div class="modal-foot">
@@ -2202,13 +2425,14 @@ function openEditLinkedAmountModal(entryId){
     </div>
   `);
   document.getElementById('modalSave').onclick = ()=>{
-    const amount = Number(val('f_amount'))||0;
-    if(amount <= 0){ toast('Enter an amount greater than $0'); return; }
+    const date = readDateField('f_date', 'Pick the date it was used'); if(date === null) return;
+    const amount = readAmount('f_amount', {allowZero:false}); if(amount === null) return;
     const live = DATA.history.find(h=>h.id===entryId); // re-find: a sync may have replaced DATA while this was open
     if(!live){ toast('This entry changed on another device — reopen it and try again.'); closeModal(); return; }
-    const room = spenddownRoom(live.sourceId, val('f_date'), live.id);
-    if(room !== null && amount > room){ toast(`Only $${room.toLocaleString()} is left on this credit for that period`); return; }
-    live.date = val('f_date');
+    const room = spenddownRoom(live.sourceId, date, live.id);
+    if(room !== null && amount > room){ fieldError('f_amount', `Only $${room.toLocaleString()} is left on this credit for that period`); return; }
+    live.date = date;
+    delete live.dateRepaired;
     live.amount = amount;
     live.notes = val('f_notes').trim();
     saveData(); closeModal();
@@ -2304,7 +2528,7 @@ function allYears(){
   const now = bangkokToday();
   ys.add(now.getFullYear());
   ys.add(now.getFullYear()+1); // always show next year for forward visibility — no way to hide it, and nothing to configure
-  DATA.history.forEach(h=>ys.add(parseDate(h.date).getFullYear()));
+  DATA.history.forEach(h=>{ const y = entryYear(h); if(y !== null) ys.add(y); });
   DATA.cards.forEach(c=>feeYears(c).forEach(y=>ys.add(y))); // v2.1: years with fees recorded (decision D1)
   return Array.from(ys).sort((a,b)=>b-a);
 }
@@ -2359,7 +2583,7 @@ function deleteTrackedYear(){
     // The correct fix (see runAutoRedemptions()'s comment): deletion is
     // allowed here same as anything else — a suppression record for each
     // one is what actually stops it from silently coming back.
-    const yearMatches = (h) => matches(parseDate(h.date).getFullYear());
+    const yearMatches = (h) => { const y = entryYear(h); return y !== null && matches(y); };
     const autoCreditFor = (h) => h.sourceId ? DATA.credits.find(c=>c.id===h.sourceId && c.autoRedeem) : null;
     const toDelete = DATA.history.filter(yearMatches);
     const historyCount = toDelete.length;
@@ -2377,8 +2601,7 @@ function deleteTrackedYear(){
         // allows changing it), h.date could have drifted from the actual
         // cycle.start value runAutoRedemptions() checks against, silently
         // making the suppression a no-op in that edge case.
-        const entryYear = parseDate(h.date).getFullYear();
-        const occ = occurrenceForYear(cr.anchor, CYCLE_MONTHS[cr.frequency]||12, entryYear);
+        const occ = occurrenceForYear(cr.anchor, CYCLE_MONTHS[cr.frequency]||12, entryYear(h));
         suppressAutoRedemption(cr.id, occ ? toISODate(occ.start) : h.date);
       });
       DATA.history = DATA.history.filter(h => !yearMatches(h));
@@ -2392,7 +2615,7 @@ function deleteTrackedYear(){
         // fall back to whatever the most recent remaining year is
         // (allYears() always includes at least the real current year, so
         // there's always something to land on).
-        selectedYear = allYears()[0];
+        selectedYear = bangkokToday().getFullYear(); // v2.3.1 (L5): back to this year, not next year
       }
 
       saveData();
@@ -2406,7 +2629,7 @@ function deleteTrackedYear(){
 function valueRealizedForCardYear(cardId, year){
   return DATA.history
     .filter(h=>h.cardId===cardId)
-    .filter(h=> parseDate(h.date).getFullYear() === year)
+    .filter(h=> entryYear(h) === year)
     .reduce((s,h)=>s+Number(h.amount||0),0);
 }
 
@@ -2498,16 +2721,21 @@ function makeDragReorderable(container, rowSelector, getId, onReordered){
       else container.appendChild(row);
     };
 
+    let orderAtStart = '';
     const onUp = ()=>{
       row.classList.remove('dragging');
       document.removeEventListener('pointermove', onMove);
       document.removeEventListener('pointerup', onUp);
       document.removeEventListener('pointercancel', onUp);
-      onReordered(rows().map(getId));
+      // v2.3.1 (L1): a tap on the handle without moving anything is not a
+      // reorder — don't switch to manual order or save.
+      const ids = rows().map(getId);
+      if(ids.join('\u0000') !== orderAtStart) onReordered(ids);
     };
 
     handle.addEventListener('pointerdown', (e)=>{
       e.preventDefault();
+      orderAtStart = rows().map(getId).join('\u0000');
       row.classList.add('dragging');
       document.addEventListener('pointermove', onMove);
       document.addEventListener('pointerup', onUp);
@@ -2577,7 +2805,8 @@ function renderDashboard(){
     const feeInfo = feeInfoForYear(c, selectedYear);
     const fee = feeInfo.amount;
     const net = value - fee;
-    const closed = !!(c.closedDate && parseDate(c.closedDate).getFullYear() <= selectedYear);
+    const closedOn = parseDate(c.closedDate);
+    const closed = !!(closedOn && closedOn.getFullYear() <= selectedYear);
     return {card:c, value, net, fee, feeEst: !feeInfo.confirmed, closed};
   });
   const feeLabel = r => `$${r.fee.toLocaleString()}${r.feeEst?'<span title="Not confirmed yet — confirm in Setup › Cards & fees" style="color:var(--text-soft);font-size:11px;"> est.</span>':''}`;
@@ -2733,7 +2962,16 @@ function renderDashboard(){
   document.getElementById('deleteYearBtn').onclick = deleteTrackedYear;
 
   const ctx = document.getElementById('feeChart');
-  if(chartInstance) chartInstance.destroy();
+  if(chartInstance){ try{ chartInstance.destroy(); }catch(e){} chartInstance = null; }
+  // v2.3.1 (M2): if Chart.js didn't load (CDN blocked/offline and not cached),
+  // show the phone-style bar list on every screen size instead of throwing —
+  // a throw here used to stop the whole app from starting (and syncing).
+  if(!window.Chart){
+    const desk = content.querySelector('.dashboard-chart-desktop'), list = content.querySelector('.dashboard-fee-mobile');
+    if(desk) desk.style.display = 'none';
+    if(list){ list.style.display = 'block'; list.style.padding = '14px 16px'; }
+    return;
+  }
   // BUG FOUND: these were previously hardcoded to the light-theme hex
   // values directly, so the desktop chart never actually followed dark
   // mode — only the mobile fallback view (.fee-chart-*, driven by CSS
@@ -2871,6 +3109,7 @@ function wireChecklist(){
     const it = items[Number(a.dataset.check)];
     if(it.kind === 'confirmfee'){
       const c = cardById(it.id);
+      if(!c || !c.feeByYear || !c.feeByYear[it.year]){ views[currentView].render(); return; }
       c.feeByYear[it.year].confirmed = true;
       saveData(); views[currentView].render(); toast(`${it.year} fee confirmed`);
     } else open(it);
@@ -2879,7 +3118,7 @@ function wireChecklist(){
   document.querySelectorAll('[data-confirm-all-fees]').forEach(a=>a.onclick=()=>{
     const list = items.filter(i=>i.kind==='confirmfee');
     showConfirm(`Confirm ${list.length} fees exactly as shown? Change any that differ (e.g. a fee increase) first.`, ()=>{
-      list.forEach(it=>{ cardById(it.id).feeByYear[it.year].confirmed = true; });
+      list.forEach(it=>{ const c = cardById(it.id); if(c && c.feeByYear && c.feeByYear[it.year]) c.feeByYear[it.year].confirmed = true; });
       saveData(); views[currentView].render(); toast(`${list.length} fees confirmed`);
     }, {danger:false, confirmLabel:'Confirm all', title:'Confirm fees'});
   });
@@ -2928,10 +3167,10 @@ function renderSetupCards(){
         <div class="setup-row-meta">${c.feeAnchor ? (nextFee ? `Fee posts ${fmtDate(nextFee)} (${daysBetween(today,nextFee)}d)` : 'Fee date set') : '<span class="pill-amber-text">No fee posting date — no fee reminders</span>'}</div>
       </div>
       <div class="actions">
-        ${unconfirmed ? `<button class="btn btn-sm btn-primary" data-confirm-fee="${c.id}">Confirm ${today.getFullYear()} fee</button>` : ''}
-        <button class="btn btn-sm" data-edit-card="${c.id}">Edit</button>
-        ${c.closedDate ? `<button class="btn btn-sm" data-reopen-card="${c.id}">Reopen</button>` : `<button class="btn btn-sm" data-close-card="${c.id}">Close card</button>`}
-        ${hasHistory ? '' : `<button class="btn btn-sm btn-danger" data-del-card="${c.id}" title="Only cards with no redemptions can be deleted">Delete</button>`}
+        ${unconfirmed ? `<button class="btn btn-sm btn-primary" data-confirm-fee="${escAttr(c.id)}">Confirm ${today.getFullYear()} fee</button>` : ''}
+        <button class="btn btn-sm" data-edit-card="${escAttr(c.id)}">Edit</button>
+        ${c.closedDate ? `<button class="btn btn-sm" data-reopen-card="${escAttr(c.id)}">Reopen</button>` : `<button class="btn btn-sm" data-close-card="${escAttr(c.id)}">Close card</button>`}
+        ${hasHistory ? '' : `<button class="btn btn-sm btn-danger" data-del-card="${escAttr(c.id)}" title="Only cards with no redemptions can be deleted">Delete</button>`}
       </div>
     </div>`;
   }).join('');
@@ -2947,12 +3186,14 @@ function renderSetupCards(){
   document.querySelectorAll('[data-reopen-card]').forEach(b=>b.onclick=()=>{
     const c = cardById(b.dataset.reopenCard);
     showConfirm(`Reopen "${escHtml(c.name)}"? Its credits, free nights and fee reminders come back from today.`, ()=>{
-      delete c.closedDate; runFeeRollover(); saveData(); renderSetupCards(); toast('Card reopened');
+      const live = cardById(c.id); if(!live){ toast('This card changed on another device.'); renderSetupCards(); return; } // v2.3.1 (M1)
+      delete live.closedDate; runFeeRollover(); saveData(); renderSetupCards(); toast('Card reopened');
     }, {danger:false, confirmLabel:'Reopen', title:'Reopen card'});
   });
   document.querySelectorAll('[data-del-card]').forEach(b=>b.onclick=()=>deleteCard(b.dataset.delCard));
   document.querySelectorAll('[data-confirm-fee]').forEach(b=>b.onclick=()=>{
     const c = cardById(b.dataset.confirmFee); const y = today.getFullYear();
+    if(!c || !c.feeByYear || !c.feeByYear[y]){ renderSetupCards(); return; }
     c.feeByYear[y].confirmed = true; saveData(); renderSetupCards(); toast(`${y} fee confirmed`);
   });
 }
@@ -2973,7 +3214,7 @@ function openCardModal(id){
         <div class="field"><label>Rewards program</label><input id="f_program" value="${escAttr(c.program||'')}"></div>
       </div>
       <div class="field"><label><input type="checkbox" id="f_elite" ${c.eliteStatus?'checked':''}> Includes hotel elite status</label></div>
-      <div class="field"><label>Annual fee posts on</label><input id="f_feeanchor" type="date" value="${c.feeAnchor||''}"></div>
+      <div class="field"><label>Annual fee posts on</label><input id="f_feeanchor" type="date" value="${escAttr(c.feeAnchor||'')}"></div>
       <div class="hint">Any past date the fee posted (it repeats yearly). Drives the fee reminder; leave blank for no reminder.</div>
       <div class="field"><label>Annual fee by year</label>
         <table class="fee-table"><tbody id="feeRowsBody"></tbody></table>
@@ -2989,14 +3230,14 @@ function openCardModal(id){
   const readRows = ()=>{
     feeRows = Array.from(body.querySelectorAll('tr')).map(tr=>({
       year: parseInt(tr.querySelector('.yr').value,10),
-      amount: Number(tr.querySelector('.amt').value),
+      amount: tr.querySelector('.amt').value.trim() === '' ? NaN : Number(tr.querySelector('.amt').value), // v2.3.1 (L2): blank is not $0
       confirmed: tr.querySelector('.conf').checked,
     }));
   };
   const drawRows = ()=>{
     body.innerHTML = feeRows.map((r,i)=>`<tr>
-      <td><input class="yr" type="number" min="2000" max="2100" step="1" value="${r.year}" aria-label="Year"></td>
-      <td>$ <input class="amt" type="number" min="0" value="${r.amount}" aria-label="Fee"></td>
+      <td><input class="yr" type="number" min="2000" max="2100" step="1" value="${isNaN(r.year)?'':escAttr(r.year)}" aria-label="Year"></td>
+      <td>$ <input class="amt" type="number" min="0" inputmode="decimal" value="${isNaN(r.amount)?'':escAttr(r.amount)}" aria-label="Fee"></td>
       <td><label style="font-size:12px;white-space:nowrap;"><input class="conf" type="checkbox" ${r.confirmed?'checked':''}> confirmed</label></td>
       <td><button class="btn btn-sm btn-danger" data-rm-fee="${i}" title="Remove this year">✕</button></td>
     </tr>`).join('');
@@ -3014,12 +3255,12 @@ function openCardModal(id){
   document.getElementById('modalSave').onclick = ()=>{
     readRows();
     const name = val('f_name').trim();
-    if(!name){ toast('Card name is required'); return; }
+    if(!name){ fieldError('f_name', 'Card name is required'); return; }
     const seen = new Set();
     for(const r of feeRows){
       if(isNaN(r.year) || r.year < 2000 || r.year > 2100){ toast('Each fee row needs a year between 2000 and 2100'); return; }
       if(seen.has(r.year)){ toast(`${r.year} is listed twice`); return; }
-      if(isNaN(r.amount) || r.amount < 0){ toast('Fees cannot be negative or blank'); return; }
+      if(isNaN(r.amount) || r.amount < 0){ toast(`${r.year} fee: enter an amount (use 0 for a waived fee) — fees can't be negative or blank`); return; }
       seen.add(r.year);
     }
     if(!feeRows.length){ toast('Add at least one year with a fee (use $0 for a waived fee)'); return; }
@@ -3050,9 +3291,10 @@ function openCloseCardModal(id){
     ${modalFoot('Close card')}
   `);
   document.getElementById('modalSave').onclick = ()=>{
-    const d = val('f_closed');
-    if(!d){ toast('Pick the date the card was closed'); return; }
-    c.closedDate = d;
+    const d = readDateField('f_closed', 'Pick the date the card was closed'); if(d === null) return;
+    const live = cardById(id); // v2.3.1 (M1): re-find — a sync may have replaced DATA while this was open
+    if(!live){ toast('This card changed on another device — reopen it and try again.'); closeModal(); return; }
+    live.closedDate = d;
     saveData(); closeModal(); renderSetupCards(); toast('Card closed');
   };
 }
@@ -3111,7 +3353,7 @@ function renderSetupCredits(){
     if(cr.endsAfter) bits.push(`ends after ${fmtDate(parseDate(cr.endsAfter))}`);
     return `<div class="list-row">
       <div class="main-col"><div class="title">${escHtml(cr.name)} ${creditSetupStatus(cr, today)}</div><div class="setup-row-meta">${bits.join(' · ')}</div></div>
-      <div class="actions"><button class="btn btn-sm" data-edit-cr="${cr.id}">Edit</button><button class="btn btn-sm btn-danger" data-del-cr="${cr.id}">Delete</button></div>
+      <div class="actions"><button class="btn btn-sm" data-edit-cr="${escAttr(cr.id)}">Edit</button><button class="btn btn-sm btn-danger" data-del-cr="${escAttr(cr.id)}">Delete</button></div>
     </div>`;
   };
   setupPageShell('setupCredits', `
@@ -3133,14 +3375,19 @@ function renderSetupCredits(){
   });
 }
 
+// v2.3.1 (M5): if the item points at a card that no longer exists, keep that
+// link as a "(deleted card)" option (selected) instead of silently re-linking
+// it to the first card on save.
 function cardOptionsHtml(selectedId){
-  return DATA.cards.map(c=>`<option value="${c.id}" ${c.id===selectedId?'selected':''}>${escHtml(c.name)}${c.closedDate?' (closed)':''}</option>`).join('');
+  const missing = selectedId && !cardById(selectedId) ? `<option value="${escAttr(selectedId)}" selected>(deleted card)</option>` : '';
+  return missing + DATA.cards.map(c=>`<option value="${escAttr(c.id)}" ${c.id===selectedId?'selected':''}>${escHtml(c.name)}${c.closedDate?' (closed)':''}</option>`).join('');
 }
 // Validation shared by the single-credit form: calendar-based periods must
 // start on the real calendar boundaries.
 function creditAnchorError(freq, renewalType, anchor){
   if(renewalType !== 'calendar' || !anchor) return '';
   const d = parseDate(anchor);
+  if(!d) return 'Pick a valid start date.';
   const m = d.getMonth()+1, day = d.getDate();
   if(day !== 1) return 'Calendar-based credits start on the 1st of the month.';
   if(freq === 'Quarterly' && ![1,4,7,10].includes(m)) return 'Calendar quarters start on 1 Jan, 1 Apr, 1 Jul or 1 Oct.';
@@ -3176,7 +3423,7 @@ function openCreditModal(id){
       <div class="field"><label>Card</label><select id="f_card">${cardOptionsHtml(cr.cardId)}</select></div>
       <div class="field"><label>Credit name</label><input id="f_name" value="${escAttr(cr.name)}"></div>
       <div class="field-row">
-        <div class="field"><label>Value ($)</label><input id="f_value" type="number" min="0" value="${cr.value}"></div>
+        <div class="field"><label>Value ($)</label><input id="f_value" type="number" min="0" inputmode="decimal" value="${escAttr(cr.value)}"></div>
         <div class="field"><label>How it's used</label><select id="f_usage">${Object.entries(USAGE_LABELS).map(([k,l])=>`<option value="${k}" ${k===usage?'selected':''}>${l}</option>`).join('')}</select></div>
       </div>
       <div class="hint" id="usageHint"></div>
@@ -3187,11 +3434,11 @@ function openCreditModal(id){
             <option value="calendar" ${cr.renewalType==='calendar'?'selected':''}>Calendar dates</option>
             <option value="anniversary" ${cr.renewalType!=='calendar'?'selected':''}>Card anniversary</option></select></div>
         </div>
-        <div class="field"><label>Period start date</label><input id="f_anchor" type="date" value="${cr.anchor||''}"></div>
+        <div class="field"><label>Period start date</label><input id="f_anchor" type="date" value="${escAttr(cr.anchor||'')}"></div>
         <div class="hint" id="anchorHint"></div>
         <div class="field" id="autoField"><label><input type="checkbox" id="f_autoredeem" ${cr.autoRedeem?'checked':''}> Auto-posts (free value, logged automatically on the period start date)</label></div>
       </div>
-      <div class="field"><label>Ends after (optional)</label><input id="f_ends" type="date" value="${cr.endsAfter||''}"></div>
+      <div class="field"><label>Ends after (optional)</label><input id="f_ends" type="date" value="${escAttr(cr.endsAfter||'')}"></div>
       <div class="hint">If the issuer removes this benefit: the period running on this date is the last one. Past redemptions stay.</div>
       <div class="preview-box" id="crPreview"></div>
     </div>
@@ -3223,8 +3470,9 @@ function openCreditModal(id){
   refresh();
   document.getElementById('modalSave').onclick = ()=>{
     const t = read();
-    if(!t.name){ toast('Credit name is required'); return; }
-    if(t.value < 0){ toast('Credit value cannot be negative'); return; }
+    if(!t.name){ fieldError('f_name', 'Credit name is required'); return; }
+    const value = readAmount('f_value', {what:'credit value'}); if(value === null) return; // v2.3.1 (L2): blank is not $0
+    t.value = value;
     const err = t.usage==='perstay' ? '' : creditAnchorError(t.frequency, t.renewalType, t.anchor);
     if(err){ toast(err); return; }
     const obj = {id: editing?id:uid('cr'), ...t};
@@ -3298,11 +3546,11 @@ function renderSetupFreeNights(){
     if(fn.repeats===false) bits.push(cycle ? `one-off, issued ${fmtDate(cycle.start)}` : 'one-off');
     else if(cycle) bits.push(`renews ${fmtDate(cycle.nextStart)}`);
     if(exp) bits.push(`current certificate expires ${fmtDate(exp)}${overrideAppliesToCycle(fn, cycle)?' (set manually)':''}`);
-    if((fn.certsPerCycle||1) > 1) bits.push(`${fn.certsPerCycle} per year`);
+    if((fn.certsPerCycle||1) > 1) bits.push(`${Number(fn.certsPerCycle)} per year`);
     if(fn.endsAfter) bits.push(`ends after ${fmtDate(parseDate(fn.endsAfter))}`);
     return `<div class="list-row">
       <div class="main-col"><div class="title">${escHtml(fn.desc)} ${fnSetupStatus(fn, today)}</div><div class="setup-row-meta">${bits.filter(Boolean).join(' · ')}</div></div>
-      <div class="actions"><button class="btn btn-sm" data-edit-fn="${fn.id}">Edit</button><button class="btn btn-sm btn-danger" data-del-fn="${fn.id}">Delete</button></div>
+      <div class="actions"><button class="btn btn-sm" data-edit-fn="${escAttr(fn.id)}">Edit</button><button class="btn btn-sm btn-danger" data-del-fn="${escAttr(fn.id)}">Delete</button></div>
     </div>`;
   };
   setupPageShell('setupFreeNights', `
@@ -3332,12 +3580,12 @@ function openFnModal(id){
         <div class="field"><label>Repeats yearly?</label><select id="f_repeats"><option value="yes" ${fn.repeats!==false?'selected':''}>Yes — renews every year</option><option value="no" ${fn.repeats===false?'selected':''}>No — one-off certificate</option></select></div>
       </div>
       <div class="field"><label>Description</label><input id="f_desc" value="${escAttr(fn.desc||'')}"></div>
-      <div class="field"><label id="anchorLabel">Renewal / issue date</label><input id="f_anchor" type="date" value="${fn.anchor||''}"></div>
+      <div class="field"><label id="anchorLabel">Renewal / issue date</label><input id="f_anchor" type="date" value="${escAttr(fn.anchor||'')}"></div>
       <div class="hint" id="fnAnchorHint"></div>
-      <div class="field" id="certsField"><label>Certificates granted per year</label><input id="f_certsPerCycle" type="number" min="1" step="1" value="${fn.certsPerCycle||1}"></div>
-      <div class="field"><label>Manual expiry for the current certificate (optional)</label><input id="f_expiration" type="date" value="${fn.expirationOverride||''}"></div>
+      <div class="field" id="certsField"><label>Certificates granted per year</label><input id="f_certsPerCycle" type="number" min="1" step="1" value="${escAttr(fn.certsPerCycle||1)}"></div>
+      <div class="field"><label>Manual expiry for the current certificate (optional)</label><input id="f_expiration" type="date" value="${escAttr(fn.expirationOverride||'')}"></div>
       <div class="hint" id="fnExpHint"></div>
-      <div class="field" id="fnEndsField"><label>Ends after (optional)</label><input id="f_ends" type="date" value="${fn.endsAfter||''}"></div>
+      <div class="field" id="fnEndsField"><label>Ends after (optional)</label><input id="f_ends" type="date" value="${escAttr(fn.endsAfter||'')}"></div>
       <div class="preview-box" id="fnPreview"></div>
     </div>
     ${modalFoot()}
@@ -3384,8 +3632,8 @@ function openFnModal(id){
   refresh();
   document.getElementById('modalSave').onclick = ()=>{
     const t = read();
-    if(!t.desc){ toast('Description is required'); return; }
-    if(!t.repeats && !t.anchor){ toast('A one-off certificate needs its issue date'); return; }
+    if(!t.desc){ fieldError('f_desc', 'Description is required'); return; }
+    if(!t.repeats && !t.anchor){ fieldError('f_anchor', 'A one-off certificate needs its issue date'); return; }
     if(isStaleUnchanged(t)) t.expirationOverride = null;
     const err = overrideError(t);
     if(err){ toast('Check the manual expiry date'); return; }
@@ -3483,7 +3731,7 @@ function renderCreditRowHtml(today, {cr, cycle, isLive}, showDragHandle){
   const notes = (prog.count && cycle) ? redemptionNotesInCycle(cr.id, cycle) : '';
   const amountHtml = usage === 'perstay' ? `$${prog.used.toLocaleString()}`
     : usage === 'spenddown' ? `$${prog.used.toLocaleString()}<span style="color:var(--text-soft);font-weight:500;"> / $${Number(cr.value).toLocaleString()}</span>`
-    : `$${cr.value}`;
+    : `$${Number(cr.value||0).toLocaleString()}`;
   const canLog = cycle && !notStarted && !cr.autoRedeem && !isRedeemed;
   const logLabel = usage === 'perstay' ? 'Log stay' : (usage === 'spenddown' && prog.count > 0) ? 'Log another use' : 'Mark redeemed';
   const subtitleBits = usage === 'perstay'
@@ -3491,7 +3739,7 @@ function renderCreditRowHtml(today, {cr, cycle, isLive}, showDragHandle){
     : [card?escHtml(card.name):'(unlinked)', escHtml(cr.frequency), renewalLabel, usageLabel, when];
 
   return `
-  <div class="list-row" data-row-id="${cr.id}">
+  <div class="list-row" data-row-id="${escAttr(cr.id)}">
     ${showDragHandle ? '<div class="drag-handle"><svg width="12" height="16" viewBox="0 0 12 16" fill="currentColor"><circle cx="3" cy="3" r="1.3"/><circle cx="9" cy="3" r="1.3"/><circle cx="3" cy="8" r="1.3"/><circle cx="9" cy="8" r="1.3"/><circle cx="3" cy="13" r="1.3"/><circle cx="9" cy="13" r="1.3"/></svg></div>' : '<div style="width:20px;"></div>'}
     <div class="main-col">
       <div class="title"${isExpired ? ' style="color:var(--text-muted);"' : ''}>${escHtml(cr.name)}</div>
@@ -3504,12 +3752,12 @@ function renderCreditRowHtml(today, {cr, cycle, isLive}, showDragHandle){
     <div class="days">${daysLeft!==null && !notStarted ? (daysLeft>=0? daysLeft+' days left' : '') : ''}</div>
     <div class="row-break"></div>
     <div class="actions">
-      ${canLog ? `<button class="btn btn-sm btn-primary" data-mark-cr="${cr.id}">${logLabel}</button>` : ''}
-      ${!cycle ? `<button class="btn btn-sm btn-primary" data-mark-cr="${cr.id}">+ Log redemption</button>` : ''}
-      ${prog.count && usage !== 'perstay' ? `<button class="btn btn-sm" data-editredemption-cr="${cr.id}">Edit details</button>` : ''}
-      ${prog.count && usage !== 'perstay' ? `<button class="btn btn-sm btn-danger" data-unredeem-cr="${cr.id}">Unredeem</button>` : ''}
-      ${prog.count && usage === 'perstay' ? `<button class="btn btn-sm" data-stays-cr="${cr.id}">See stays</button>` : ''}
-      <button class="btn btn-sm btn-link" data-setup-cr="${cr.id}" title="Change this credit in Setup">Edit in Setup →</button>
+      ${canLog ? `<button class="btn btn-sm btn-primary" data-mark-cr="${escAttr(cr.id)}">${logLabel}</button>` : ''}
+      ${!cycle ? `<button class="btn btn-sm btn-primary" data-mark-cr="${escAttr(cr.id)}">+ Log redemption</button>` : ''}
+      ${prog.count && usage !== 'perstay' ? `<button class="btn btn-sm" data-editredemption-cr="${escAttr(cr.id)}">Edit details</button>` : ''}
+      ${prog.count && usage !== 'perstay' ? `<button class="btn btn-sm btn-danger" data-unredeem-cr="${escAttr(cr.id)}">Unredeem</button>` : ''}
+      ${prog.count && usage === 'perstay' ? `<button class="btn btn-sm" data-stays-cr="${escAttr(cr.id)}">See stays</button>` : ''}
+      <button class="btn btn-sm btn-link" data-setup-cr="${escAttr(cr.id)}" title="Change this credit in Setup">Edit in Setup →</button>
     </div>
   </div>`;
 }
@@ -3561,7 +3809,7 @@ function renderCredits(){
     rowsHtml = groupKeyOrder.map(key=>{
       const items = groups.get(key);
       const label = key===UNLINKED ? '(unlinked)' : escHtml(cardById(key).name);
-      const groupTotal = items.reduce((s,i)=>s+i.cr.value,0);
+      const groupTotal = items.reduce((s,i)=>s+(Number(i.cr.value)||0),0);
       const header = `<div style="padding:10px 20px;font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:var(--text-muted);background:var(--surface-hover);border-bottom:1px solid var(--border);">${label} · ${items.length} credit${items.length===1?'':'s'} · $${groupTotal.toLocaleString()}</div>`;
       return header + items.map(item=>renderCreditRowHtml(today, item, false)).join('');
     }).join('');
@@ -3659,7 +3907,7 @@ function openRedeemModal(kind, sourceId, cycle){
     <div class="modal-head"><h3>${usage==='perstay' ? 'Log stay' : 'Log redemption'}${kind==='cr' ? ` — ${escHtml(item.name)}` : ''}</h3><button class="close-x" id="modalClose"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
     <div class="modal-body">
       <div class="field"><label>Date used</label><input id="f_date" type="date" value="${defaultRedeemDate(cycle)}"></div>
-      <div class="field"><label>Amount ($)</label><input id="f_amount" type="number" min="0" value="${defaultAmount}" placeholder="${needsValue?'Estimated cash value of the stay you booked':''}"></div>
+      <div class="field"><label>Amount ($)</label><input id="f_amount" type="number" min="0" inputmode="decimal" value="${escAttr(defaultAmount)}" placeholder="${needsValue?'Estimated cash value of the stay you booked':''}"></div>
       ${needsValue ? `<div class="hint">Free nights don't have a fixed dollar value — enter what the stay would have cost in cash (check the hotel's rate for your dates) so it counts toward value realized.</div>` : ''}
       ${usage==='spenddown' ? `<div class="hint">$${prog.remaining.toLocaleString()} of $${Number(item.value).toLocaleString()} left for this period${prog.count?` (${prog.count} use${prog.count===1?'':'s'} logged)`:''}. Log each purchase separately.</div>` : ''}
       ${usage==='perstay' ? `<div class="hint">Every stay counts — log one entry per stay.</div>` : ''}
@@ -3682,26 +3930,25 @@ function openRedeemModal(kind, sourceId, cycle){
       if(kind==='cr') renderCredits(); else renderFreeNights();
       return;
     }
-    const amount = Number(val('f_amount'))||0;
-    if(amount < 0){ toast('Amount cannot be negative'); return; }
-    if(kind==='fn' && amount <= 0){
-      toast('Enter the cash value of this free night before marking it used');
-      return;
-    }
+    // v2.3.1 (H1): a date is required — a blank one used to be saved and crash the app everywhere.
+    const date = readDateField('f_date', 'Pick the date it was used'); if(date === null) return;
+    const amount = kind==='fn' ? readAmount('f_amount', {allowZero:false, what:'cash value of this free night'}) : readAmount('f_amount');
+    if(amount === null) return;
     if(usage === 'spenddown' && amount > progNow.remaining){
-      toast(`Only $${progNow.remaining.toLocaleString()} is left on this credit for this period`);
+      fieldError('f_amount', `Only $${progNow.remaining.toLocaleString()} is left on this credit for this period`);
       return;
     }
     const entry = {
-      id: uid('rh'), date: val('f_date'), cardId: item.cardId, type: kind==='cr'?'Credit':'Free Night',
+      id: uid('rh'), date, cardId: item.cardId, type: kind==='cr'?'Credit':'Free Night',
       sourceId: item.id, desc: kind==='cr'?item.name:item.desc, amount,
       notes: val('f_notes').trim()
     };
     DATA.history.push(entry);
-    if(kind==='fn'){
-      item.cashValue = entry.amount;
+    const liveFn = kind==='fn' ? DATA.freeNights.find(x=>x.id===sourceId) : null; // v2.3.1 (M1): re-find — a sync may have replaced DATA
+    if(liveFn){
+      liveFn.cashValue = entry.amount;
       const propEl = document.getElementById('f_property');
-      if(propEl) item.property = propEl.value;
+      if(propEl) liveFn.property = propEl.value;
     }
     saveData(); closeModal();
     if(kind==='cr') renderCredits(); else renderFreeNights();
@@ -3782,10 +4029,10 @@ function renderFreeNightRowHtml(today, {fn, cycle, isLive}, showDragHandle){
   const priorRedeemedDate = (isLive && !isFullyUsed) ? mostRecentPriorRedemption(fn.id, cycle) : null;
 
   return `
-  <div class="list-row" data-row-id="${fn.id}">
+  <div class="list-row" data-row-id="${escAttr(fn.id)}">
     ${showDragHandle ? '<div class="drag-handle"><svg width="12" height="16" viewBox="0 0 12 16" fill="currentColor"><circle cx="3" cy="3" r="1.3"/><circle cx="9" cy="3" r="1.3"/><circle cx="3" cy="8" r="1.3"/><circle cx="9" cy="8" r="1.3"/><circle cx="3" cy="13" r="1.3"/><circle cx="9" cy="13" r="1.3"/></svg></div>' : '<div style="width:20px;"></div>'}
     <div class="main-col">
-      <div class="title"${isExpired ? ' style="color:var(--text-muted);"' : ''}>${escHtml(fn.desc)}${certsPerCycle>1?` <span style="font-size:11px;font-weight:400;color:var(--text-muted);">(${certsPerCycle}/yr)</span>`:''}${fn.repeats===false?' <span class="pill pill-gray" style="font-size:10.5px;">One-off</span>':''}</div>
+      <div class="title"${isExpired ? ' style="color:var(--text-muted);"' : ''}>${escHtml(fn.desc)}${certsPerCycle>1?` <span style="font-size:11px;font-weight:400;color:var(--text-muted);">(${Number(certsPerCycle)}/yr)</span>`:''}${fn.repeats===false?' <span class="pill pill-gray" style="font-size:10.5px;">One-off</span>':''}</div>
       <div class="subtitle">${card?escHtml(card.name):'(unlinked)'} · ${escHtml(fn.program)}${expiration?` · expires ${fmtDate(expiration)}${overrideAppliesToCycle(fn, cycle)?' (set manually)':''}`:(cycle?'':' · no anchor date set')}${(redeemedCount>0 && redemptionNotesInCycle(fn.id, cycle)) ? ` · <span style="color:var(--text);">Redeemed at: ${escHtml(redemptionNotesInCycle(fn.id, cycle))}</span>` : ''}</div>
       ${progressPct!==null ? `<div style="height:4px;background:var(--gray-bg);border-radius:2px;margin-top:6px;overflow:hidden;"><div style="height:100%;width:${progressPct}%;background:${isFullyUsed?'var(--green)':'var(--text-soft)'};"></div></div>` : ''}
     </div>
@@ -3795,10 +4042,10 @@ function renderFreeNightRowHtml(today, {fn, cycle, isLive}, showDragHandle){
     <div class="days">${daysLeft!==null? (daysLeft>=0? daysLeft+' days left' : '') : ''}${priorRedeemedDate ? ` <span style="color:var(--text-soft);font-size:11px;">· last used ${fmtDate(priorRedeemedDate)}</span>` : ''}</div>
     <div class="row-break"></div>
     <div class="actions">
-      ${!isFullyUsed && cycle ? `<button class="btn btn-sm btn-primary" data-mark-fn="${fn.id}">${redeemedCount>0?`Log redemption (${redeemedCount+1} of ${certsPerCycle})`:'Mark used'}</button>` : ''}
-      ${!cycle ? `<button class="btn btn-sm btn-primary" data-mark-fn="${fn.id}">+ Log redemption</button>` : ''}
-      ${redeemedCount>0 ? `<button class="btn btn-sm" data-editredemption-fn="${fn.id}">Edit details</button><button class="btn btn-sm btn-danger" data-unredeem-fn="${fn.id}">Unredeem</button>` : ''}
-      <button class="btn btn-sm btn-link" data-setup-fn="${fn.id}" title="Change this certificate in Setup">Edit in Setup →</button>
+      ${!isFullyUsed && cycle ? `<button class="btn btn-sm btn-primary" data-mark-fn="${escAttr(fn.id)}">${redeemedCount>0?`Log redemption (${redeemedCount+1} of ${certsPerCycle})`:'Mark used'}</button>` : ''}
+      ${!cycle ? `<button class="btn btn-sm btn-primary" data-mark-fn="${escAttr(fn.id)}">+ Log redemption</button>` : ''}
+      ${redeemedCount>0 ? `<button class="btn btn-sm" data-editredemption-fn="${escAttr(fn.id)}">Edit details</button><button class="btn btn-sm btn-danger" data-unredeem-fn="${escAttr(fn.id)}">Unredeem</button>` : ''}
+      <button class="btn btn-sm btn-link" data-setup-fn="${escAttr(fn.id)}" title="Change this certificate in Setup">Edit in Setup →</button>
     </div>
   </div>`;
 }
@@ -3950,7 +4197,7 @@ function renderSetupValues(){
           <tbody>${rows.map(r=>`<tr data-key="${escAttr(r.key)}">
             <td class="pv-name" style="font-weight:600;">${escHtml(r.name)}</td>
             <td class="pv-held" data-label="Miles">${r.held ? r.held.toLocaleString() : '—'}</td>
-            <td class="pv-c" data-label="¢ per mile"><input class="pv-cents" type="number" min="0" step="0.05" value="${r.v.cents ?? ''}" aria-label="Cents per mile for ${escAttr(r.name)}"></td>
+            <td class="pv-c" data-label="¢ per mile"><input class="pv-cents" type="number" min="0" step="0.05" inputmode="decimal" value="${escAttr(r.v.cents ?? '')}" aria-label="Cents per mile for ${escAttr(r.name)}"></td>
             <td class="pv-worth" data-label="Worth">${r.held && Number(r.v.cents)>0 ? fmtMoney0(r.held*Number(r.v.cents)/100) : '—'}</td>
             <td class="pv-s" data-label="Source"><input class="pv-source" value="${escAttr(r.v.source||'')}" placeholder="e.g. The Points Guy" aria-label="Source"></td>
             <td class="pv-d" data-label="Checked"><input class="pv-checked" type="date" value="${escAttr(r.v.checked||'')}" aria-label="Date checked"></td>
@@ -4024,7 +4271,9 @@ async function pushState(){
 }
 async function enablePush(){
   if(await Notification.requestPermission() !== 'granted'){ toast('Notifications were not allowed'); return renderPushPanel(); }
-  const reg = await navigator.serviceWorker.ready;
+  // v2.3.1 (L8): don't wait forever if the service worker never started.
+  const reg = await Promise.race([navigator.serviceWorker.ready,
+    new Promise((_, reject)=>setTimeout(()=>reject(new Error('the app\'s background worker isn\'t running — close and reopen the app, then try again')), 10000))]);
   const { publicKey } = await pushFn('vapid=1');
   if(!publicKey) throw new Error('The reminder function has no notification key yet (Supabase setup step).');
   const sub = await reg.pushManager.subscribe({userVisibleOnly:true, applicationServerKey:b64urlToBytes(publicKey)});
@@ -4036,7 +4285,12 @@ async function enablePush(){
 async function disablePush(){
   const sub = await currentPushSubscription();
   if(sub){
-    await supabaseClient.from('push_subscriptions').delete().eq('endpoint', sub.endpoint);
+    // v2.3.1 (L8): only unsubscribe here once the server copy is really gone —
+    // otherwise the reminder function would keep a dead entry and the app
+    // would wrongly say "off".
+    if(!supabaseClient) throw new Error('no cloud connection');
+    const { error } = await supabaseClient.from('push_subscriptions').delete().eq('endpoint', sub.endpoint);
+    if(error) throw error;
     await sub.unsubscribe().catch(()=>{});
   }
   toast('Notifications are off for this device');
@@ -4112,15 +4366,15 @@ function mileageRowHtml(mp, today){
         </div>`;
       }).join('');
   return `
-  <div class="list-row" data-row-id="${mp.id}" style="flex-direction:column;align-items:stretch;">
+  <div class="list-row" data-row-id="${escAttr(mp.id)}" style="flex-direction:column;align-items:stretch;">
     <div style="display:flex;align-items:flex-start;gap:10px;width:100%;">
       <div class="main-col" style="flex:1;min-width:0;">
         <div class="title">${escHtml(mp.programName)}</div>
-        <div class="subtitle">${mp.accountNumber?`Acct #${escHtml(mp.accountNumber)} · `:''}${Number(mp.milesTotal||0).toLocaleString()} miles total${(()=>{ const v = pointValueFor(mp.programName); return v ? ` · <span style="color:var(--text);font-weight:600;">≈ ${fmtMoney0(Number(mp.milesTotal||0)*v.cents/100)}</span> <span title="${escAttr(v.source||'')}">at ${v.cents}¢</span>` : ` · <a data-goto-values style="color:var(--brand-text);cursor:pointer;">add a value</a>`; })()}</div>
+        <div class="subtitle">${mp.accountNumber?`Acct #${escHtml(mp.accountNumber)} · `:''}${Number(mp.milesTotal||0).toLocaleString()} miles total${(()=>{ const v = pointValueFor(mp.programName); return v ? ` · <span style="color:var(--text);font-weight:600;">≈ ${fmtMoney0(Number(mp.milesTotal||0)*v.cents/100)}</span> <span title="${escAttr(v.source||'')}">at ${escHtml(Number(v.cents))}¢</span>` : ` · <a data-goto-values style="color:var(--brand-text);cursor:pointer;">add a value</a>`; })()}</div>
       </div>
       <div style="display:flex;gap:6px;flex-shrink:0;">
-        <button class="btn btn-sm" data-edit-mp="${mp.id}">Edit</button>
-        <button class="btn btn-sm btn-danger" data-del-mp="${mp.id}">Delete</button>
+        <button class="btn btn-sm" data-edit-mp="${escAttr(mp.id)}">Edit</button>
+        <button class="btn btn-sm btn-danger" data-del-mp="${escAttr(mp.id)}">Delete</button>
       </div>
     </div>
     <div style="padding-left:2px;margin-top:2px;">${batchLinesHtml}</div>
@@ -4136,7 +4390,7 @@ function voucherRowHtml(v, today){
   const isExpired = daysLeft !== null && daysLeft < 0;
   const pill = !hasDate ? {label:'No date set', cls:'pill-gray'} : isExpired ? {label:'Expired', cls:'pill-gray'} : statusForDays(daysLeft, 60);
   return `
-  <div class="list-row" data-row-id="${v.id}">
+  <div class="list-row" data-row-id="${escAttr(v.id)}">
     <div style="width:20px;"></div>
     <div class="main-col">
       <div class="title">${escHtml(v.title)}</div>
@@ -4147,8 +4401,8 @@ function voucherRowHtml(v, today){
     <div class="days">${daysLeft!==null?(daysLeft>=0?daysLeft+' days left':'expired '+Math.abs(daysLeft)+'d ago'):''}</div>
     <div class="row-break"></div>
     <div class="actions">
-      <button class="btn btn-sm" data-edit-v="${v.id}">Edit</button>
-      <button class="btn btn-sm btn-danger" data-del-v="${v.id}">Delete</button>
+      <button class="btn btn-sm" data-edit-v="${escAttr(v.id)}">Edit</button>
+      <button class="btn btn-sm btn-danger" data-del-v="${escAttr(v.id)}">Delete</button>
     </div>
   </div>`;
 }
@@ -4240,8 +4494,8 @@ function renderMileage(){
 function expirationRowHtml(exp){
   return `
   <div class="expiration-row" style="display:flex;gap:8px;align-items:flex-end;margin-bottom:8px;">
-    <div class="field" style="flex:1;margin-bottom:0;"><label>Miles</label><input type="number" min="0" class="exp-amount" value="${exp.amount||''}"></div>
-    <div class="field" style="flex:1;margin-bottom:0;"><label>Expiration date</label><input type="date" class="exp-date" value="${exp.date||''}"></div>
+    <div class="field" style="flex:1;margin-bottom:0;"><label>Miles</label><input type="number" min="0" inputmode="numeric" class="exp-amount" value="${escAttr(exp.amount===0?0:(exp.amount||''))}"></div>
+    <div class="field" style="flex:1;margin-bottom:0;"><label>Expiration date</label><input type="date" class="exp-date" value="${escAttr(exp.date||'')}"></div>
     <button type="button" class="btn btn-sm btn-danger" data-remove-exp title="Remove this batch"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
   </div>`;
 }
@@ -4258,7 +4512,7 @@ function openMileageModal(id){
       <datalist id="programNamesList">${programNames().map(n=>`<option value="${escAttr(n)}">`).join('')}</datalist>
       <div class="field-row">
         <div class="field"><label>Account / mileage number</label><input id="f_account" value="${escAttr(mp.accountNumber)}"></div>
-        <div class="field"><label>Total miles</label><input id="f_total" type="number" min="0" value="${mp.milesTotal}"></div>
+        <div class="field"><label>Total miles</label><input id="f_total" type="number" min="0" inputmode="numeric" value="${escAttr(mp.milesTotal)}"></div>
       </div>
       <div class="field">
         <label>Expiring batches</label>
@@ -4296,20 +4550,30 @@ function openMileageModal(id){
   document.getElementById('modalSave').onclick = ()=>{
     const ownerName = val('f_owner').trim();
     const programName = val('f_program').trim();
-    if(!ownerName){ toast('Owner name is required'); return; }
-    if(!programName){ toast('Program name is required'); return; }
-    const expirations = Array.from(document.querySelectorAll('#expirationsContainer .expiration-row')).map(row=>({
-      amount: Number(row.querySelector('.exp-amount').value)||0,
-      date: row.querySelector('.exp-date').value || null,
-    })).filter(exp=>exp.date); // rows left blank are just dropped, not errors
+    if(!ownerName){ fieldError('f_owner', 'Owner name is required'); return; }
+    if(!programName){ fieldError('f_program', 'Program name is required'); return; }
+    // v2.3.1 (L2): blank or negative miles are errors, never a silent 0.
+    const milesTotal = readAmount('f_total', {what:'total miles'}); if(milesTotal === null) return;
+    const expirations = [];
+    for(const row of document.querySelectorAll('#expirationsContainer .expiration-row')){
+      const amtEl = row.querySelector('.exp-amount'), dateEl = row.querySelector('.exp-date');
+      if(!dateEl.value && amtEl.value.trim() === '') continue; // rows left blank are just dropped, not errors
+      if(!isValidDateStr(dateEl.value)){ fieldError(dateEl, 'Pick the expiration date (or clear this row)'); return; }
+      const amount = readAmount(amtEl, {what:'miles expiring', allowZero:false}); if(amount === null) return;
+      expirations.push({amount, date: dateEl.value});
+    }
     const fields = {
       ownerName, programName,
       accountNumber: val('f_account').trim(),
-      milesTotal: Number(val('f_total'))||0,
+      milesTotal,
       expirations,
       notes: val('f_notes').trim(),
     };
-    if(editing){ Object.assign(mp, fields); }
+    if(editing){
+      const live = DATA.mileagePrograms.find(x=>x.id===id); // v2.3.1 (M1): re-find — a sync may have replaced DATA while this was open
+      if(!live){ toast('This account changed on another device — reopen it and try again.'); closeModal(); return; }
+      Object.assign(live, fields);
+    }
     else { DATA.mileagePrograms.push({ id: uid('mp'), ...fields }); }
     saveData(); closeModal(); renderMileage();
     toast(editing?'Mileage account updated':'Mileage account added');
@@ -4328,7 +4592,7 @@ function openVoucherModal(id){
       <datalist id="programNamesList">${programNames().map(n=>`<option value="${escAttr(n)}">`).join('')}</datalist>
       <div class="field"><label>Voucher name</label><input id="f_title" value="${escAttr(v.title)}" placeholder="e.g. Systemwide Upgrade"></div>
       <div class="field"><label>Description</label><input id="f_desc" value="${escAttr(v.description||'')}" placeholder="e.g. Valid for any domestic upgrade, book by phone"></div>
-      <div class="field"><label>Expiration date</label><input id="f_expdate" type="date" value="${v.expirationDate||''}"></div>
+      <div class="field"><label>Expiration date</label><input id="f_expdate" type="date" value="${escAttr(v.expirationDate||'')}"></div>
       <div class="hint">Leave the expiration blank if it doesn't expire — it just won't show up in reminders until you set one. Used or gone? Just delete the row.</div>
     </div>
     <div class="modal-foot">
@@ -4339,8 +4603,8 @@ function openVoucherModal(id){
   document.getElementById('modalSave').onclick = ()=>{
     const ownerName = val('f_owner').trim();
     const title = val('f_title').trim();
-    if(!ownerName){ toast('Owner name is required'); return; }
-    if(!title){ toast('Voucher name is required'); return; }
+    if(!ownerName){ fieldError('f_owner', 'Owner name is required'); return; }
+    if(!title){ fieldError('f_title', 'Voucher name is required'); return; }
     const fields = {
       ownerName,
       programName: val('f_program').trim() || null,
@@ -4348,7 +4612,11 @@ function openVoucherModal(id){
       description: val('f_desc').trim(),
       expirationDate: val('f_expdate') || null,
     };
-    if(editing){ Object.assign(v, fields); }
+    if(editing){
+      const live = DATA.vouchers.find(x=>x.id===id); // v2.3.1 (M1): re-find — a sync may have replaced DATA while this was open
+      if(!live){ toast('This voucher changed on another device — reopen it and try again.'); closeModal(); return; }
+      Object.assign(live, fields);
+    }
     else { DATA.vouchers.push({ id: uid('v'), ...fields }); }
     saveData(); closeModal(); renderMileage();
     toast(editing?'Voucher updated':'Voucher added');
@@ -4366,20 +4634,20 @@ function renderHistory(){
     historyFilterSearch.trim() !== '',
   ].filter(Boolean).length;
 
-  const availableYears = Array.from(new Set(DATA.history.map(h=>parseDate(h.date).getFullYear()))).sort((a,b)=>b-a);
+  const availableYears = Array.from(new Set(DATA.history.map(entryYear).filter(y=>y!==null))).sort((a,b)=>b-a);
 
   // Computed up front (not inside a DOM-patch-after-render step) so the
   // header can show the correct count on the very first paint — no flash
   // of a placeholder value while this fills in a moment later.
   const allRowsSorted = historySortMode === 'manual'
     ? DATA.history.slice()
-    : DATA.history.slice().sort((a,b)=>parseDate(b.date)-parseDate(a.date));
+    : DATA.history.slice().sort((a,b)=>(parseDate(b.date)||0)-(parseDate(a.date)||0));
   const searchLower = historyFilterSearch.trim().toLowerCase();
   const rows = allRowsSorted.filter(h => {
-    if(historyFilterYear !== 'all' && String(parseDate(h.date).getFullYear()) !== historyFilterYear) return false;
+    if(historyFilterYear !== 'all' && String(entryYear(h)) !== historyFilterYear) return false;
     if(historyFilterCardId !== 'all' && h.cardId !== historyFilterCardId) return false;
     if(historyFilterType !== 'all' && h.type !== historyFilterType) return false;
-    if(searchLower && !(h.desc.toLowerCase().includes(searchLower) || (h.notes||'').toLowerCase().includes(searchLower))) return false;
+    if(searchLower && !(String(h.desc||'').toLowerCase().includes(searchLower) || (h.notes||'').toLowerCase().includes(searchLower))) return false;
     return true;
   });
 
@@ -4406,7 +4674,7 @@ function renderHistory(){
           </select>
           <select id="histCardSelect">
             <option value="all">Card: All cards</option>
-            ${DATA.cards.map(c=>`<option value="${c.id}" ${historyFilterCardId===c.id?'selected':''}>${escHtml(c.name)}</option>`).join('')}
+            ${DATA.cards.map(c=>`<option value="${escAttr(c.id)}" ${historyFilterCardId===c.id?'selected':''}>${escHtml(c.name)}</option>`).join('')}
           </select>
           <select id="histTypeSelect">
             <option value="all">Type: All</option>
@@ -4439,15 +4707,15 @@ function renderHistory(){
 
   body.innerHTML = rows.length ? rows.map(h=>{
     const card = cardById(h.cardId);
-    return `<tr data-row-id="${h.id}">
+    return `<tr data-row-id="${escAttr(h.id)}">
       <td class="h-drag">${canDragReorder ? `<div class="drag-handle"><svg width="12" height="16" viewBox="0 0 12 16" fill="currentColor"><circle cx="3" cy="3" r="1.3"/><circle cx="9" cy="3" r="1.3"/><circle cx="3" cy="8" r="1.3"/><circle cx="9" cy="8" r="1.3"/><circle cx="3" cy="13" r="1.3"/><circle cx="9" cy="13" r="1.3"/></svg></div>` : ''}</td>
-      <td class="h-date" style="white-space:nowrap;">${fmtDate(parseDate(h.date))}<span class="h-meta-phone"> · ${card?escHtml(card.name):'(unlinked)'} · ${escHtml(h.type)}</span></td>
+      <td class="h-date" style="white-space:nowrap;">${fmtDate(parseDate(h.date))}${h.dateRepaired?' <span class="pill pill-amber" title="The date was missing and was filled in automatically">check date</span>':''}<span class="h-meta-phone"> · ${card?escHtml(card.name):'(unlinked)'} · ${escHtml(h.type)}</span></td>
       <td class="h-card">${card?escHtml(card.name):'(unlinked)'}</td>
       <td class="h-type"><span class="pill ${h.type==='Credit'?'pill-accent':'pill-gray'}">${escHtml(h.type)}</span></td>
       <td class="h-desc">${escHtml(h.desc)}</td>
       <td class="h-amt" style="font-weight:700;">$${Number(h.amount).toLocaleString()}</td>
       <td class="h-notes${h.notes?'':' none'}" style="color:var(--text-muted);font-size:12.5px;max-width:260px;">${h.notes?escHtml(h.notes):'—'}</td>
-      <td class="h-act"><button class="btn btn-sm" data-edit-h="${h.id}">Edit</button> <button class="btn btn-sm btn-danger" data-del-h="${h.id}">Delete</button></td>
+      <td class="h-act"><button class="btn btn-sm" data-edit-h="${escAttr(h.id)}">Edit</button> <button class="btn btn-sm btn-danger" data-del-h="${escAttr(h.id)}">Delete</button></td>
     </tr>`;
   }).join('') : `<tr><td colspan="8" class="empty">${DATA.history.length === 0 ? 'No redemptions logged yet.' : 'No entries match your filters.'}</td></tr>`;
 
@@ -4483,7 +4751,8 @@ function renderHistory(){
       // v2.2: an auto-posted entry must stay deleted (otherwise the catch-up in runAutoRedemptions re-creates it)
       const h = DATA.history.find(x=>x.id===b.dataset.delH);
       const cr = h && h.sourceId ? DATA.credits.find(c=>c.id===h.sourceId && c.autoRedeem) : null;
-      if(cr){ const c = creditCycle(cr, parseDate(h.date)); if(c) suppressAutoRedemption(cr.id, toISODate(c.start)); }
+      const hd = h ? parseDate(h.date) : null;
+      if(cr && hd){ const c = creditCycle(cr, hd); if(c) suppressAutoRedemption(cr.id, toISODate(c.start)); }
       DATA.history=DATA.history.filter(x=>x.id!==b.dataset.delH); saveData(); renderHistory();
     });
   });
@@ -4510,11 +4779,12 @@ function openHistModal(id){
   showModal(`
     <div class="modal-head"><h3>${editing?'Edit redemption':'Log redemption'}</h3><button class="close-x" id="modalClose"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
     <div class="modal-body">
-      <div class="field"><label>Date used</label><input id="f_date" type="date" value="${entry?entry.date:toISODate(bangkokToday())}"></div>
-      <div class="field"><label>Card</label><select id="f_card">${DATA.cards.map(c=>`<option value="${c.id}" ${entry&&c.id===entry.cardId?'selected':''}>${escHtml(c.name)}</option>`).join('')}</select></div>
+      <div class="field"><label>Date used</label><input id="f_date" type="date" value="${escAttr(entry?entry.date:toISODate(bangkokToday()))}"></div>
+      ${entry&&entry.dateRepaired ? `<div class="hint pill-amber-text">This entry's date was missing and was filled in automatically — please check it.</div>` : ''}
+      <div class="field"><label>Card</label><select id="f_card">${cardOptionsHtml(entry ? entry.cardId : null)}</select></div>
       <div class="field"><label>Type</label><select id="f_type"><option ${entry&&entry.type==='Credit'?'selected':''}>Credit</option><option ${entry&&entry.type==='Free Night'?'selected':''}>Free Night</option></select></div>
       <div class="field"><label>Description</label><input id="f_desc" value="${escAttr(entry?entry.desc:'')}" placeholder="e.g. $300 Annual Travel Credit"></div>
-      <div class="field"><label>Amount ($)</label><input id="f_amount" type="number" min="0" value="${entry?entry.amount:''}"></div>
+      <div class="field"><label>Amount ($)</label><input id="f_amount" type="number" min="0" inputmode="decimal" value="${escAttr(entry?entry.amount:'')}"></div>
       <div class="field"><label>Where / how redeemed (optional)</label><textarea id="f_notes" rows="2" placeholder="e.g. Hilton Bangkok spa, booked via app, confirmation #...">${escHtml(entry?(entry.notes||''):'')}</textarea></div>
       ${entry&&entry.sourceId ? `<div class="hint">This entry is linked to a row on the Annual Credits or Free Nights tab. Editing it here updates that row's status too.</div>` : ''}
     </div>
@@ -4524,18 +4794,19 @@ function openHistModal(id){
     </div>
   `);
   document.getElementById('modalSave').onclick = ()=>{
-    const desc = val('f_desc');
-    const amount = Number(val('f_amount'))||0;
-    if(!desc){ toast('Description is required'); return; }
-    if(amount < 0){ toast('Amount cannot be negative'); return; }
+    const date = readDateField('f_date', 'Pick the date it was used'); if(date === null) return;
+    const desc = val('f_desc').trim();
+    if(!desc){ fieldError('f_desc', 'Description is required'); return; }
+    const amount = readAmount('f_amount'); if(amount === null) return;
     if(editing){
       const live = DATA.history.find(h=>h.id===id); // re-find: a sync may have replaced DATA while this was open
       if(!live){ toast('This entry changed on another device — reopen it and try again.'); closeModal(); return; }
-      const room = spenddownRoom(live.sourceId, val('f_date'), live.id);
-      if(room !== null && amount > room){ toast(`Only $${room.toLocaleString()} is left on this credit for that period`); return; }
-      Object.assign(live, { date: val('f_date'), cardId: val('f_card'), type: val('f_type'), desc, amount, notes: val('f_notes').trim() });
+      const room = spenddownRoom(live.sourceId, date, live.id);
+      if(room !== null && amount > room){ fieldError('f_amount', `Only $${room.toLocaleString()} is left on this credit for that period`); return; }
+      Object.assign(live, { date, cardId: val('f_card'), type: val('f_type'), desc, amount, notes: val('f_notes').trim() });
+      delete live.dateRepaired;
     } else {
-      DATA.history.push({ id:uid('rh'), date: val('f_date'), cardId: val('f_card'), type: val('f_type'), sourceId:null, desc, amount, notes: val('f_notes').trim() });
+      DATA.history.push({ id:uid('rh'), date, cardId: val('f_card'), type: val('f_type'), sourceId:null, desc, amount, notes: val('f_notes').trim() });
     }
     saveData(); closeModal(); renderHistory(); toast(editing?'Redemption updated':'Redemption logged');
   };
@@ -4574,6 +4845,41 @@ function showConfirm(message, onYes, opts={}){
 }
 
 function val(id){ return document.getElementById(id).value; }
+// v2.3.1 (H1/L2): inline error under the offending field (plus the usual
+// toast), removed as soon as that field is changed. `target` is an element id
+// or the element itself (for repeated rows like mileage batches).
+function fieldError(target, msg){
+  const el = typeof target === 'string' ? document.getElementById(target) : target;
+  if(!el){ toast(msg); return; } // the inline message replaces the toast (a toast would cover the Save button on phones)
+  const host = el.closest('.field') || el.parentElement;
+  let err = host.querySelector('.field-error');
+  if(!err){ err = document.createElement('div'); err.className = 'field-error'; err.setAttribute('role','alert'); host.appendChild(err); }
+  err.textContent = msg;
+  el.setAttribute('aria-invalid', 'true');
+  const clear = ()=>{ err.remove(); el.removeAttribute('aria-invalid'); el.removeEventListener('input', clear); el.removeEventListener('change', clear); };
+  el.addEventListener('input', clear); el.addEventListener('change', clear);
+  try{ el.focus(); }catch(e){}
+}
+// Required date field: returns 'YYYY-MM-DD' or null (after showing the error).
+function readDateField(id, msg){
+  const v = val(id).trim();
+  if(!isValidDateStr(v)){ fieldError(id, msg || 'Pick the date'); return null; }
+  return v;
+}
+// Required non-negative amount: returns a number or null (after showing the
+// error). A blank field is an error, never a silent 0. "1,000" is accepted
+// where the browser passes it through. opts.allowZero (default true), opts.what.
+function readAmount(target, opts={}){
+  const el = typeof target === 'string' ? document.getElementById(target) : target;
+  const what = opts.what || 'amount';
+  const raw = String(el ? el.value : '').trim().replace(/,/g, '');
+  if(raw === ''){ fieldError(el, `Enter the ${what}${opts.allowZero === false ? '' : ' (0 if none)'}`); return null; }
+  const n = Number(raw);
+  if(!isFinite(n)){ fieldError(el, `The ${what} must be a number`); return null; }
+  if(n < 0){ fieldError(el, `The ${what} can't be negative`); return null; }
+  if(opts.allowZero === false && n === 0){ fieldError(el, `Enter ${what} greater than 0`); return null; }
+  return n;
+}
 // FIX: escapes &, <, >, and quote characters so user-entered text (card
 // names, notes, descriptions, etc.) can't break out of an HTML attribute or
 // be interpreted as markup when rendered back into the page. The previous
@@ -4598,24 +4904,35 @@ function toast(msg){
    EXPORT / IMPORT
    ============================================================ */
 document.getElementById('exportBtn').onclick = ()=>{
-  const blob = new Blob([JSON.stringify({...DATA, _exportedFromAppVersion: APP_VERSION}, null, 2)], {type:'application/json'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = `hotel-card-tracker-backup-${new Date().toISOString().slice(0,10)}.json`;
-  a.click(); URL.revokeObjectURL(url);
+  // v2.3.1 (M6): shared helper (attached link, delayed revoke); Bangkok date in the file name.
+  if(!downloadJsonFile({...DATA, _exportedFromAppVersion: APP_VERSION}, `hotel-card-tracker-backup-${toISODate(bangkokToday())}.json`)) toast('The download did not start.');
 };
 document.getElementById('importBtn').onclick = ()=> document.getElementById('importFile').click();
 document.getElementById('importFile').onchange = (e)=>{
   const file = e.target.files[0]; if(!file) return;
   const reader = new FileReader();
   reader.onload = ()=>{
+    let parsed;
     try{
-      const parsed = JSON.parse(reader.result);
-      if(!parsed.cards || !parsed.credits) throw new Error('bad format');
+      parsed = JSON.parse(reader.result);
+      if(!parsed || !Array.isArray(parsed.cards) || !Array.isArray(parsed.credits)) throw new Error('bad format');
+    }catch(err){ toast('Could not read that file — is it a tracker backup JSON?'); return; }
+    // v2.3.1 (M3): importing replaces everything on every device, so confirm
+    // first (showing what's in the file vs. what you have now) and save a
+    // safety backup of the current data before replacing it.
+    const sum = d => `${(d.cards||[]).length} cards · ${(d.credits||[]).length} credits · ${(d.freeNights||[]).length} free nights · ${(d.history||[]).length} redemptions · ${(d.mileagePrograms||[]).length} mileage accounts`;
+    const from = parsed._exportedFromAppVersion ? `, exported from ${escHtml(parsed._exportedFromAppVersion)}` : '';
+    showConfirm(`Replace <strong>all</strong> your data (on every device) with this file?<br><br>
+      <strong>File</strong> (${escHtml(file.name)}${from}):<br>${sum(parsed)}<br><br>
+      <strong>Now</strong>:<br>${sum(DATA)}<br><br>
+      Your current data is saved to Backups first (or downloaded as a file if the cloud can't be reached), so this can be undone.`, async ()=>{
+      let safe = await createBackup({label: 'Before import', quiet: true});
+      if(!safe) safe = downloadJsonFile({...DATA, _exportedFromAppVersion: APP_VERSION}, `point-tracker-before-import-${toISODate(bangkokToday())}.json`);
+      if(!safe){ toast('Could not save a safety copy first — import cancelled, nothing changed.'); return; }
       delete parsed._exportedFromAppVersion; // export-only stamp, not app data
-      DATA = migrateData(parsed); retentionHold = true; /* v2.2: keep imported old data until the next reload */ saveData(); runDailyChecks(); switchView(currentView);
-      toast('Data imported');
-    }catch(err){ toast('Could not read that file — is it a tracker backup JSON?'); }
+      DATA = migrateData(parsed); dataUnconfirmedSeed = false; retentionHold = true; /* v2.2: keep imported old data until the next reload */ saveData(); runDailyChecks(); switchView(currentView);
+      toast('Data imported — the previous data is in Backups');
+    }, {confirmLabel:'Replace my data', title:'Import backup file'});
   };
   reader.readAsText(file);
   e.target.value = '';
@@ -4703,7 +5020,9 @@ function updateDataRiskWarning(safeToProceed){
 // actually safe to do so (see the comment on bootstrapSync above) — never
 // against unconfirmed seed/demo data that a network hiccup could otherwise
 // let slip through and silently overwrite the real cloud data with.
-switchView('dashboard');
+// v2.3.1 (M2): a render error must never stop the rest of start-up (sync,
+// update check, service worker) from running.
+try{ switchView('dashboard'); }catch(e){ console.error('First render failed', e); }
 hasRenderedOnce = true;
 syncThemeColor();
 
@@ -4732,7 +5051,10 @@ async function checkForUpdate(){
 }
 document.getElementById('updateBannerBtn').onclick = ()=>{
   // Never reload over an edit that hasn't reached the cloud yet.
-  if(localStorage.getItem(DIRTY_KEY) === '1'){ pushToCloud().finally(()=>location.reload()); }
+  // v2.3.1: if the push turns into a "which version?" question, answer that first.
+  if(localStorage.getItem(DIRTY_KEY) === '1' && supabaseClient){
+    pushToCloud().then(r=>{ if(r === 'conflict') toast('Choose which version to keep first, then tap Update now again.'); else location.reload(); });
+  }
   else location.reload();
 };
 setTimeout(checkForUpdate, 4000);
@@ -4754,8 +5076,9 @@ bootstrapSync().then(safeToProceed=>{
 document.addEventListener('visibilitychange', ()=>{
   if(document.visibilityState !== 'visible') return;
   checkForUpdate(); // v2.2.2
-  const syncAttempt = (localStorage.getItem(DIRTY_KEY) === '1' || syncPending)
-    ? pushToCloud().then(()=>true) // pushing our own pending edit — known-authoritative, safe
+  // v2.3.1: the push is conditional (H3) and a missing Supabase client is not "safe" (H2).
+  const syncAttempt = ((localStorage.getItem(DIRTY_KEY) === '1' || syncPending) && supabaseClient)
+    ? pushToCloud().then(r=> r === 'ok' || r === 'offline')
     : bootstrapSync();
   syncAttempt.then(safeToProceed=>{
     updateDataRiskWarning(safeToProceed);
