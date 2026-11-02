@@ -502,6 +502,37 @@
   }
   /* Touch screens keep :hover "stuck" on the last tapped tab — only the active tab should look selected. */
   @media (hover:none){ .nav button:not(.active):hover{background:transparent;color:var(--text-muted);} }
+  /* v2.2.3 #1: form fields are full width, but checkboxes sit at their own size beside their label */
+  .field input[type=checkbox], .field input[type=radio]{width:auto;margin:0 8px 0 0;vertical-align:-2px;flex:0 0 auto;}
+  /* v2.2.3 #2: the fee table never forces the form wider (phones gave every table a 560px minimum) — rows wrap instead */
+  .fee-table{min-width:0 !important;width:100%;}
+  .fee-table tr{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;padding:6px 0;border-bottom:1px solid var(--border);}
+  .fee-table td{padding:0;border:0;}
+  .fee-table label{display:inline-flex;align-items:center;white-space:nowrap;}
+  /* v2.2.3 #5: Redemption Log as stacked rows on phones (no sideways scrolling) */
+  @media (max-width:700px){
+    .hist-table{min-width:0 !important;width:100%;}
+    .hist-table thead{display:none;}
+    .hist-table tbody{display:block;}
+    .hist-table tr{display:grid;grid-template-columns:auto 1fr auto;grid-template-areas:"desc desc amt" "meta meta meta" "notes notes notes" "act act act";gap:4px 10px;padding:12px 4px;border-bottom:1px solid var(--border);}
+    .hist-table td{display:block;padding:0;border:0;min-width:0;}
+    .hist-table td.h-drag{display:none;}
+    .hist-table td.h-desc{grid-area:desc;font-weight:600;}
+    .hist-table td.h-amt{grid-area:amt;text-align:right;}
+    .hist-table td.h-date, .hist-table td.h-card, .hist-table td.h-type{grid-area:meta;}
+    .hist-table td.h-date{font-size:12.5px;color:var(--text-muted);white-space:normal !important;}
+    .hist-table td.h-card, .hist-table td.h-type{display:none;}
+    .hist-table td.h-notes{grid-area:notes;max-width:none !important;}
+    .hist-table td.h-notes:empty, .hist-table td.h-notes.none{display:none;}
+    .hist-table td.h-act{grid-area:act;}
+    .hist-table td.empty{grid-column:1 / -1;}
+  }
+  .h-meta-phone{display:none;}
+  @media (max-width:700px){ .h-meta-phone{display:inline;} }
+  /* v2.2.3 #7: provider filter chips on the Dashboard */
+  .chip-row{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 14px;}
+  .chip-row button{border:1px solid var(--border);background:var(--card-bg);color:var(--text-muted);border-radius:20px;padding:6px 14px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;}
+  .chip-row button.active{background:var(--brand-tint);color:var(--brand-text);border-color:transparent;}
   .update-banner{display:none;align-items:center;gap:10px;flex-wrap:wrap;background:var(--brand-tint);color:var(--brand-text);border-radius:12px;padding:10px 14px;margin-bottom:12px;font-size:13px;font-weight:600;}
   .update-banner.show{display:flex;}
 
@@ -714,7 +745,7 @@ const SEED = {
    ============================================================ */
 // Shown next to the app name (sidebar + mobile header) and stamped into
 // exported backups. Bump this one line on each deployment.
-const APP_VERSION = 'v2.2.2';
+const APP_VERSION = 'v2.2.3';
 const STORE_KEY = 'hotelCardTrackerData_v1';
 const SYNCED_AT_KEY = STORE_KEY + '_syncedAt';
 const DIRTY_KEY = STORE_KEY + '_dirty'; // FIX: persists across reloads/tab-closes
@@ -2467,11 +2498,16 @@ function switchView(v){
 
 /* ---------- Dashboard ---------- */
 let chartInstance = null;
+let dashboardIssuer = 'all'; // v2.2.3 provider filter — not saved between visits
+function issuerLabel(issuer){ const s = (issuer||'').trim(); return /^american express$/i.test(s) ? 'Amex' : (s || 'Other'); }
 function renderDashboard(){
   // v2.1: each year uses that year's own fee and only the cards you held
   // that year (decisions D5–D7), so editing a fee or closing a card never
   // rewrites a past year.
-  const rows = DATA.cards.filter(c=>cardShownInYear(c, selectedYear)).map(c=>{
+  const yearCards = DATA.cards.filter(c=>cardShownInYear(c, selectedYear));
+  const issuers = Array.from(new Set(yearCards.map(c=>issuerLabel(c.issuer))));
+  if(dashboardIssuer !== 'all' && !issuers.includes(dashboardIssuer)) dashboardIssuer = 'all';
+  const rows = yearCards.filter(c=>dashboardIssuer==='all' || issuerLabel(c.issuer)===dashboardIssuer).map(c=>{
     const value = valueRealizedForCardYear(c.id, selectedYear);
     const feeInfo = feeInfoForYear(c, selectedYear);
     const fee = feeInfo.amount;
@@ -2528,6 +2564,9 @@ function renderDashboard(){
           return expiringHtml + feesHtml + expiredHtml;
         })()}
       </div>
+    </div>` : ''}
+    ${issuers.length > 1 ? `<div class="chip-row" role="group" aria-label="Filter by card provider">
+      ${['all', ...issuers].map(k=>`<button data-issuer="${escAttr(k)}" class="${k===dashboardIssuer?'active':''}" aria-pressed="${k===dashboardIssuer}">${k==='all'?'All':escHtml(k)}</button>`).join('')}
     </div>` : ''}
     <div class="kpi-row">
       <div class="kpi"><div class="label">Annual fees ${selectedYear}${anyFeeEst?' (incl. est.)':''}</div><div class="value">$${totalFee.toLocaleString()}</div></div>
@@ -2623,6 +2662,7 @@ function renderDashboard(){
   `;
 
   document.getElementById('dashboardYearSelect').onchange = (e)=>{ selectedYear = Number(e.target.value); switchView(currentView); };
+  document.querySelectorAll('[data-issuer]').forEach(b=>b.onclick=()=>{ dashboardIssuer = b.dataset.issuer; renderDashboard(); });
   document.getElementById('deleteYearBtn').onclick = deleteTrackedYear;
 
   const ctx = document.getElementById('feeChart');
@@ -2637,7 +2677,7 @@ function renderDashboard(){
   const chartFeeColor = chartStyles.getPropertyValue('--chart-fee').trim();
   const chartValueColor = chartStyles.getPropertyValue('--chart-value').trim();
   // MODERN THEME: make the chart text match the app font and current theme.
-  if(window.Chart){ Chart.defaults.font.family = getComputedStyle(document.body).fontFamily; Chart.defaults.color = chartStyles.getPropertyValue('--text-muted').trim() || '#666'; Chart.defaults.borderColor = chartStyles.getPropertyValue('--border').trim() || '#e5e5e5'; }
+  if(window.Chart){ Chart.defaults.font.size = 12.5; Chart.defaults.font.family = getComputedStyle(document.body).fontFamily; Chart.defaults.color = chartStyles.getPropertyValue('--text-muted').trim() || '#666'; Chart.defaults.borderColor = chartStyles.getPropertyValue('--border').trim() || '#e5e5e5'; }
   chartInstance = new Chart(ctx, {
     type:'bar',
     data:{
@@ -2659,10 +2699,32 @@ function renderDashboard(){
       indexAxis:'y',
       responsive:true,
       maintainAspectRatio:false,
-      plugins:{legend:{position:'bottom'}},
-      scales:{ x:{ beginAtZero:true }, y:{ ticks:{ autoSkip:false, font:{size:11} } } }
+      // v2.2.3: $ everywhere, one tooltip per card (fee + redeemed + net), real colour swatches, readable sizes
+      interaction:{ mode:'index', axis:'y', intersect:false },
+      plugins:{
+        legend:{ position:'bottom', labels:{ font:{size:12.5}, boxWidth:14, boxHeight:14, padding:16 } },
+        tooltip:{
+          titleFont:{size:13, weight:'600'}, bodyFont:{size:13}, footerFont:{size:13, weight:'600'},
+          padding:10, boxPadding:4,
+          callbacks:{
+            label: c=>` ${c.dataset.label}: $${Number(c.raw||0).toLocaleString()}`,
+            labelColor: c=>{ const col = c.dataset.backgroundColor; return {borderColor:col, backgroundColor:col, borderWidth:0, borderRadius:3}; },
+            footer: items=>{ const r = rows[items[0].dataIndex]; return r ? `Net: ${r.net>=0?'+':'-'}$${Math.abs(r.net).toLocaleString()}` : ''; },
+          },
+        },
+      },
+      scales:{
+        x:{ beginAtZero:true, ticks:{ font:{size:12.5}, callback: v=>'$'+Number(v).toLocaleString() } },
+        y:{ ticks:{ autoSkip:false, font:{size:13} } },
+      }
     }
   });
+  // v2.2.3 #3: the chart is drawn once; if the app font wasn't loaded yet (fresh launch on iPhone), Safari drew
+  // the labels in its default serif. Redraw as soon as the fonts are ready.
+  if(document.fonts && document.fonts.status !== 'loaded'){
+    const inst = chartInstance;
+    document.fonts.ready.then(()=>{ if(chartInstance === inst && currentView === 'dashboard') chartInstance.update(); });
+  }
 }
 
 /* ============================================================
@@ -2749,7 +2811,12 @@ function wireChecklist(){
   });
 }
 function setupPageShell(active, bodyHtml){
-  document.getElementById('content').innerHTML = setupTabsHtml(active) + checklistHtml() + bodyHtml;
+  // v2.2.3: the full "Needs attention" list lives on Cards & fees; the other Setup pages get a one-line link.
+  const n = setupChecklistItems().length;
+  const checklist = active === 'setupCards' ? checklistHtml()
+    : (n ? `<div class="hint" style="margin:0 2px 12px;"><a data-goto-checklist style="color:var(--brand-text);font-weight:600;cursor:pointer;">${n} item${n===1?'':'s'} need${n===1?'s':''} attention →</a></div>` : '');
+  document.getElementById('content').innerHTML = setupTabsHtml(active) + checklist + bodyHtml;
+  document.querySelectorAll('[data-goto-checklist]').forEach(a=>a.onclick=()=>switchView('setupCards'));
   document.querySelectorAll('[data-setup-tab]').forEach(b=>b.onclick=()=>switchView(b.dataset.setupTab));
   wireChecklist();
   updateSetupDot();
@@ -3283,8 +3350,17 @@ function sortedCreditsList(today){
     withCycle.sort((a,b)=> b.cr.value - a.cr.value);
   } else if(creditsSortMode === 'daysLeft'){
     withCycle.sort((a,b)=>{
-      const rank = x => (creditUsage(x.cr)==='perstay') ? 9998 : (x.cycle ? daysBetween(today, x.cycle.end) : 9999);
-      return rank(a) - rank(b);
+      // v2.2.3: still to use (soonest first) → not started yet → every-stay → expired unused → used up / no date
+      const rank = x => {
+        if(creditUsage(x.cr)==='perstay') return [2, 0];
+        if(!x.cycle) return [5, 0];
+        if(today < x.cycle.start) return [1, x.cycle.start - today];
+        if(creditProgress(x.cr, x.cycle).done) return [4, daysBetween(today, x.cycle.end)];
+        const d = daysBetween(today, x.cycle.end);
+        return d < 0 ? [3, -d] : [0, d];
+      };
+      const ra = rank(a), rb = rank(b);
+      return ra[0] - rb[0] || ra[1] - rb[1];
     });
   }
   // 'manual' mode: keep DATA.credits array order as-is
@@ -3571,13 +3647,15 @@ function sortedFreeNightsList(today){
   if(fnSortMode === 'value'){
     withCycle.sort((a,b)=> (b.fn.cashValue||0) - (a.fn.cashValue||0));
   } else if(fnSortMode === 'daysLeft'){
-    withCycle.sort((a,b)=>{
-      const ea = effectiveExpiration(a.fn, a.cycle);
-      const eb = effectiveExpiration(b.fn, b.cycle);
-      const da = ea ? daysBetween(today, ea) : 9999;
-      const db = eb ? daysBetween(today, eb) : 9999;
-      return da - db;
-    });
+    // v2.2.3: still to use (soonest expiry first) → expired unused → fully used → no date
+    const rank = x=>{
+      const exp = effectiveExpiration(x.fn, x.cycle);
+      if(!x.cycle || !exp) return [3, 0];
+      const d = daysBetween(today, exp);
+      if(historyEntriesInCycle(x.fn.id, x.cycle).length >= (x.fn.certsPerCycle||1)) return [2, d];
+      return d < 0 ? [1, -d] : [0, d];
+    };
+    withCycle.sort((a,b)=>{ const ra = rank(a), rb = rank(b); return ra[0] - rb[0] || ra[1] - rb[1]; });
   }
   // 'manual' mode: keep DATA.freeNights array order as-is
   return withCycle;
@@ -4085,7 +4163,7 @@ function renderHistory(){
       </div>` : ''}
       <div class="panel-body">
         <div class="table-scroll">
-        <table>
+        <table class="hist-table">
           <thead><tr><th></th><th>Date</th><th>Card</th><th>Type</th><th>Credit / Certificate</th><th>Amount</th><th>Where / notes</th><th></th></tr></thead>
           <tbody id="histBody"></tbody>
         </table>
@@ -4102,14 +4180,14 @@ function renderHistory(){
   body.innerHTML = rows.length ? rows.map(h=>{
     const card = cardById(h.cardId);
     return `<tr data-row-id="${h.id}">
-      <td>${canDragReorder ? `<div class="drag-handle"><svg width="12" height="16" viewBox="0 0 12 16" fill="currentColor"><circle cx="3" cy="3" r="1.3"/><circle cx="9" cy="3" r="1.3"/><circle cx="3" cy="8" r="1.3"/><circle cx="9" cy="8" r="1.3"/><circle cx="3" cy="13" r="1.3"/><circle cx="9" cy="13" r="1.3"/></svg></div>` : ''}</td>
-      <td style="white-space:nowrap;">${fmtDate(parseDate(h.date))}</td>
-      <td>${card?escHtml(card.name):'(unlinked)'}</td>
-      <td><span class="pill ${h.type==='Credit'?'pill-accent':'pill-gray'}">${escHtml(h.type)}</span></td>
-      <td>${escHtml(h.desc)}</td>
-      <td style="font-weight:700;">$${Number(h.amount).toLocaleString()}</td>
-      <td style="color:var(--text-muted);font-size:12.5px;max-width:260px;">${h.notes?escHtml(h.notes):'—'}</td>
-      <td><button class="btn btn-sm" data-edit-h="${h.id}">Edit</button> <button class="btn btn-sm btn-danger" data-del-h="${h.id}">Delete</button></td>
+      <td class="h-drag">${canDragReorder ? `<div class="drag-handle"><svg width="12" height="16" viewBox="0 0 12 16" fill="currentColor"><circle cx="3" cy="3" r="1.3"/><circle cx="9" cy="3" r="1.3"/><circle cx="3" cy="8" r="1.3"/><circle cx="9" cy="8" r="1.3"/><circle cx="3" cy="13" r="1.3"/><circle cx="9" cy="13" r="1.3"/></svg></div>` : ''}</td>
+      <td class="h-date" style="white-space:nowrap;">${fmtDate(parseDate(h.date))}<span class="h-meta-phone"> · ${card?escHtml(card.name):'(unlinked)'} · ${escHtml(h.type)}</span></td>
+      <td class="h-card">${card?escHtml(card.name):'(unlinked)'}</td>
+      <td class="h-type"><span class="pill ${h.type==='Credit'?'pill-accent':'pill-gray'}">${escHtml(h.type)}</span></td>
+      <td class="h-desc">${escHtml(h.desc)}</td>
+      <td class="h-amt" style="font-weight:700;">$${Number(h.amount).toLocaleString()}</td>
+      <td class="h-notes${h.notes?'':' none'}" style="color:var(--text-muted);font-size:12.5px;max-width:260px;">${h.notes?escHtml(h.notes):'—'}</td>
+      <td class="h-act"><button class="btn btn-sm" data-edit-h="${h.id}">Edit</button> <button class="btn btn-sm btn-danger" data-del-h="${h.id}">Delete</button></td>
     </tr>`;
   }).join('') : `<tr><td colspan="8" class="empty">${DATA.history.length === 0 ? 'No redemptions logged yet.' : 'No entries match your filters.'}</td></tr>`;
 
