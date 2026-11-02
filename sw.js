@@ -1,10 +1,10 @@
-// Point Tracker service worker (v2.2.2) — lets the home-screen app open offline.
+// Point Tracker service worker (v2.3) — lets the home-screen app open offline.
 // NETWORK FIRST for everything it handles: online you always get the live
 // files (so a new deploy shows up immediately); the cached copy is used only
 // when the network fails. Supabase (your data) is never touched by this file —
 // those requests go straight to the network, and the app's own offline
 // handling (local copy + sync later) takes care of them.
-const CACHE = 'point-tracker-v1';
+const CACHE = 'point-tracker-v2';
 const SHELL = ['./', './manifest.webmanifest', './apple-touch-icon.png', './icon-192.png'];
 const CDN = /^(cdnjs\.cloudflare\.com|cdn\.jsdelivr\.net|fonts\.googleapis\.com|fonts\.gstatic\.com)$/;
 
@@ -39,4 +39,25 @@ self.addEventListener('fetch', (e) => {
       })
       .catch(() => caches.match(key).then((hit) => hit || Response.error()))
   );
+});
+
+// ---- v2.3: reminder notifications (sent by the send-reminders function) ----
+self.addEventListener('push', (e) => {
+  let d = {};
+  try { d = e.data ? e.data.json() : {}; } catch (_) { d = { body: e.data ? e.data.text() : '' }; }
+  e.waitUntil(self.registration.showNotification(d.title || 'Point Tracker', {
+    body: d.body || 'You have benefits to review.',
+    icon: 'icon-192.png',
+    badge: 'icon-192.png',
+    tag: d.tag || 'point-tracker-reminder',
+    data: { url: d.url || './' },
+  }));
+});
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close();
+  const url = new URL((e.notification.data && e.notification.data.url) || './', self.registration.scope).href;
+  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+    for (const c of list) { if (c.url.startsWith(self.registration.scope) && 'focus' in c) { c.navigate(url).catch(() => {}); return c.focus(); } }
+    return self.clients.openWindow(url);
+  }));
 });

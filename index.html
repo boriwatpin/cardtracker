@@ -533,6 +533,29 @@
   .chip-row{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 14px;}
   .chip-row button{border:1px solid var(--border);background:var(--card-bg);color:var(--text-muted);border-radius:20px;padding:6px 14px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;}
   .chip-row button.active{background:var(--brand-tint);color:var(--brand-text);border-color:transparent;}
+  /* v2.3: three tiles on the Miles tab (the shared row is built for four) */
+  .kpi-row.kpi-3{grid-template-columns:repeat(3,1fr);}
+  @media (max-width:900px){ .kpi-row.kpi-3{grid-template-columns:1fr 1fr;} .kpi-row.kpi-3 .kpi:first-child{grid-column:1 / -1;} }
+  /* v2.3: point values table */
+  .values-table{width:100%;}
+  .values-table input{padding:6px 8px;}
+  .values-table .pv-cents{width:80px;}
+  .values-table .pv-source{width:100%;min-width:140px;}
+  .values-table .pv-checked{width:150px;}
+  .values-table td.pv-worth{font-weight:700;white-space:nowrap;}
+  @media (max-width:700px){
+    .values-table{min-width:0 !important;}
+    .values-table thead{display:none;}
+    .values-table tbody{display:block;}
+    .values-table tr{display:grid;grid-template-columns:1fr 1fr;grid-template-areas:"name worth" "held held" "c d" "s s";gap:6px 12px;padding:12px 0;border-bottom:1px solid var(--border);}
+    .values-table td{display:block;padding:0;border:0;min-width:0;}
+    .values-table td.pv-name{grid-area:name;} .values-table td.pv-worth{grid-area:worth;text-align:right;}
+    .values-table td.pv-held{grid-area:held;font-size:12.5px;color:var(--text-muted);}
+    .values-table td.pv-c{grid-area:c;} .values-table td.pv-d{grid-area:d;} .values-table td.pv-s{grid-area:s;}
+    .values-table td.pv-c::before, .values-table td.pv-d::before, .values-table td.pv-s::before, .values-table td.pv-held::before{content:attr(data-label) " ";font-size:11.5px;color:var(--text-muted);display:block;margin-bottom:3px;}
+    .values-table td.pv-held::before{display:inline;}
+    .values-table .pv-cents, .values-table .pv-checked, .values-table .pv-source{width:100%;min-width:0;}
+  }
   .update-banner{display:none;align-items:center;gap:10px;flex-wrap:wrap;background:var(--brand-tint);color:var(--brand-text);border-radius:12px;padding:10px 14px;margin-bottom:12px;font-size:13px;font-weight:600;}
   .update-banner.show{display:flex;}
 
@@ -631,6 +654,7 @@
       <button data-view="setupCards" class="nav-setup-item"><span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg></span> Cards &amp; fees <span class="setup-dot" data-setup-dot></span></button>
       <button data-view="setupCredits" class="nav-setup-item"><span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg></span> Credits</button>
       <button data-view="setupFreeNights" class="nav-setup-item"><span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg></span> Free nights</button>
+      <button data-view="setupValues" class="nav-setup-item"><span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span> Values &amp; alerts</button>
       <button data-view="setupCards" data-view-group="setup" class="nav-setup-mobile"><span class="icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span> Setup <span class="setup-dot" data-setup-dot></span></button>
     </div>
     <div class="sidebar-foot">
@@ -745,7 +769,7 @@ const SEED = {
    ============================================================ */
 // Shown next to the app name (sidebar + mobile header) and stamped into
 // exported backups. Bump this one line on each deployment.
-const APP_VERSION = 'v2.2.5';
+const APP_VERSION = 'v2.3';
 const STORE_KEY = 'hotelCardTrackerData_v1';
 const SYNCED_AT_KEY = STORE_KEY + '_syncedAt';
 const DIRTY_KEY = STORE_KEY + '_dirty'; // FIX: persists across reloads/tab-closes
@@ -756,7 +780,7 @@ const DIRTY_KEY = STORE_KEY + '_dirty'; // FIX: persists across reloads/tab-clos
 const BACKUP_COUNT_KEY = STORE_KEY + '_changesSinceBackup';
 const BACKUP_REMINDER_THRESHOLD = 3; // "more than 2 changes"
 let changesSinceBackup = parseInt(localStorage.getItem(BACKUP_COUNT_KEY) || '0', 10) || 0;
-const CURRENT_DATA_VERSION = 11;
+const CURRENT_DATA_VERSION = 12;
 // SAFETY NET: remembers whether this load started from a completely empty
 // local cache (meaning DATA below is the hardcoded demo SEED, not anything
 // real) — used after bootstrapSync() resolves to decide whether a failed
@@ -959,6 +983,23 @@ function migrateData(data){
       else cr.usage = 'spenddown';
     });
     data._version = 11;
+  }
+  if(data._version < 12){
+    // v12 (app v2.3): value per mile for each airline program, keyed by the
+    // airline code the Miles tab already uses (SQ, AS, UA…). Seeded from The
+    // Points Guy's October 2026 valuations (user's choice of a single source);
+    // TPG doesn't value Aegean, EVA or Thai, so those use marked fallbacks.
+    // Every row is editable in Setup › Values & alerts.
+    const TPG = {source:'The Points Guy', url:'https://thepointsguy.com/loyalty-programs/monthly-valuations', checked:'2026-10-01'};
+    const seed = {
+      AA:{cents:1.45, ...TPG}, AC:{cents:1.5, ...TPG}, AS:{cents:1.55, ...TPG},
+      CX:{cents:1.3, ...TPG},  SQ:{cents:1.3, ...TPG}, UA:{cents:1.2, ...TPG},
+      A3:{cents:1.2, source:'One Mile at a Time (TPG has no value)', url:'https://onemileatatime.com/guides/value-miles-points/', checked:'2026-09-02'},
+      BR:{cents:1.3, source:'CardStack (TPG has no value)', url:'https://cardstack.money/tools/points-valuation', checked:'2026-11-02'},
+      TG:{cents:1.0, source:'Placeholder — no major publisher values Thai ROP', url:'', checked:'2026-11-02'},
+    };
+    data.pointValues = Object.assign({}, seed, data.pointValues || {});
+    data._version = 12;
   }
   return data;
 }
@@ -2376,6 +2417,7 @@ const views = {
   dashboard: { title:'Dashboard', desc:'Fee vs. redemptions logged, by card, for the selected year.', render: renderDashboard },
   setupCards: { title:'Setup · Cards & fees', desc:'Your cards, the fee you paid each year, fee dates, and closing a card.', render: renderSetupCards },
   setupCredits: { title:'Setup · Credits', desc:'What each statement credit is worth, when it resets, and how it is used.', render: renderSetupCredits },
+  setupValues: { title:'Setup · Values & alerts', desc:'What your miles are worth, and reminder notifications on this device.', render: renderSetupValues },
   setupFreeNights: { title:'Setup · Free nights', desc:'Free night certificates: renewal date, how many per year, and one-off certificates.', render: renderSetupFreeNights },
   credits: { title:'Annual Credits', desc:'Recurring statement credits. Status and days-remaining update automatically as time passes.', render: renderCredits },
   freenights: { title:'Free Nights', desc:'Free night certificates and awards — track issue dates, expirations, and bookings.', render: renderFreeNights },
@@ -2771,7 +2813,7 @@ function modalFoot(saveLabel){ return `<div class="modal-foot"><button class="bt
 function showEl(id, on){ const el = document.getElementById(id); if(el) el.style.display = on ? '' : 'none'; }
 
 function setupTabsHtml(active){
-  const tabs = [['setupCards','Cards & fees'],['setupCredits','Credits'],['setupFreeNights','Free nights']];
+  const tabs = [['setupCards','Cards & fees'],['setupCredits','Credits'],['setupFreeNights','Free nights'],['setupValues','Values & alerts']];
   return `<div class="setup-tabs">${tabs.map(([v,l])=>`<button data-setup-tab="${v}" class="${v===active?'active':''}">${l}</button>`).join('')}</div>`;
 }
 
@@ -3848,6 +3890,179 @@ function renderFreeNights(){
   }
 }
 
+/* ============================================================
+   v2.3 POINT VALUES — what each airline program's miles are worth.
+   DATA.pointValues = { SQ:{cents, source, url, checked}, … } keyed by the
+   airline code from airlineGroupKey(); programs the app doesn't recognise
+   are keyed "name:<program name>". Shown on the Miles & Vouchers tab only.
+   ============================================================ */
+function pointValueKey(programName){
+  return airlineGroupKey(programName) || ('name:' + String(programName||'').trim().toLowerCase());
+}
+function pointValueFor(programName){
+  const v = (DATA.pointValues||{})[pointValueKey(programName)];
+  return v && Number(v.cents) > 0 ? v : null;
+}
+function milesValue(miles, programName){
+  const v = pointValueFor(programName);
+  return v ? Number(miles||0) * Number(v.cents) / 100 : null;
+}
+function fmtMoney0(n){ return '$' + Math.round(n).toLocaleString(); }
+function milesPortfolio(today){
+  let total = 0, miles = 0, missing = 0, expiring = 0;
+  DATA.mileagePrograms.forEach(mp=>{
+    const v = milesValue(mp.milesTotal, mp.programName);
+    miles += Number(mp.milesTotal||0);
+    if(v === null){ if(Number(mp.milesTotal||0) > 0) missing++; return; }
+    total += v;
+    (mp.expirations||[]).forEach(e=>{
+      const d = parseDate(e.date); if(!d) return;
+      const left = daysBetween(today, d);
+      if(left >= 0 && left <= 90) expiring += milesValue(e.amount, mp.programName) || 0;
+    });
+  });
+  return {total, miles, missing, expiring};
+}
+// Rows for the Setup table: every program you hold, plus any value already saved.
+function pointValueRows(){
+  const keys = new Map();
+  DATA.mileagePrograms.forEach(mp=>{ const k = pointValueKey(mp.programName); if(!keys.has(k)) keys.set(k, mp.programName); });
+  Object.keys(DATA.pointValues||{}).forEach(k=>{ if(!keys.has(k)) keys.set(k, null); });
+  return Array.from(keys.entries()).map(([key, sample])=>{
+    const name = key.startsWith('name:') ? (sample || key.slice(5)) : (AIRLINE_DISPLAY_NAMES[key] || key);
+    const held = DATA.mileagePrograms.filter(mp=>pointValueKey(mp.programName)===key).reduce((s,mp)=>s+Number(mp.milesTotal||0),0);
+    return {key, name, held, v:(DATA.pointValues||{})[key] || {}};
+  }).sort((a,b)=>b.held - a.held || a.name.localeCompare(b.name));
+}
+
+function renderSetupValues(){
+  const rows = pointValueRows();
+  const today = bangkokToday();
+  const pf = milesPortfolio(today);
+  setupPageShell('setupValues', `
+    <div class="panel">
+      <div class="panel-head"><h2>Point values</h2><button class="btn btn-primary" id="saveValuesBtn">Save values</button></div>
+      <div class="panel-body" style="padding:14px 20px;">
+        <div class="hint" style="margin-bottom:10px;">Cents per mile, used to show what your miles are worth on the Miles &amp; Vouchers tab. Pre-filled from
+          <a href="https://thepointsguy.com/loyalty-programs/monthly-valuations" target="_blank" rel="noopener" style="color:var(--brand-text);">The Points Guy's monthly valuations</a> (October 2026); programs TPG doesn't value use the fallback named in their row. Update any value whenever you like.</div>
+        <div class="table-scroll"><table class="values-table">
+          <thead><tr><th>Program</th><th>Your miles</th><th>¢ per mile</th><th>Worth</th><th>Source</th><th>Checked</th></tr></thead>
+          <tbody>${rows.map(r=>`<tr data-key="${escAttr(r.key)}">
+            <td class="pv-name" style="font-weight:600;">${escHtml(r.name)}</td>
+            <td class="pv-held" data-label="Miles">${r.held ? r.held.toLocaleString() : '—'}</td>
+            <td class="pv-c" data-label="¢ per mile"><input class="pv-cents" type="number" min="0" step="0.05" value="${r.v.cents ?? ''}" aria-label="Cents per mile for ${escAttr(r.name)}"></td>
+            <td class="pv-worth" data-label="Worth">${r.held && Number(r.v.cents)>0 ? fmtMoney0(r.held*Number(r.v.cents)/100) : '—'}</td>
+            <td class="pv-s" data-label="Source"><input class="pv-source" value="${escAttr(r.v.source||'')}" placeholder="e.g. The Points Guy" aria-label="Source"></td>
+            <td class="pv-d" data-label="Checked"><input class="pv-checked" type="date" value="${escAttr(r.v.checked||'')}" aria-label="Date checked"></td>
+          </tr>`).join('') || '<tr><td colspan="6" class="empty">Add a mileage account on the Miles &amp; Vouchers tab first.</td></tr>'}</tbody>
+        </table></div>
+        <div class="hint" style="margin-top:10px;">Total: <strong>${fmtMoney0(pf.total)}</strong> for ${pf.miles.toLocaleString()} miles${pf.missing?` · ${pf.missing} account${pf.missing===1?'':'s'} without a value`:''}.</div>
+      </div>
+    </div>
+    <div class="panel" id="pushPanel">
+      <div class="panel-head"><h2>Notifications on this device</h2></div>
+      <div class="panel-body" style="padding:14px 20px;" id="pushBody">Checking…</div>
+    </div>`);
+  const body = document.querySelector('.values-table tbody');
+  if(body) body.querySelectorAll('.pv-cents').forEach(inp=>inp.oninput=()=>{
+    const tr = inp.closest('tr'); const key = tr.dataset.key;
+    const held = DATA.mileagePrograms.filter(mp=>pointValueKey(mp.programName)===key).reduce((s,mp)=>s+Number(mp.milesTotal||0),0);
+    const c = Number(inp.value);
+    tr.querySelector('.pv-worth').textContent = held && c>0 ? fmtMoney0(held*c/100) : '—';
+  });
+  document.getElementById('saveValuesBtn').onclick = ()=>{
+    const next = Object.assign({}, DATA.pointValues||{});
+    for(const tr of document.querySelectorAll('.values-table tbody tr[data-key]')){
+      const cents = tr.querySelector('.pv-cents').value;
+      const c = cents === '' ? null : Number(cents);
+      if(c !== null && (isNaN(c) || c < 0 || c > 20)){ toast('Cents per mile must be between 0 and 20'); return; }
+      const key = tr.dataset.key;
+      if(c === null){ delete next[key]; continue; }
+      const prev = next[key] || {};
+      const source = tr.querySelector('.pv-source').value.trim();
+      next[key] = {...prev, cents:c, source, checked: tr.querySelector('.pv-checked').value || prev.checked || toISODate(bangkokToday()),
+        url: source === (prev.source||'') ? (prev.url||'') : ''};
+    }
+    DATA.pointValues = next; saveData(); renderSetupValues(); toast('Point values saved');
+  };
+  renderPushPanel();
+}
+
+/* ============================================================
+   v2.3 PUSH NOTIFICATIONS — reminder alerts on this device, alongside email.
+   Flow: "Turn on" (needs a tap — iOS rule) → permission → subscribe with the
+   public key the send-reminders function hands out → store the subscription
+   in Supabase (push_subscriptions, gated by the same edit secret as the
+   tracker data). The daily send-reminders run then pushes the same 60/30-day
+   reminders it emails. On iPhone this only works in the home-screen app.
+   ============================================================ */
+const PUSH_FN_URL = SUPABASE_URL + '/functions/v1/send-reminders';
+function isIOS(){ return /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1); }
+function isStandalone(){ return (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true; }
+function deviceLabel(){ const ua = navigator.userAgent; return /iPhone/.test(ua) ? 'iPhone' : /iPad/.test(ua) ? 'iPad' : /Android/.test(ua) ? 'Android' : /Mac/.test(ua) ? 'Mac' : /Windows/.test(ua) ? 'Windows PC' : 'Browser'; }
+function b64urlToBytes(s){ const pad = '='.repeat((4 - s.length % 4) % 4); const raw = atob((s + pad).replace(/-/g,'+').replace(/_/g,'/')); return Uint8Array.from(raw, c=>c.charCodeAt(0)); }
+async function pushFn(query){
+  const res = await fetch(PUSH_FN_URL + '?' + query, {method:'POST', headers:{'Authorization':'Bearer ' + SUPABASE_ANON_KEY, 'Content-Type':'application/json'}, body:'{}'});
+  const json = await res.json().catch(()=>({}));
+  if(!res.ok || json.ok === false) throw new Error(json.error || ('HTTP ' + res.status));
+  return json;
+}
+async function currentPushSubscription(){
+  if(!('serviceWorker' in navigator)) return null;
+  const reg = await navigator.serviceWorker.getRegistration();
+  return reg && reg.pushManager ? reg.pushManager.getSubscription() : null;
+}
+async function pushState(){
+  if(!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)){
+    return isIOS() && !isStandalone() ? 'needs-home-screen' : 'unsupported';
+  }
+  if(isIOS() && !isStandalone()) return 'needs-home-screen';
+  if(!supabaseClient) return 'offline';
+  if(Notification.permission === 'denied') return 'denied';
+  const sub = await currentPushSubscription().catch(()=>null);
+  return sub ? 'on' : 'off';
+}
+async function enablePush(){
+  if(await Notification.requestPermission() !== 'granted'){ toast('Notifications were not allowed'); return renderPushPanel(); }
+  const reg = await navigator.serviceWorker.ready;
+  const { publicKey } = await pushFn('vapid=1');
+  if(!publicKey) throw new Error('The reminder function has no notification key yet (Supabase setup step).');
+  const sub = await reg.pushManager.subscribe({userVisibleOnly:true, applicationServerKey:b64urlToBytes(publicKey)});
+  const { error } = await supabaseClient.from('push_subscriptions')
+    .upsert({ endpoint: sub.endpoint, subscription: sub.toJSON(), device: deviceLabel(), edit_secret: APP_EDIT_SECRET, updated_at: new Date().toISOString() });
+  if(error){ await sub.unsubscribe().catch(()=>{}); throw error; }
+  toast('Notifications are on for this device');
+}
+async function disablePush(){
+  const sub = await currentPushSubscription();
+  if(sub){
+    await supabaseClient.from('push_subscriptions').delete().eq('endpoint', sub.endpoint);
+    await sub.unsubscribe().catch(()=>{});
+  }
+  toast('Notifications are off for this device');
+}
+async function renderPushPanel(){
+  const el = document.getElementById('pushBody'); if(!el) return;
+  const state = await pushState();
+  const msg = {
+    'needs-home-screen': 'On iPhone, notifications work only in the home-screen app. Open Point Tracker from its home-screen icon, then come back here.',
+    'unsupported': 'This browser can’t receive notifications. Reminder emails still arrive as usual.',
+    'offline': 'Notifications need the cloud connection, which isn’t available right now.',
+    'denied': 'Notifications are blocked for this app. On iPhone: Settings › Notifications › Point Tracker › Allow Notifications, then come back here.',
+    'on': 'On for this device. You’ll get the same 60- and 30-day reminders as the emails, which keep coming too.',
+    'off': 'Get reminder alerts on this device as well as by email.',
+  }[state];
+  el.innerHTML = `<div style="font-size:13.5px;line-height:1.5;margin-bottom:10px;">${msg}</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      ${state==='off' ? '<button class="btn btn-primary" id="pushOnBtn">Turn on notifications</button>' : ''}
+      ${state==='on' ? '<button class="btn btn-primary" id="pushTestBtn">Send a test notification</button><button class="btn" id="pushOffBtn">Turn off</button>' : ''}
+    </div>`;
+  const run = (id, fn)=>{ const b = document.getElementById(id); if(b) b.onclick = async ()=>{ b.disabled = true; try{ await fn(); }catch(e){ console.warn(e); toast('Couldn’t complete that: ' + (e.message||e)); } renderPushPanel(); }; };
+  run('pushOnBtn', enablePush);
+  run('pushOffBtn', disablePush);
+  run('pushTestBtn', async ()=>{ const r = await pushFn('push_test=1'); toast(r.pushed ? `Test sent to ${r.pushed} device${r.pushed===1?'':'s'}` : 'No devices are signed up yet'); });
+}
+
 /* ---------- Miles & Vouchers ---------- */
 // Unlike credits/free nights, mileage and voucher entries have no
 // recurring cycle to compute — you edit the row yourself whenever your
@@ -3889,7 +4104,7 @@ function mileageRowHtml(mp, today){
         const pill = !expiration ? {label:'No date set', cls:'pill-gray'} : isExpired ? {label:'Expired', cls:'pill-gray'} : statusForDays(daysLeft, 60);
         return `
         <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:12.5px;gap:10px;">
-          <span style="color:var(--text);">${Number(exp.amount||0).toLocaleString()} miles${expiration?` expiring ${fmtDate(expiration)}`:''}</span>
+          <span style="color:var(--text);">${Number(exp.amount||0).toLocaleString()} miles${(()=>{ const v = milesValue(exp.amount, mp.programName); return v!==null ? ` (≈ ${fmtMoney0(v)})` : ''; })()}${expiration?` expiring ${fmtDate(expiration)}`:''}</span>
           <span style="display:flex;align-items:center;gap:8px;white-space:nowrap;">
             <span class="pill ${pill.cls}">${pill.label}</span>
             <span style="color:var(--text-muted);min-width:80px;text-align:right;">${daysLeft!==null?(daysLeft>=0?daysLeft+' days left':'expired '+Math.abs(daysLeft)+'d ago'):''}</span>
@@ -3901,7 +4116,7 @@ function mileageRowHtml(mp, today){
     <div style="display:flex;align-items:flex-start;gap:10px;width:100%;">
       <div class="main-col" style="flex:1;min-width:0;">
         <div class="title">${escHtml(mp.programName)}</div>
-        <div class="subtitle">${mp.accountNumber?`Acct #${escHtml(mp.accountNumber)} · `:''}${Number(mp.milesTotal||0).toLocaleString()} miles total</div>
+        <div class="subtitle">${mp.accountNumber?`Acct #${escHtml(mp.accountNumber)} · `:''}${Number(mp.milesTotal||0).toLocaleString()} miles total${(()=>{ const v = pointValueFor(mp.programName); return v ? ` · <span style="color:var(--text);font-weight:600;">≈ ${fmtMoney0(Number(mp.milesTotal||0)*v.cents/100)}</span> <span title="${escAttr(v.source||'')}">at ${v.cents}¢</span>` : ` · <a data-goto-values style="color:var(--brand-text);cursor:pointer;">add a value</a>`; })()}</div>
       </div>
       <div style="display:flex;gap:6px;flex-shrink:0;">
         <button class="btn btn-sm" data-edit-mp="${mp.id}">Edit</button>
@@ -3953,6 +4168,17 @@ function renderMileage(){
       <div class="panel-body" id="mileageList"></div>
     </div>
   `;
+  // v2.3: portfolio value at the top of the tab
+  const pf = milesPortfolio(today);
+  if(DATA.mileagePrograms.length){
+    content.insertAdjacentHTML('afterbegin', `
+    <div class="kpi-row kpi-3">
+      <div class="kpi"><div class="label">Miles portfolio value</div><div class="value">≈ ${fmtMoney0(pf.total)}</div></div>
+      <div class="kpi"><div class="label">Miles held</div><div class="value">${pf.miles.toLocaleString()}</div></div>
+      <div class="kpi"><div class="label">Value expiring in 90 days</div><div class="value ${pf.expiring>0?'neg':''}">${fmtMoney0(pf.expiring)}</div></div>
+    </div>
+    <div class="hint" style="margin:-4px 2px 16px;">Estimated with your cents-per-mile values${pf.missing?` (${pf.missing} account${pf.missing===1?' has':'s have'} no value yet)`:''} — <a data-goto-values style="color:var(--brand-text);cursor:pointer;font-weight:600;">see or edit values</a>.</div>`);
+  }
   const list = document.getElementById('mileageList');
   const owners = ownerNames();
 
@@ -3970,7 +4196,8 @@ function renderMileage(){
       const orderedKeys = Array.from(groupKeys).filter(k=>k!==null).sort()
         .concat(groupKeys.has(null) ? [null] : []);
 
-      const ownerHeader = `<div style="padding:10px 20px;font-size:13.5px;font-weight:700;border-bottom:1px solid var(--border);">${escHtml(owner)}</div>`;
+      const ownerValue = mps.reduce((s,mp)=>s+(milesValue(mp.milesTotal, mp.programName)||0),0);
+      const ownerHeader = `<div style="padding:10px 20px;font-size:13.5px;font-weight:700;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;gap:10px;"><span>${escHtml(owner)}</span>${ownerValue?`<span style="font-weight:600;color:var(--text-muted);">≈ ${fmtMoney0(ownerValue)}</span>`:''}</div>`;
 
       const groupsHtml = orderedKeys.map(key=>{
         const groupMps = mps.filter(mp=>airlineGroupKey(mp.programName)===key);
@@ -3988,6 +4215,7 @@ function renderMileage(){
     }).join('');
   }
 
+  document.querySelectorAll('[data-goto-values]').forEach(a=>a.onclick=()=>switchView('setupValues'));
   document.getElementById('addMpBtn').onclick = ()=>openMileageModal();
   document.getElementById('addVBtn').onclick = ()=>openVoucherModal();
   list.querySelectorAll('[data-edit-mp]').forEach(b=>b.onclick=()=>openMileageModal(b.dataset.editMp));
