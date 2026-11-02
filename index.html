@@ -4,6 +4,15 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Point Tracker</title>
+<!-- v2.2.2: iPhone home-screen app ("Add to Home Screen"). Icon + manifest files sit next to index.html in the repo. -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Point Tracker">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#f6f6f4" id="themeColorMeta">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <!-- MODERN THEME fonts: Instrument Sans (UI) + Bricolage Grotesque (titles/numbers). Falls back to system fonts if unavailable. -->
@@ -388,7 +397,7 @@
     --radius:12px; --radius-sm:8px;
     --shadow:none; --shadow-md:0 8px 24px rgba(27,28,31,.08);
     --input-bg:#ffffff; --surface-tile:#ffffff; --surface-hover:#faf9f7;
-    --chart-fee:#d9d7cf; --chart-value:#2540d9;
+    --chart-fee:#dde3e8; --chart-value:#117ACA;
     --sidebar-bg:#fbfbf9;
   }
   html[data-theme="dark"]{
@@ -403,7 +412,7 @@
     --accent:#a5b4ff; --accent-bg:rgba(106,125,255,.16);
     --shadow:none; --shadow-md:0 8px 24px rgba(0,0,0,.5);
     --input-bg:#1b1b1f; --surface-tile:#1b1b1f; --surface-hover:#212126;
-    --chart-fee:#3a3a42; --chart-value:#7f93ff;
+    --chart-fee:#33383e; --chart-value:#4a9ee0;
     --sidebar-bg:#161618;
   }
 
@@ -473,6 +482,29 @@
     .topbar h1{font-size:23px;}
     .kpi .value{font-size:23px;}
   }
+  /* ============================================================
+     v2.2.2 HOME-SCREEN APP (iPhone)
+     - iOS zooms the page into any form field under 16px and stays zoomed;
+       phones get 16px fields (inline styles included, hence !important).
+     - Content clears the notch / status bar and the side insets in
+       landscape; the bottom tab bar already clears the home indicator.
+     - touch-action removes the double-tap-to-zoom delay on buttons.
+     ============================================================ */
+  html{-webkit-text-size-adjust:100%;}
+  button, .btn, a, label, select{touch-action:manipulation;}
+  @media (max-width:900px){
+    select, input:not([type=checkbox]):not([type=radio]), textarea{font-size:16px !important;}
+    .main{padding-top:calc(16px + env(safe-area-inset-top)) !important;
+          padding-left:max(16px, env(safe-area-inset-left)) !important;
+          padding-right:max(16px, env(safe-area-inset-right)) !important;}
+    .overlay{padding-top:calc(12px + env(safe-area-inset-top)) !important;padding-bottom:calc(12px + env(safe-area-inset-bottom)) !important;}
+    .modal{max-height:calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom));}
+  }
+  /* Touch screens keep :hover "stuck" on the last tapped tab — only the active tab should look selected. */
+  @media (hover:none){ .nav button:not(.active):hover{background:transparent;color:var(--text-muted);} }
+  .update-banner{display:none;align-items:center;gap:10px;flex-wrap:wrap;background:var(--brand-tint);color:var(--brand-text);border-radius:12px;padding:10px 14px;margin-bottom:12px;font-size:13px;font-weight:600;}
+  .update-banner.show{display:flex;}
+
   /* ============================================================
      v2.1 SETUP SECTION
      Desktop: a "Setup" group of three entries at the bottom of the sidebar.
@@ -576,6 +608,7 @@
   </div>
 
   <div class="main">
+    <div id="updateBanner" class="update-banner" role="status"><span id="updateBannerText">A new version is available.</span><button class="btn btn-sm btn-primary" id="updateBannerBtn">Update now</button></div>
     <div id="dataRiskWarning" class="data-risk-warning" style="display:none;">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;"><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg> Couldn't confirm your saved data yet, and this looks like a fresh browser/device with nothing cached locally. What you're seeing right now may just be sample data, not your real cards. <strong>Avoid making changes until this reconnects</strong> — reload once you're back online to load your real data safely.
     </div>
@@ -681,7 +714,7 @@ const SEED = {
    ============================================================ */
 // Shown next to the app name (sidebar + mobile header) and stamped into
 // exported backups. Bump this one line on each deployment.
-const APP_VERSION = 'v2.2';
+const APP_VERSION = 'v2.2.2';
 const STORE_KEY = 'hotelCardTrackerData_v1';
 const SYNCED_AT_KEY = STORE_KEY + '_syncedAt';
 const DIRTY_KEY = STORE_KEY + '_dirty'; // FIX: persists across reloads/tab-closes
@@ -4277,6 +4310,13 @@ if(changesSinceBackup > BACKUP_REMINDER_THRESHOLD - 1) showBackupReminder();
 // ENHANCEMENT: dark mode toggle — flips the html[data-theme] attribute the
 // CSS variables key off of, and remembers the choice locally (per-device,
 // not synced — same rationale as above).
+// v2.2.2: keep the iPhone status bar the same colour as the page in both themes.
+function syncThemeColor(){
+  const m = document.getElementById('themeColorMeta');
+  if(!m) return;
+  const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
+  if(bg) m.setAttribute('content', bg);
+}
 function updateThemeButtonIcon(){
   const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
   const sunIcon = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>';
@@ -4290,6 +4330,7 @@ document.getElementById('themeToggleBtn').onclick = ()=>{
   document.documentElement.setAttribute('data-theme', next);
   try{ localStorage.setItem(THEME_KEY, next); }catch(e){}
   updateThemeButtonIcon();
+  syncThemeColor();
   // Only repaint if Dashboard is actually the view on screen right now —
   // calling renderDashboard() unconditionally would silently swap #content
   // to the Dashboard's markup while the sidebar nav still shows whichever
@@ -4326,6 +4367,37 @@ function updateDataRiskWarning(safeToProceed){
 // let slip through and silently overwrite the real cloud data with.
 switchView('dashboard');
 hasRenderedOnce = true;
+syncThemeColor();
+
+/* ---------- v2.2.2 home-screen app: offline launch + new-version notice ----------
+   A home-screen app has no reload button, so after a deploy it could keep
+   showing the old version. checkForUpdate() asks the server for the live
+   index.html (bypassing every cache) and, if its APP_VERSION differs, shows
+   "Update now". sw.js serves the last good copy only when offline
+   (network-first), so it never hides a new version. */
+if('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')){
+  navigator.serviceWorker.register('sw.js').catch(e=>console.warn('Service worker not registered', e));
+}
+let lastUpdateCheck = 0;
+async function checkForUpdate(){
+  if(!/^https?:$/.test(location.protocol) || Date.now() - lastUpdateCheck < 5*60*1000) return;
+  lastUpdateCheck = Date.now();
+  try{
+    const res = await fetch(location.pathname + '?v=' + Date.now(), {cache:'no-store'});
+    if(!res.ok) return;
+    const m = (await res.text()).match(/const APP_VERSION = '([^']+)'/);
+    if(m && m[1] !== APP_VERSION){
+      document.getElementById('updateBannerText').textContent = `A new version (${m[1]}) is available.`;
+      document.getElementById('updateBanner').classList.add('show');
+    }
+  }catch(e){ /* offline — try again next time */ }
+}
+document.getElementById('updateBannerBtn').onclick = ()=>{
+  // Never reload over an edit that hasn't reached the cloud yet.
+  if(localStorage.getItem(DIRTY_KEY) === '1'){ pushToCloud().finally(()=>location.reload()); }
+  else location.reload();
+};
+setTimeout(checkForUpdate, 4000);
 
 bootstrapSync().then(safeToProceed=>{
   updateDataRiskWarning(safeToProceed);
@@ -4343,6 +4415,7 @@ bootstrapSync().then(safeToProceed=>{
 // it's safe to, not unconditionally.
 document.addEventListener('visibilitychange', ()=>{
   if(document.visibilityState !== 'visible') return;
+  checkForUpdate(); // v2.2.2
   const syncAttempt = (localStorage.getItem(DIRTY_KEY) === '1' || syncPending)
     ? pushToCloud().then(()=>true) // pushing our own pending edit — known-authoritative, safe
     : bootstrapSync();
