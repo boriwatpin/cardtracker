@@ -846,7 +846,9 @@
   // Runs synchronously, immediately, before the rest of the page has a
   // chance to paint — this is what prevents a flash of the unlocked app
   // showing briefly before the lock screen appears on top of it.
-  if(localStorage.getItem('lockUnlocked_v1') !== 'true'){
+  // v2.6: the lock screen now guards a real signed-in session (stored under
+  // 'pt-auth-v26' by the Supabase client after the passcode is accepted).
+  if(!localStorage.getItem('pt-auth-v26')){
     document.getElementById('lockScreen').style.display = 'flex';
   }
 </script>
@@ -877,6 +879,7 @@
       <button id="exportBtn" type="button"><span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v13m0 0l-5-5m5 5l5-5"/><path d="M4 21h16"/></svg></span> Export a copy</button>
       <button id="importBtn" type="button"><span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21V8m0 0l-5 5m5-5l5 5"/><path d="M4 3h16"/></svg></span> Import from file</button>
       <button id="themeToggleBtn" type="button"><span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor"/></svg></span> Theme: <span data-theme-label>Match system</span></button>
+      <button id="statusBtn" type="button"><span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg></span> System status</button>
     </div>
     <div class="sidebar-foot">Point Tracker <span data-app-version></span> · <span data-sync-text>not synced yet</span></div>
   </div>
@@ -990,7 +993,7 @@ const SEED = {
    ============================================================ */
 // Shown next to the app name (sidebar + mobile header) and stamped into
 // exported backups. Bump this one line on each deployment.
-const APP_VERSION = 'v2.5';
+const APP_VERSION = 'v2.6';
 const STORE_KEY = 'hotelCardTrackerData_v1';
 const SYNCED_AT_KEY = STORE_KEY + '_syncedAt';
 const DIRTY_KEY = STORE_KEY + '_dirty'; // FIX: persists across reloads/tab-closes
@@ -1304,28 +1307,32 @@ function uid(prefix){ return prefix + '_' + Math.random().toString(36).slice(2,9
 const SUPABASE_URL = 'https://kavlfymmtjyumaacejaz.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImthdmxmeW1tdGp5dW1hYWNlamF6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQyMDE0NjIsImV4cCI6MjA5OTc3NzQ2Mn0.U3aydQ0ZEyj_O9mKcpDAPc8O9137pzffVer7bnGCvIY';
 
-// ENHANCEMENT (security): the anon key above is, by design, public — it's
-// sitting in view-source on a public GitHub Pages URL, so anyone can read
-// it. On its own, that anon key can normally read AND write to any table
-// without RLS restrictions, meaning anyone who finds this page can currently
-// overwrite your data. This app-side value doesn't replace real security —
-// it only helps if paired with a Supabase Row Level Security policy that
-// requires this exact value before allowing a write (SQL for that policy is
-// below). IMPORTANT: replace this placeholder with your own randomly
-// generated string (any long, unguessable string works — e.g. run
-// `openssl rand -hex 24` in a terminal) and use that same string in the SQL
-// policy in your Supabase project, not this one. Since this file's source
-// is public, treat this purely as "raises the bar past a driveby scanner
-// that only has the anon key," not as real authentication.
-const APP_EDIT_SECRET = 'ff0c8b5fe6f47eed792b795e6daeee7b9cbdb62bac6048f2';
-
-let supabaseClient = null;
+// v2.6 SECURITY: the anon key above is public by design. Since v2.6 it can no
+// longer read or change anything on its own (after setup-2-lockdown.sql): the
+// database only answers a device that has been unlocked with the passcode,
+// which gives that device a real signed-in session (kept until "Sign out of
+// this device"). The old shared "edit secret" is gone.
+const AUTH_STORAGE_KEY = 'pt-auth-v26';
+let sbClient = null;       // the Supabase client (created whenever the library loads)
+let supabaseClient = null; // set to sbClient only once this device is signed in —
+                           // every cloud call in the app checks this, so a locked
+                           // device simply behaves like "offline" until unlocked.
 try{
   if(typeof window !== 'undefined' && window.supabase && window.supabase.createClient){
-    supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: { storageKey: AUTH_STORAGE_KEY, persistSession: true, autoRefreshToken: true, detectSessionInUrl: false },
+    });
   }
 }catch(e){
   console.warn('Supabase client failed to initialize — running in local-only mode.', e);
+}
+// Bearer token for our edge functions: this device's session if signed in,
+// else the public anon key (enough for unlock and the public endpoints).
+async function fnAuthHeader(){
+  try{
+    if(sbClient && sbClient.auth){ const { data } = await sbClient.auth.getSession(); if(data && data.session) return 'Bearer ' + data.session.access_token; }
+  }catch(e){}
+  return 'Bearer ' + SUPABASE_ANON_KEY;
 }
 
 // ---------- Lock screen ----------
@@ -1372,9 +1379,18 @@ function lockEnterCountdown(untilTs){
   const timer = setInterval(tick, 1000);
 }
 
+let lockWired = false;
+function showLockScreen(){
+  const o = document.getElementById('lockScreen');
+  if(o.style.display === 'flex') return;
+  o.style.display = 'flex';
+  document.getElementById('lockCodeInput').value = '';
+  initLockScreen();
+  setTimeout(()=>{ try{ document.getElementById('lockCodeInput').focus(); }catch(e){} }, 50);
+}
 function initLockScreen(){
   const overlay = document.getElementById('lockScreen');
-  if(overlay.style.display !== 'flex') return; // already unlocked, nothing to wire up
+  if(lockWired) return; lockWired = true;
 
   // If a lockout was already in progress from before a page refresh,
   // resume the countdown instead of letting a reload reset it for free.
@@ -1391,18 +1407,36 @@ function initLockScreen(){
       lockShowError('Enter all 6 digits.');
       return;
     }
-    if(!supabaseClient){
+    if(!sbClient || navigator.onLine === false){
       lockShowError('Cannot verify right now — no connection. Try again once online.');
       return;
     }
     document.getElementById('lockUnlockBtn').disabled = true;
     try{
-      const { data: correct, error } = await supabaseClient.rpc('check_lock_code', { guess });
-      if(error) throw error;
+      // v2.6: the passcode is checked by the "unlock" edge function (rate
+      // limited across all devices together) and, if right, exchanged for a
+      // signed-in session that stays on this device.
+      const resp = await fetch(`${SUPABASE_URL}/functions/v1/unlock`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: guess, device: deviceLabel() }),
+      });
+      const r = await resp.json().catch(()=>({}));
+      if(resp.status === 429 && r.locked){
+        document.getElementById('lockCodeInput').value = '';
+        lockEnterCountdown(Date.now() + (Number(r.retryAfterSec)||900) * 1000);
+        return;
+      }
+      if(resp.status === 404){ lockShowError('The server isn’t set up for v2.6 yet (unlock function missing).'); return; }
+      const correct = !!(resp.ok && r.ok && r.token_hash);
+      if(!correct && !r.wrong) throw new Error(r.error || ('HTTP ' + resp.status));
       if(correct){
-        localStorage.setItem(LOCK_UNLOCKED_KEY, 'true');
+        let v = await sbClient.auth.verifyOtp({ token_hash: r.token_hash, type: 'magiclink' });
+        if(v.error) v = await sbClient.auth.verifyOtp({ token_hash: r.token_hash, type: 'email' });
+        if(v.error || !v.data || !v.data.session) throw (v.error || new Error('no session'));
         localStorage.setItem(LOCK_ATTEMPTS_KEY, '0');
         overlay.style.display = 'none';
+        onSignedIn();
         return;
       }
       const attempts = Number(localStorage.getItem(LOCK_ATTEMPTS_KEY) || 0) + 1;
@@ -1446,7 +1480,7 @@ function initLockScreen(){
     setTimeout(()=>{ btn.textContent = original; }, 4000);
   };
 }
-initLockScreen();
+if(document.getElementById('lockScreen').style.display === 'flex') initLockScreen();
 
 let syncPending = false; // true if we have local changes not yet confirmed saved to the cloud
 
@@ -1680,8 +1714,7 @@ async function pushOnce(retries = 4){
     for(let attempt = 0; ; attempt++){
       const gen = saveGen;
       const payload = cloneJson(DATA);
-      // ENHANCEMENT (security): edit_secret travels as its own column, never inside DATA.
-      const row = { data: payload, updated_at: new Date().toISOString(), edit_secret: APP_EDIT_SECRET };
+      const row = { data: payload, updated_at: new Date().toISOString() };
       let saved = expected ? await casUpdate(row, expected) : null;
       if(!saved){
         if(attempt >= retries) throw new Error('The cloud copy kept changing — will retry');
@@ -1738,6 +1771,10 @@ async function pushOnce(retries = 4){
 
 /* ---------- v2.4 live channel (Supabase Realtime broadcast) ---------- */
 let liveChannel = null, liveEverConnected = false, liveTimer = null;
+function stopLiveSync(){ // v2.6: on sign-out
+  try{ if(liveChannel && sbClient) sbClient.removeChannel(liveChannel); }catch(e){}
+  liveChannel = null; liveConnected = false;
+}
 function startLiveSync(){
   if(!supabaseClient || typeof supabaseClient.channel !== 'function') return;
   try{
@@ -1807,7 +1844,7 @@ document.addEventListener('pointerup', flushPendingRender);
    POINT-IN-TIME BACKUPS
    Stored server-side in a dedicated `backups` column on the same Supabase
    row — deliberately NOT inside DATA itself (same reasoning as
-   APP_EDIT_SECRET above: this isn't part of your tracker data, so it
+   the old edit secret: this isn't part of your tracker data, so it
    should never show up in an export, get processed by migrateData(), or
    affect any of the dashboard calculations). Kept server-side rather than
    in localStorage specifically so a backup taken on one device can still
@@ -1892,7 +1929,7 @@ async function createBackup(opts={}){
     // as something new to pull.
     const { error } = await supabaseClient
       .from('tracker_data')
-      .update({ backups: updated, edit_secret: APP_EDIT_SECRET })
+      .update({ backups: updated })
       .eq('id', 'main');
     if(error) throw error;
     if(!opts.data){ // only a snapshot of the live data resets the "changes since backup" reminder
@@ -4667,6 +4704,7 @@ function renderMore(){
       ${r('data-more="import"', 'Import from file')}
       ${r('data-more="deleteyear"', 'Delete a year’s redemptions')}</div>`)}
     ${sectionHtml('Appearance', '', `<div class="group">${r('data-more="theme"', 'Theme', side(escHtml(themeLabel(themePref()))))}</div>`)}
+    ${sectionHtml('System', '', `<div class="group">${r('data-more="status"', 'System status', side(supabaseClient ? '<span data-sync-text>'+escHtml(syncText())+'</span>' : 'Locked'))}</div>`)}
     <div class="more-foot">Point Tracker ${escHtml(APP_VERSION)} · <span data-sync-text>${escHtml(syncText())}</span></div>
   </div>`;
   const content = document.getElementById('content');
@@ -4677,10 +4715,85 @@ function renderMore(){
     else if(k === 'import') document.getElementById('importFile').click();
     else if(k === 'deleteyear') deleteTrackedYear();
     else if(k === 'theme') openThemeSheet();
+    else if(k === 'status') openStatusSheet();
     else if(k === 'notifications'){ switchView('setupValues'); setTimeout(()=>{ const p = document.getElementById('pushPanel'); if(p) p.scrollIntoView({block:'start'}); }, 50); }
     else switchView(k);
   });
   pushState().then(s=>{ const el = document.querySelector('[data-push-side]'); if(el) el.textContent = s === 'on' ? 'Push + email' : 'Email'; }).catch(()=>{});
+}
+
+/* ---------- v2.6 System status (More › System status) ---------- */
+function fmtWhen(iso){
+  const d = iso ? new Date(iso) : null;
+  if(!d || isNaN(d)) return '—';
+  return d.toLocaleString('en-GB', {day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit', timeZone:'Asia/Bangkok'});
+}
+async function statusFacts(){
+  const f = {};
+  if(!supabaseClient) return f;
+  const q = async (fn)=>{ try{ return await fn(); }catch(e){ return { error: e }; } };
+  const rl = await q(()=>supabaseClient.from('reminder_log').select('created_at').order('created_at', {ascending:false, nullsFirst:false}).limit(1));
+  f.lastReminder = rl.error ? null : ((rl.data||[])[0]||{}).created_at || null;
+  f.reminderReadable = !rl.error;
+  const ml = await q(()=>supabaseClient.from('monthly_summary_log').select('month_key, created_at, backup_bytes').order('month_key', {ascending:false}).limit(1));
+  f.lastMonthly = ml.error ? null : (ml.data||[])[0] || null;
+  const ps = await q(()=>supabaseClient.from('push_subscriptions').select('device'));
+  f.pushDevices = ps.error ? null : (ps.data||[]).map(r=>r.device||'device');
+  const bk = await q(()=>supabaseClient.from('tracker_data').select('backups').eq('id','main').maybeSingle());
+  f.backups = bk.error || !bk.data ? null : (bk.data.backups||[]);
+  return f;
+}
+async function openStatusSheet(){
+  const row = (label, value, sub)=>`<div class="row" style="cursor:default;"><span class="r-main"><span class="r-title" style="font-weight:500;">${label}</span>${sub?`<span class="r-sub">${sub}</span>`:''}</span><span class="num" style="color:var(--text-muted);text-align:right;">${value}</span></div>`;
+  const signedIn = !!supabaseClient;
+  const dirty = localStorage.getItem(DIRTY_KEY) === '1';
+  const sizeKb = Math.max(1, Math.round(new Blob([JSON.stringify(DATA)]).size / 1024));
+  const updateWaiting = document.getElementById('updateBanner') && document.getElementById('updateBanner').classList.contains('show');
+  const body = (f, push)=>`${modalHead('System status')}<div class="modal-body">
+    ${sectionHtml('This device', '', `<div class="group">
+      ${row('Signed in', signedIn ? 'Yes' : 'No — locked', signedIn ? 'Unlocked with your passcode; stays signed in until you sign out' : '')}
+      ${row('Sync', (lastSyncState === 'synced' && liveConnected) ? 'Live' : ({synced:'Synced', syncing:'Syncing…', offline:'Offline'}[lastSyncState] || '—'), dirty ? 'Changes waiting to upload' : `Last synced ${escHtml(fmtWhen(localStorage.getItem(SYNCED_AT_KEY)))}`)}
+      ${row('Live updates', liveConnected ? 'Connected' : 'Not connected', liveConnected ? '' : 'Other devices’ changes arrive when the app is reopened')}
+      ${row('Notifications', escHtml(push === 'on' ? 'On' : push === 'off' ? 'Off' : push === 'denied' ? 'Blocked' : push === 'needs-home-screen' ? 'Home-screen app only' : '—'))}
+      ${row('App version', escHtml(APP_VERSION), updateWaiting ? 'A newer version is ready — tap Update now' : 'Up to date')}</div>`)}
+    ${sectionHtml('Cloud', '', `<div class="group">
+      ${row('Last reminder email', f.lastReminder ? escHtml(fmtWhen(f.lastReminder)) : (f.reminderReadable ? 'None since v2.6' : '—'), '60/30-day alerts (push too, if on)')}
+      ${row('Last monthly summary', f.lastMonthly ? escHtml(f.lastMonthly.month_key) : '—', f.lastMonthly && f.lastMonthly.backup_bytes ? `Backup attached (${Math.max(1, Math.round(f.lastMonthly.backup_bytes/1024))} KB) · ${escHtml(fmtWhen(f.lastMonthly.created_at))}` : 'Monthly email carries an off-site backup from v2.6')}
+      ${row('Backups in the cloud', f.backups ? String(f.backups.length) : '—', 'More › Data › Backups')}
+      ${row('Devices with notifications', f.pushDevices ? String(f.pushDevices.length) : '—', f.pushDevices && f.pushDevices.length ? escHtml(f.pushDevices.join(', ')) : '')}
+      ${row('Your data', `${sizeKb} KB`, `${DATA.cards.length} cards · ${DATA.credits.length} credits · ${DATA.freeNights.length} free nights · ${DATA.history.length} redemptions`)}</div>`)}
+    ${signedIn ? sectionHtml('Tests', '', `<div class="group">
+      <div class="row" role="button" tabindex="0" data-st="email"><span class="r-main"><span class="r-title">Send a test reminder email</span><span class="r-sub">Doesn’t affect real reminders</span></span></div>
+      <div class="row" role="button" tabindex="0" data-st="monthly"><span class="r-main"><span class="r-title">Send a test monthly summary + backup</span><span class="r-sub">Check the attached backup file arrives</span></span></div>
+      <div class="row" role="button" tabindex="0" data-st="push"><span class="r-main"><span class="r-title">Send a test notification</span><span class="r-sub">To every device with notifications on</span></span></div></div>`) : ''}
+    ${signedIn ? `<div class="group" style="margin-top:18px;"><div class="row" role="button" tabindex="0" data-st="signout"><span class="r-main"><span class="r-title" style="color:var(--red);">Sign out of this device</span><span class="r-sub">Your passcode will be needed here again. Other devices stay signed in.</span></span></div></div>` : ''}
+  </div>`;
+  showModal(body({}, '') );
+  const [f, push] = await Promise.all([statusFacts(), pushState().catch(()=>'')]);
+  const box = document.getElementById('modalBox');
+  if(!box || !document.getElementById('overlay').classList.contains('open')) return;
+  showModal(body(f, push));
+  const call = async (fn, query, okMsg)=>{
+    try{
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/${fn}?${query}`, {method:'POST', headers:{'Authorization': await fnAuthHeader(), 'Content-Type':'application/json'}, body:'{}'});
+      const j = await res.json().catch(()=>({}));
+      if(!res.ok || j.ok === false) throw new Error(j.error || ('HTTP ' + res.status));
+      toast(okMsg(j));
+    }catch(e){ toast('Test failed: ' + (e.message || e)); }
+  };
+  wireRows(document.getElementById('modalBox'), '[data-st]', async el=>{
+    const k = el.dataset.st;
+    if(k === 'email') call('send-reminders', 'test=true', ()=> 'Test reminder email sent');
+    else if(k === 'monthly') call('send-monthly-summary', 'test=true', j=> j.backup ? `Test summary sent with ${j.backup.file}` : 'Test summary sent');
+    else if(k === 'push') call('send-reminders', 'push_test=1', j=> j.pushed ? `Test sent to ${j.pushed} device${j.pushed===1?'':'s'}` : 'No devices have notifications on');
+    else if(k === 'signout'){
+      showConfirm('Your data stays in the cloud and on your other devices. You’ll need the passcode to open the app on this device again.', async ()=>{
+        if(localStorage.getItem(DIRTY_KEY) === '1' && supabaseClient){ try{ await pushToCloud(); }catch(e){} }
+        try{ await sbClient.auth.signOut({ scope: 'local' }); }catch(e){}
+        closeModal(); onSignedOut();
+      }, {title:'Sign out of this device?', confirmLabel:'Sign out'});
+    }
+  });
 }
 
 /* ---------- v2.5 theme: Match system / Light / Dark ---------- */
@@ -4882,7 +4995,7 @@ function isStandalone(){ return (window.matchMedia && matchMedia('(display-mode:
 function deviceLabel(){ const ua = navigator.userAgent; return /iPhone/.test(ua) ? 'iPhone' : /iPad/.test(ua) ? 'iPad' : /Android/.test(ua) ? 'Android' : /Mac/.test(ua) ? 'Mac' : /Windows/.test(ua) ? 'Windows PC' : 'Browser'; }
 function b64urlToBytes(s){ const pad = '='.repeat((4 - s.length % 4) % 4); const raw = atob((s + pad).replace(/-/g,'+').replace(/_/g,'/')); return Uint8Array.from(raw, c=>c.charCodeAt(0)); }
 async function pushFn(query){
-  const res = await fetch(PUSH_FN_URL + '?' + query, {method:'POST', headers:{'Authorization':'Bearer ' + SUPABASE_ANON_KEY, 'Content-Type':'application/json'}, body:'{}'});
+  const res = await fetch(PUSH_FN_URL + '?' + query, {method:'POST', headers:{'Authorization': await fnAuthHeader(), 'Content-Type':'application/json'}, body:'{}'});
   const json = await res.json().catch(()=>({}));
   if(!res.ok || json.ok === false) throw new Error(json.error || ('HTTP ' + res.status));
   return json;
@@ -4911,7 +5024,7 @@ async function enablePush(){
   if(!publicKey) throw new Error('The reminder function has no notification key yet (Supabase setup step).');
   const sub = await reg.pushManager.subscribe({userVisibleOnly:true, applicationServerKey:b64urlToBytes(publicKey)});
   const { error } = await supabaseClient.from('push_subscriptions')
-    .upsert({ endpoint: sub.endpoint, subscription: sub.toJSON(), device: deviceLabel(), edit_secret: APP_EDIT_SECRET, updated_at: new Date().toISOString() });
+    .upsert({ endpoint: sub.endpoint, subscription: sub.toJSON(), device: deviceLabel(), updated_at: new Date().toISOString() });
   if(error){ await sub.unsubscribe().catch(()=>{}); throw error; }
   toast('Notifications are on for this device');
 }
@@ -5406,6 +5519,7 @@ function exportData(){
   if(!downloadJsonFile({...DATA, _exportedFromAppVersion: APP_VERSION}, `hotel-card-tracker-backup-${toISODate(bangkokToday())}.json`)) toast('The download did not start.');
 }
 document.getElementById('exportBtn').onclick = exportData;
+document.getElementById('statusBtn').onclick = ()=>openStatusSheet();
 document.getElementById('importBtn').onclick = ()=> document.getElementById('importFile').click();
 document.getElementById('importFile').onchange = (e)=>{
   const file = e.target.files[0]; if(!file) return;
@@ -5541,11 +5655,41 @@ document.getElementById('updateBannerBtn').onclick = ()=>{
 };
 setTimeout(checkForUpdate, 4000);
 
-syncFromCloud({initial: true}).then(safeToProceed=>{
-  updateDataRiskWarning(safeToProceed);
-  if(safeToProceed && runDailyChecks()) renderAfterSync();
-});
-startLiveSync(); // v2.4: live updates from other devices (falls back to the pulls below if unavailable)
+// v2.6: nothing talks to the cloud until this device is signed in (unlocked
+// with the passcode). A device that's already signed in starts syncing at
+// once; a locked one starts the moment the passcode is accepted.
+let cloudStarted = false;
+function startCloud(initial){
+  syncFromCloud({initial: !!initial}).then(safeToProceed=>{
+    updateDataRiskWarning(safeToProceed);
+    if(safeToProceed && runDailyChecks()) renderAfterSync();
+  });
+  startLiveSync(); // v2.4: live updates from other devices (falls back to the pulls below if unavailable)
+  cloudStarted = true;
+}
+function onSignedIn(){
+  if(!sbClient) return;
+  supabaseClient = sbClient;
+  try{ localStorage.removeItem('lockUnlocked_v1'); }catch(e){} // pre-v2.6 flag, no longer used
+  if(!cloudStarted) startCloud(true); else syncOnReturn();
+  if(currentView === 'more') renderMore();
+}
+function onSignedOut(){
+  supabaseClient = null;
+  try{ stopLiveSync && stopLiveSync(); }catch(e){}
+  setSyncStatus('offline');
+  showLockScreen();
+}
+async function initAuth(){
+  if(!sbClient){ updateDataRiskWarning(false); setSyncStatus('offline'); return; } // library didn't load: offline/local-only, as before
+  if(!sbClient.auth){ document.getElementById('lockScreen').style.display = 'none'; supabaseClient = sbClient; startCloud(true); return; } // (test harness without auth)
+  sbClient.auth.onAuthStateChange((event)=>{ if(event === 'SIGNED_OUT') onSignedOut(); });
+  let session = null;
+  try{ ({ data: { session } } = await sbClient.auth.getSession()); }catch(e){ console.warn('session check failed', e); }
+  if(session){ document.getElementById('lockScreen').style.display = 'none'; onSignedIn(); }
+  else showLockScreen();
+}
+initAuth();
 
 // Whenever this tab/window becomes active again (switching back from
 // another app, waking the laptop, reopening on the phone), either flush any
@@ -5560,6 +5704,7 @@ startLiveSync(); // v2.4: live updates from other devices (falls back to the pul
 // ping-pong saves at each other.)
 function syncOnReturn(){
   checkForUpdate(); // v2.2.2
+  if(!supabaseClient) return; // v2.6: locked — nothing to sync until unlocked
   startLiveSync();
   syncFromCloud({focus: true}).then(safeToProceed=>{
     updateDataRiskWarning(safeToProceed);
