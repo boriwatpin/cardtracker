@@ -569,6 +569,7 @@
   .nav-section{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text-soft);padding:16px 12px 4px;}
   .nav-setup-mobile{display:none !important;}
   .setup-dot{width:7px;height:7px;border-radius:50%;background:var(--red);display:none;margin-left:auto;flex-shrink:0;}
+  .count-badge{margin-left:auto;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--amber-bg);color:var(--amber);font-size:11.5px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;} /* v2.7 Bulletin */
   .setup-dot.on{display:inline-block;}
   @media (max-width:900px){
     .nav-section, .nav-setup-item{display:none !important;}
@@ -869,6 +870,7 @@
       <button data-view="freenights" data-tab="nights"><span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg></span> Free nights</button>
       <button data-view="mileage" data-tab="miles"><span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.5 13.5L3 11l1.5-1.5 7 1L16 6c1-1 2.8-1.3 3.5-.5s.5 2.5-.5 3.5l-4.5 4.5 1 7L14 22l-2.5-7.5z"/></svg></span> Miles</button>
       <button data-view="history"><span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/></svg></span> Redemption log</button>
+      <button data-view="bulletin"><span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h13a3 3 0 0 1 3 3v11H7a3 3 0 0 1-3-3z"/><path d="M8 9h8M8 13h8M8 17h5"/></svg></span> Bulletin <span class="count-badge" data-bulletin-count style="display:none;"></span></button>
       <div class="nav-section">Setup</div>
       <button data-view="setupCards"><span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg></span> Cards &amp; fees <span class="setup-dot" data-setup-dot></span></button>
       <button data-view="setupCredits"><span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg></span> Credits</button>
@@ -993,7 +995,7 @@ const SEED = {
    ============================================================ */
 // Shown next to the app name (sidebar + mobile header) and stamped into
 // exported backups. Bump this one line on each deployment.
-const APP_VERSION = 'v2.6';
+const APP_VERSION = 'v2.7';
 const STORE_KEY = 'hotelCardTrackerData_v1';
 const SYNCED_AT_KEY = STORE_KEY + '_syncedAt';
 const DIRTY_KEY = STORE_KEY + '_dirty'; // FIX: persists across reloads/tab-closes
@@ -1471,6 +1473,7 @@ function initLockScreen(){
       const resp = await fetch(`${SUPABASE_URL}/functions/v1/send-lock-code`, {
         headers: { 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
       });
+      if(resp.status === 429){ btn.textContent = 'Already sent recently — check your inbox.'; setTimeout(()=>{ btn.textContent = original; }, 5000); return; }
       if(!resp.ok) throw new Error('request failed');
       btn.textContent = 'Sent! Check your email.';
     }catch(e){
@@ -3085,6 +3088,7 @@ const views = {
   freenights: { title:'Free nights', desc:'', render: renderFreeNights },
   mileage: { title:'Miles', desc:'', render: renderMileage },
   history: { title:'Redemption log', desc:'Every credit and free night you\'ve actually used.', render: renderHistory },
+  bulletin: { title:'Bulletin', desc:'', render: renderBulletin }, // v2.7
 };
 let currentView = 'dashboard';
 let creditsSortMode = 'daysLeft'; // 'daysLeft' | 'value' | 'manual'
@@ -3495,7 +3499,7 @@ function setupChecklistItems(){
   return items;
 }
 function updateSetupDot(){
-  const on = setupChecklistItems().length > 0;
+  const on = setupChecklistItems().length > 0 || (typeof bulletinUnread === 'function' && bulletinUnread() > 0); // v2.7: unread Bulletin too
   document.querySelectorAll('[data-setup-dot]').forEach(d=>d.classList.toggle('on', on));
 }
 function checklistHtml(){
@@ -4575,6 +4579,7 @@ function attentionItems(today){
     items.push({key, days:2000, icon:'✓', title:`${setup.length} setup item${setup.length===1?'':'s'} to check`, sub: plain(setup[0].text),
       act:'Open setup', go:()=>switchView('setupCards'), canDismiss:true});
   }
+  const bl = bulletinAttentionItem(); if(bl) items.push(bl); // v2.7
   return items.filter(i=>!isDismissed(i.key)).sort((a,b)=>a.days-b.days);
 }
 function homeTopHtml(today){
@@ -4691,7 +4696,7 @@ function renderMore(){
   const r = (attr, label, side)=>`<div class="row" role="button" tabindex="0" ${attr}><span class="r-main" style="font-weight:500;">${label}</span>${side||''}<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color:var(--text-muted);flex:none;"><path d="M9 6l6 6-6 6"/></svg></div>`;
   const side = t=>`<span class="num" style="color:var(--text-muted);">${t}</span>`;
   document.getElementById('content').innerHTML = `<div class="content-narrow">
-    ${sectionHtml('Activity', '', `<div class="group">${r('data-more="history"', 'Redemption log', side(`${nHist} in ${yr}`))}</div>`)}
+    ${sectionHtml('Activity', '', `<div class="group">${r('data-more="history"', 'Redemption log', side(`${nHist} in ${yr}`))}${r('data-more="bulletin"', 'Bulletin', bulletinUnread() ? `<span class="chip chip-amber">${bulletinUnread()} new</span>` : side('Benefit changes'))}</div>`)}
     ${sectionHtml('Setup', nSetup ? `<span style="color:var(--red);">${nSetup} to check</span>` : '', `<div class="group">
       ${r('data-more="setupCards"', 'Cards &amp; fees', nSetup ? '<span class="setup-dot on" style="margin:0;"></span>' : side(DATA.cards.length))}
       ${r('data-more="setupCredits"', 'Credits', side(DATA.credits.length))}
@@ -4741,6 +4746,10 @@ async function statusFacts(){
   f.pushDevices = ps.error ? null : (ps.data||[]).map(r=>r.device||'device');
   const bk = await q(()=>supabaseClient.from('tracker_data').select('backups').eq('id','main').maybeSingle());
   f.backups = bk.error || !bk.data ? null : (bk.data.backups||[]);
+  const ec = await q(()=>supabaseClient.from('app_errors').select('id', {count:'exact', head:true}));
+  f.errorCount = ec.error ? null : (ec.count || 0);
+  const bw = await q(()=>supabaseClient.from('benefit_bulletins').select('run_at, status').order('id', {ascending:false}).limit(1));
+  f.lastWatch = bw.error ? null : (bw.data||[])[0] || null;
   return f;
 }
 async function openStatusSheet(){
@@ -4762,6 +4771,10 @@ async function openStatusSheet(){
       ${row('Backups in the cloud', f.backups ? String(f.backups.length) : '—', 'More › Data › Backups')}
       ${row('Devices with notifications', f.pushDevices ? String(f.pushDevices.length) : '—', f.pushDevices && f.pushDevices.length ? escHtml(f.pushDevices.join(', ')) : '')}
       ${row('Your data', `${sizeKb} KB`, `${DATA.cards.length} cards · ${DATA.credits.length} credits · ${DATA.freeNights.length} free nights · ${DATA.history.length} redemptions`)}</div>`)}
+    ${signedIn ? sectionHtml('Tools', '', `<div class="group">
+      <div class="row" role="button" tabindex="0" data-st="errors"><span class="r-main"><span class="r-title">Error log</span><span class="r-sub">Problems recorded by the app and the emails</span></span><span class="num" style="color:var(--text-muted);">${f.errorCount == null ? '' : f.errorCount}</span></div>
+      <div class="row" role="button" tabindex="0" data-st="passcode"><span class="r-main"><span class="r-title">Change passcode</span><span class="r-sub">The 6-digit code for the lock screen</span></span></div>
+      <div class="row" role="button" tabindex="0" data-st="bulletin"><span class="r-main"><span class="r-title">Benefit-change check</span><span class="r-sub">${f.lastWatch ? 'Last run ' + escHtml(fmtWhen(f.lastWatch.run_at)) + ' · ' + escHtml(f.lastWatch.status) : 'Not run yet'}</span></span></div></div>`) : ''}
     ${signedIn ? sectionHtml('Tests', '', `<div class="group">
       <div class="row" role="button" tabindex="0" data-st="email"><span class="r-main"><span class="r-title">Send a test reminder email</span><span class="r-sub">Doesn’t affect real reminders</span></span></div>
       <div class="row" role="button" tabindex="0" data-st="monthly"><span class="r-main"><span class="r-title">Send a test monthly summary + backup</span><span class="r-sub">Check the attached backup file arrives</span></span></div>
@@ -4785,6 +4798,9 @@ async function openStatusSheet(){
     const k = el.dataset.st;
     if(k === 'email') call('send-reminders', 'test=true', ()=> 'Test reminder email sent');
     else if(k === 'monthly') call('send-monthly-summary', 'test=true', j=> j.backup ? `Test summary sent with ${j.backup.file}` : 'Test summary sent');
+    else if(k === 'errors') openErrorLog();
+    else if(k === 'passcode') openChangePasscode();
+    else if(k === 'bulletin'){ closeModal(); switchView('bulletin'); }
     else if(k === 'push') call('send-reminders', 'push_test=1', j=> j.pushed ? `Test sent to ${j.pushed} device${j.pushed===1?'':'s'}` : 'No devices have notifications on');
     else if(k === 'signout'){
       showConfirm('Your data stays in the cloud and on your other devices. You’ll need the passcode to open the app on this device again.', async ()=>{
@@ -4794,6 +4810,182 @@ async function openStatusSheet(){
       }, {title:'Sign out of this device?', confirmLabel:'Sign out'});
     }
   });
+}
+
+/* ---------- v2.7 Error log: app errors are saved to Supabase (app_errors) ---------- */
+const ERR_QUEUE_KEY = 'pt-errq-v27';
+const errSeen = new Set(); let errLogging = false;
+function logAppError(message, detail){
+  if(errLogging) return;
+  errLogging = true;
+  try{
+    const msg = String(message || 'error').slice(0, 500);
+    if(errSeen.has(msg) || errSeen.size > 40) return; // once per message per session, max 40
+    errSeen.add(msg);
+    const q = JSON.parse(localStorage.getItem(ERR_QUEUE_KEY) || '[]');
+    q.push({ at: new Date().toISOString(), source: 'app', device: deviceLabel(), version: APP_VERSION,
+      message: msg, detail: (String(detail || '') + (currentView ? `\nview: ${currentView}` : '')).slice(0, 2000) });
+    localStorage.setItem(ERR_QUEUE_KEY, JSON.stringify(q.slice(-30)));
+    setTimeout(flushAppErrors, 0);
+  }catch(e){ /* never let logging break the app */ }
+  finally{ errLogging = false; }
+}
+async function flushAppErrors(){
+  if(!supabaseClient || !navigator.onLine) return;
+  let q; try{ q = JSON.parse(localStorage.getItem(ERR_QUEUE_KEY) || '[]'); }catch(e){ q = []; }
+  if(!q.length) return;
+  try{
+    const { error } = await supabaseClient.from('app_errors').insert(q);
+    if(!error) localStorage.removeItem(ERR_QUEUE_KEY);
+  }catch(e){}
+}
+window.addEventListener('error', e=>logAppError(e.message, (e.error && e.error.stack) || `${e.filename||''}:${e.lineno||''}`));
+window.addEventListener('unhandledrejection', e=>{ const r = e.reason; logAppError('Unhandled: ' + ((r && r.message) || r), r && r.stack); });
+(function(){ const orig = console.error.bind(console);
+  console.error = function(...a){ orig(...a); try{ const err = a.find(x=>x && x.stack); logAppError(a.map(x=>(x && x.message) || (typeof x === 'string' ? x : JSON.stringify(x))).join(' '), err && err.stack); }catch(e){} };
+})();
+async function openErrorLog(){
+  const render = (rows, err)=>`${modalHead('Error log')}<div class="modal-body">
+    ${err ? `<div class="hint-line">${escHtml(err)}</div>` : ''}
+    ${rows && rows.length ? `<div class="group">${rows.map(r=>`<div class="row" style="cursor:default;align-items:flex-start;"><span class="r-main"><span class="r-title" style="font-weight:500;white-space:normal;word-break:break-word;">${escHtml(r.message||'')}</span><span class="r-sub">${escHtml(fmtWhen(r.at))} · ${escHtml(r.source||'app')}${r.device?' · '+escHtml(r.device):''}${r.version?' · '+escHtml(r.version):''}</span></span></div>`).join('')}</div>`
+      : `<div class="group"><div class="empty-row">${rows ? 'No errors recorded. 🎉'.replace(' 🎉','') : 'Loading…'}</div></div>`}
+    <div class="hint-line">Errors from this app on any device and from the reminder, backup and benefit-check emails. Kept for 6 months.</div>
+  </div>${rows && rows.length ? `<div class="modal-foot"><button class="btn" id="errClose">Close</button><button class="btn btn-danger" id="errClear">Clear all</button></div>` : ''}`;
+  showModal(render(null));
+  let rows = [], err = '';
+  try{ await flushAppErrors(); const r = await supabaseClient.from('app_errors').select('id, at, source, device, version, message').order('at', {ascending:false}).limit(50); if(r.error) throw r.error; rows = r.data || []; }
+  catch(e){ err = 'Couldn’t load the error log: ' + (e.message || e); }
+  if(!document.getElementById('overlay').classList.contains('open')) return;
+  showModal(render(rows, err));
+  const c = document.getElementById('errClose'); if(c) c.onclick = ()=>openStatusSheet();
+  const x = document.getElementById('errClear'); if(x) x.onclick = async ()=>{
+    const { error } = await supabaseClient.from('app_errors').delete().gte('id', 0);
+    toast(error ? 'Couldn’t clear: ' + error.message : 'Error log cleared'); openErrorLog();
+  };
+}
+
+/* ---------- v2.7 Change passcode (via the unlock function) ---------- */
+function openChangePasscode(){
+  const f = (id, label)=>`<div class="field"><label for="${id}">${label}</label><input id="${id}" type="password" inputmode="numeric" autocomplete="off" maxlength="6" pattern="\\d*"></div>`;
+  showModal(`${modalHead('Change passcode')}<div class="modal-body">
+    ${f('pc_cur','Current passcode')}${f('pc_new','New 6-digit passcode')}${f('pc_new2','New passcode again')}
+    <div class="hint-line">Devices already signed in stay signed in. Use the new code on any device you sign in later; “Forgot code” emails the new one.</div>
+  </div>${modalFoot('Change passcode')}`);
+  document.querySelectorAll('#modalBox input').forEach(i=>i.addEventListener('input', ()=>{ i.value = i.value.replace(/\D/g,'').slice(0,6); }));
+  document.getElementById('modalSave').onclick = async ()=>{
+    const cur = val('pc_cur'), nw = val('pc_new'), nw2 = val('pc_new2');
+    if(!/^\d{6}$/.test(cur)) return fieldError('pc_cur', 'Enter your current 6-digit passcode');
+    if(!/^\d{6}$/.test(nw)) return fieldError('pc_new', 'The new passcode must be 6 digits');
+    if(nw !== nw2) return fieldError('pc_new2', 'The two new passcodes don’t match');
+    if(nw === cur) return fieldError('pc_new', 'That’s the same as the current passcode');
+    const btn = document.getElementById('modalSave'); btn.disabled = true;
+    try{
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/unlock`, {method:'POST', headers:{'Authorization': await fnAuthHeader(), 'Content-Type':'application/json'}, body: JSON.stringify({action:'change', current: cur, next: nw, device: deviceLabel()})});
+      const j = await res.json().catch(()=>({}));
+      if(res.status === 429) { fieldError('pc_cur', 'Too many wrong passcodes — try again in ' + Math.ceil((j.retryAfterSec||900)/60) + ' minutes'); return; }
+      if(j.wrong) { fieldError('pc_cur', 'Current passcode is wrong'); return; }
+      if(!res.ok || !j.ok) throw new Error(j.error || ('HTTP ' + res.status));
+      closeModal(); toast('Passcode changed');
+    }catch(e){ toast('Couldn’t change the passcode: ' + (e.message || e)); }
+    finally{ const b = document.getElementById('modalSave'); if(b) b.disabled = false; }
+  };
+}
+
+/* ---------- v2.7 Bulletin: monthly benefit-change check (benefit-watch function) ---------- */
+let bulletinRuns = null, bulletinLoading = null, bulletinPoll = null;
+async function loadBulletin(){
+  if(!supabaseClient) return bulletinRuns;
+  if(bulletinLoading) return bulletinLoading;
+  bulletinLoading = (async()=>{
+    try{
+      const { data, error } = await supabaseClient.from('benefit_bulletins').select('id, run_at, finished_at, trigger, status, model, results, error').order('id', {ascending:false}).limit(6);
+      if(!error) bulletinRuns = data || [];
+    }catch(e){}
+    bulletinLoading = null;
+    refreshBulletinBadges();
+    return bulletinRuns;
+  })();
+  return bulletinLoading;
+}
+function latestFinishedRun(){ return (bulletinRuns||[]).find(r=>r.status === 'done' || r.status === 'error') || null; }
+function runChanges(run){ return run && Array.isArray(run.results) ? run.results.filter(r=>r.status === 'changed') : []; }
+function bulletinUnread(){
+  const run = latestFinishedRun();
+  if(!run || !runChanges(run).length) return 0;
+  return Number(DATA.bulletinSeenRun || 0) >= run.id ? 0 : runChanges(run).length;
+}
+function refreshBulletinBadges(){
+  const n = bulletinUnread();
+  document.querySelectorAll('[data-bulletin-count]').forEach(el=>{ el.textContent = n ? String(n) : ''; el.style.display = n ? '' : 'none'; });
+  updateSetupDot();
+  if(currentView === 'dashboard' && hasRenderedOnce && n && !(homeAttention||[]).some(a=>String(a.key).startsWith('bulletin:'))) renderDashboard();
+}
+function bulletinAttentionItem(){
+  const n = bulletinUnread(); if(!n) return null;
+  const run = latestFinishedRun();
+  return {key:`bulletin:${run.id}`, days:-1, icon:'★', tone:'amber', title:`${n} card${n===1?'':'s'} may have changed benefits`,
+    sub:`Monthly check · ${fmtDay(new Date(run.run_at), true)}`, act:'Open Bulletin', go:()=>switchView('bulletin'), canDismiss:true};
+}
+function bulletinCardHtml(r, today){
+  const card = (DATA.cards||[]).find(c=>c.id === r.card_id);
+  const color = card ? cardColor(card.id) : '#8a8d94';
+  const chip = r.status === 'changed' ? '<span class="chip chip-amber">Changed</span>' : r.status === 'no_change' ? '<span class="chip chip-green">No change</span>' : r.status === 'error' ? '<span class="chip chip-red">Couldn’t check</span>' : '<span class="chip">Unclear</span>';
+  const changes = (r.changes||[]).map(c=>`<li style="margin:6px 0;"><b>${escHtml(c.item||'')}</b>${c.recorded||c.current ? `<br><span style="color:var(--text-muted);">You have:</span> ${escHtml(c.recorded||'—')}<br><span style="color:var(--text-muted);">Now:</span> ${escHtml(c.current||'—')}` : ''}${c.effective ? `<br><span style="color:var(--text-muted);">From ${escHtml(/^\d{4}-\d{2}-\d{2}$/.test(c.effective) && parseDate(c.effective) ? fmtDay(parseDate(c.effective), true) : c.effective)}</span>` : ''}</li>`).join('');
+  const sources = (r.sources||[]).filter(s=>/^https:\/\//.test(s.url||'')).map(s=>`<a href="${escAttr(s.url)}" target="_blank" rel="noopener noreferrer" class="link" style="padding:2px 0;min-height:0;font-size:13px;">${escHtml(s.title||'source')}</a>`).join(' · ');
+  return `<div class="group" style="margin-top:10px;padding:14px 16px;">
+    <div style="display:flex;align-items:center;gap:10px;"><span class="dot" style="background:${escAttr(color)};"></span><span style="flex:1;min-width:0;font-weight:600;">${escHtml(card ? cardShort(card) : r.card_name||'Card')}</span>${chip}</div>
+    ${r.summary ? `<div style="margin-top:8px;font-size:14px;">${escHtml(r.summary)}</div>` : ''}
+    ${changes ? `<ul style="margin:6px 0 0;padding-left:18px;font-size:14px;line-height:1.4;">${changes}</ul>` : ''}
+    ${sources ? `<div style="margin-top:8px;font-size:13px;color:var(--text-muted);">Sources: ${sources}</div>` : ''}
+    ${r.status === 'changed' && card ? `<div style="margin-top:8px;"><button class="link" data-bl-card="${escAttr(card.id)}">Open card</button> · <button class="link" data-bl-setup="1">Edit benefits in Setup</button></div>` : ''}
+  </div>`;
+}
+async function renderBulletin(){
+  const today = bangkokToday();
+  setHeader({action: supabaseClient ? `<button class="link" id="blCheckBtn">Check now</button>` : ''});
+  const content = document.getElementById('content');
+  const draw = ()=>{
+    const runs = bulletinRuns || [];
+    const running = runs[0] && runs[0].status === 'running' && Date.now() - Date.parse(runs[0].run_at) < 10*60e3;
+    const run = latestFinishedRun();
+    const res = run && Array.isArray(run.results) ? run.results : [];
+    const changed = res.filter(r=>r.status === 'changed'), same = res.filter(r=>r.status === 'no_change'), other = res.filter(r=>r.status !== 'changed' && r.status !== 'no_change');
+    const nextMonth = new Date(today.getFullYear(), today.getMonth()+1, 1);
+    let body = `<div class="group" style="padding:14px 16px;">
+      <div style="font-weight:600;">Benefit-change check</div>
+      <div class="r-sub" style="margin-top:4px;">${running ? 'Checking your cards now — this takes a minute or two…' : run ? `Last checked ${escHtml(fmtWhen(run.finished_at || run.run_at))} (${run.trigger === 'manual' ? 'manual' : 'monthly'}) · ${res.length} card${res.length===1?'':'s'}` : bulletinRuns ? 'Not checked yet.' : 'Loading…'}</div>
+      <div class="r-sub">Next automatic check ${escHtml(fmtDay(nextMonth, true))}. Uses Google Gemini with web search — confirm with your card issuer before changing anything.</div>
+      ${run && run.status === 'error' && run.error ? `<div class="r-sub" style="color:var(--red);margin-top:4px;">Last check failed: ${escHtml(run.error)}</div>` : ''}
+    </div>`;
+    if(run){
+      body += sectionHtml('Changes found', String(changed.length), changed.length ? changed.map(r=>bulletinCardHtml(r, today)).join('') : `<div class="group"><div class="empty-row">No changes found for your cards.</div></div>`);
+      if(other.length) body += sectionHtml('Couldn’t confirm', String(other.length), other.map(r=>bulletinCardHtml(r, today)).join(''));
+      if(same.length) body += sectionHtml('No change', String(same.length), `<div class="group">${same.map(r=>{ const c=(DATA.cards||[]).find(x=>x.id===r.card_id); return `<div class="row" style="cursor:default;"><span class="dot" style="background:${escAttr(c?cardColor(c.id):'#8a8d94')};"></span><span class="r-main"><span class="r-title">${escHtml(c?cardShort(c):r.card_name)}</span>${r.summary?`<span class="r-sub">${escHtml(r.summary)}</span>`:''}</span><span class="chip chip-green">No change</span></div>`; }).join('')}</div>`);
+    }
+    content.innerHTML = `<div class="content-narrow">${body}</div>`;
+    content.querySelectorAll('[data-bl-card]').forEach(b=>b.onclick = ()=>switchView('card:' + b.dataset.blCard));
+    content.querySelectorAll('[data-bl-setup]').forEach(b=>b.onclick = ()=>switchView('setupCredits'));
+    // Opening the Bulletin marks the latest check as read (on every device).
+    if(run && runChanges(run).length && Number(DATA.bulletinSeenRun||0) < run.id){ DATA.bulletinSeenRun = run.id; saveData(); refreshBulletinBadges(); }
+    if(running && !bulletinPoll){ bulletinPoll = setInterval(async ()=>{ await loadBulletin(); const still = bulletinRuns && bulletinRuns[0] && bulletinRuns[0].status === 'running'; if(!still){ clearInterval(bulletinPoll); bulletinPoll = null; } if(currentView === 'bulletin') draw(); }, 10000); }
+  };
+  draw();
+  const btn = document.getElementById('blCheckBtn');
+  if(btn) btn.onclick = async ()=>{
+    btn.disabled = true;
+    try{
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/benefit-watch`, {method:'POST', headers:{'Authorization': await fnAuthHeader(), 'Content-Type':'application/json'}, body:'{}'});
+      const j = await res.json().catch(()=>({}));
+      if(res.status === 429 && j.nextAllowed) toast('Checked recently — you can check again after ' + fmtWhen(j.nextAllowed));
+      else if(res.status === 409) toast('A check is already running');
+      else if(!res.ok || !j.ok) throw new Error(j.error || ('HTTP ' + res.status));
+      else toast('Checking your cards — results in a minute or two');
+    }catch(e){ toast('Couldn’t start the check: ' + (e.message || e)); }
+    finally{ btn.disabled = false; }
+    await loadBulletin(); if(currentView === 'bulletin') draw();
+  };
+  await loadBulletin();
+  if(currentView === 'bulletin') draw();
 }
 
 /* ---------- v2.5 theme: Match system / Light / Dark ---------- */
@@ -5672,6 +5864,7 @@ function onSignedIn(){
   supabaseClient = sbClient;
   try{ localStorage.removeItem('lockUnlocked_v1'); }catch(e){} // pre-v2.6 flag, no longer used
   if(!cloudStarted) startCloud(true); else syncOnReturn();
+  setTimeout(()=>{ loadBulletin(); flushAppErrors(); }, 1500); // v2.7
   if(currentView === 'more') renderMore();
 }
 function onSignedOut(){
@@ -5706,6 +5899,7 @@ function syncOnReturn(){
   checkForUpdate(); // v2.2.2
   if(!supabaseClient) return; // v2.6: locked — nothing to sync until unlocked
   startLiveSync();
+  loadBulletin(); flushAppErrors(); // v2.7
   syncFromCloud({focus: true}).then(safeToProceed=>{
     updateDataRiskWarning(safeToProceed);
     if(safeToProceed && runDailyChecks()) renderAfterSync();
