@@ -995,7 +995,7 @@ const SEED = {
    ============================================================ */
 // Shown next to the app name (sidebar + mobile header) and stamped into
 // exported backups. Bump this one line on each deployment.
-const APP_VERSION = 'v2.7';
+const APP_VERSION = 'v2.7.1';
 const STORE_KEY = 'hotelCardTrackerData_v1';
 const SYNCED_AT_KEY = STORE_KEY + '_syncedAt';
 const DIRTY_KEY = STORE_KEY + '_dirty'; // FIX: persists across reloads/tab-closes
@@ -4937,8 +4937,24 @@ function bulletinCardHtml(r, today){
     ${r.summary ? `<div style="margin-top:8px;font-size:14px;">${escHtml(r.summary)}</div>` : ''}
     ${changes ? `<ul style="margin:6px 0 0;padding-left:18px;font-size:14px;line-height:1.4;">${changes}</ul>` : ''}
     ${sources ? `<div style="margin-top:8px;font-size:13px;color:var(--text-muted);">Sources: ${sources}</div>` : ''}
-    ${r.status === 'changed' && card ? `<div style="margin-top:8px;"><button class="link" data-bl-card="${escAttr(card.id)}">Open card</button> · <button class="link" data-bl-setup="1">Edit benefits in Setup</button></div>` : ''}
+    ${r.status === 'error' && r.error ? `<div style="margin-top:6px;font-size:13px;color:var(--text-muted);">Reason: ${escHtml(r.error)}</div>` : ''}
+    ${foundHtml(r.found)}
+    ${r.checked_at ? `<div style="margin-top:6px;font-size:12.5px;color:var(--text-muted);">Checked ${escHtml(fmtWhen(r.checked_at))}</div>` : ''}
+    <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:4px 14px;">
+      ${card ? `<button class="link" data-bl-card="${escAttr(card.id)}">Open card</button>` : ''}
+      ${r.status === 'changed' && card ? `<button class="link" data-bl-setup="1">Edit benefits in Setup</button>` : ''}
+      ${r.status !== 'no_change' && card ? `<button class="link" data-bl-recheck="${escAttr(card.id)}">Check this card again</button>` : ''}
+    </div>
   </div>`;
+}
+// v2.7.1: what the AI read from the issuer / review sites, so you can judge the result yourself.
+function foundHtml(f){
+  if(!f || (f.annual_fee == null && !(f.credits||[]).length && !f.free_nights)) return '';
+  const rows = [];
+  if(f.annual_fee != null) rows.push(`Annual fee: ${escHtml(fmtMoney(f.annual_fee))}`);
+  (f.credits||[]).forEach(c=>rows.push(`${escHtml(c.name||'Credit')}${c.per_year != null ? ': ' + escHtml(fmtMoney(c.per_year)) + ' a year' : ''}${c.frequency ? ` <span style="color:var(--text-muted);">(${escHtml(c.frequency)})</span>` : ''}`));
+  if(f.free_nights) rows.push(`Free night: ${escHtml(f.free_nights)}`);
+  return `<details style="margin-top:8px;font-size:13.5px;"><summary style="cursor:pointer;color:var(--text-muted);">What the AI found${f.sources_dated ? ' · sources ' + escHtml(f.sources_dated) : ''}</summary><ul style="margin:6px 0 0;padding-left:18px;line-height:1.45;">${rows.map(x=>`<li>${x}</li>`).join('')}</ul></details>`;
 }
 async function renderBulletin(){
   const today = bangkokToday();
@@ -4953,7 +4969,7 @@ async function renderBulletin(){
     const nextMonth = new Date(today.getFullYear(), today.getMonth()+1, 1);
     let body = `<div class="group" style="padding:14px 16px;">
       <div style="font-weight:600;">Benefit-change check</div>
-      <div class="r-sub" style="margin-top:4px;">${running ? 'Checking your cards now — this takes a minute or two…' : run ? `Last checked ${escHtml(fmtWhen(run.finished_at || run.run_at))} (${run.trigger === 'manual' ? 'manual' : 'monthly'}) · ${res.length} card${res.length===1?'':'s'}` : bulletinRuns ? 'Not checked yet.' : 'Loading…'}</div>
+      <div class="r-sub" style="margin-top:4px;">${running ? `Checking your cards now — ${(runs[0].results||[]).length} done so far. This takes a few minutes; the page updates by itself.` : run ? `Last checked ${escHtml(fmtWhen(run.finished_at || run.run_at))} (${run.trigger === 'manual' ? 'manual' : 'monthly'}) · ${res.length} card${res.length===1?'':'s'}` : bulletinRuns ? 'Not checked yet.' : 'Loading…'}</div>
       <div class="r-sub">Next automatic check ${escHtml(fmtDay(nextMonth, true))}. Uses Google Gemini with web search — confirm with your card issuer before changing anything.</div>
       ${run && run.status === 'error' && run.error ? `<div class="r-sub" style="color:var(--red);margin-top:4px;">Last check failed: ${escHtml(run.error)}</div>` : ''}
     </div>`;
@@ -4965,6 +4981,17 @@ async function renderBulletin(){
     content.innerHTML = `<div class="content-narrow">${body}</div>`;
     content.querySelectorAll('[data-bl-card]').forEach(b=>b.onclick = ()=>switchView('card:' + b.dataset.blCard));
     content.querySelectorAll('[data-bl-setup]').forEach(b=>b.onclick = ()=>switchView('setupCredits'));
+    content.querySelectorAll('[data-bl-recheck]').forEach(b=>b.onclick = async ()=>{
+      const id = b.dataset.blRecheck; b.disabled = true; b.textContent = 'Checking… (up to 2 minutes)';
+      try{
+        const res = await fetch(`${SUPABASE_URL}/functions/v1/benefit-watch`, {method:'POST', headers:{'Authorization': await fnAuthHeader(), 'Content-Type':'application/json'}, body: JSON.stringify({card_id: id})});
+        const j = await res.json().catch(()=>({}));
+        if(res.status === 429 && j.nextAllowed) toast('Checked recently — try this card again after ' + fmtWhen(j.nextAllowed));
+        else if(!res.ok || !j.ok) throw new Error(j.error || ('HTTP ' + res.status));
+        else toast(j.result && j.result.status === 'error' ? 'Still couldn’t check it — see the reason' : 'Card checked');
+      }catch(e){ toast('Couldn’t check the card: ' + (e.message || e)); }
+      await loadBulletin(); if(currentView === 'bulletin') draw();
+    });
     // Opening the Bulletin marks the latest check as read (on every device).
     if(run && runChanges(run).length && Number(DATA.bulletinSeenRun||0) < run.id){ DATA.bulletinSeenRun = run.id; saveData(); refreshBulletinBadges(); }
     if(running && !bulletinPoll){ bulletinPoll = setInterval(async ()=>{ await loadBulletin(); const still = bulletinRuns && bulletinRuns[0] && bulletinRuns[0].status === 'running'; if(!still){ clearInterval(bulletinPoll); bulletinPoll = null; } if(currentView === 'bulletin') draw(); }, 10000); }
@@ -4979,7 +5006,7 @@ async function renderBulletin(){
       if(res.status === 429 && j.nextAllowed) toast('Checked recently — you can check again after ' + fmtWhen(j.nextAllowed));
       else if(res.status === 409) toast('A check is already running');
       else if(!res.ok || !j.ok) throw new Error(j.error || ('HTTP ' + res.status));
-      else toast('Checking your cards — results in a minute or two');
+      else toast('Checking your cards — results in a few minutes');
     }catch(e){ toast('Couldn’t start the check: ' + (e.message || e)); }
     finally{ btn.disabled = false; }
     await loadBulletin(); if(currentView === 'bulletin') draw();
